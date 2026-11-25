@@ -120,7 +120,9 @@ test("ARTICLE-EDITOR-NOTION-PARITY-1 update rejects stale imports and preserves 
   }
   assert.match(api, /payload\.portalSubpage === undefined && payload\.portalSection === before\.portalSection/);
   assert.match(api, /writeBackPublishedArticleToNotion/);
-  assert.match(store, /normalizeArticleBlocks\(payload\.blocks \?\? \[\]\)/);
+  // Explicit canonical blocks, including [], win over legacy-format input.
+  assert.match(store, /normalizeArticleBlocks\(payload\.blocks \?\? legacyArticleBlocks\(payload\.sections \?\? \[\], payload\.sources \?\? \[\]\)\)/);
+  assert.doesNotMatch(store, /sections_json/);
   assert.match(notionSync, /status: "draft"/);
   assert.match(notionSync, /"Sync stav": \{ select: \{ name: "Synchronizované" \} \}/);
 });

@@ -94,10 +94,13 @@ INSERT INTO directory_profiles (
     991104, 'content-relations-e2e-noncanonical-club', 'CONTENT-RELATIONS noncanonical klub',
     'chovatelske-kluby', 'published', 'Noncanonical target.', '', '[]',
     'Nitra', 'Nitriansky kraj',
-    '{"canonicalUrl":"https://psipedia.sk/adresar/chovatelske-kluby/content-relations-e2e-klub"}', NULL,
+    '{}', NULL,
     '2026-09-30T00:23:00.000Z', '2026-09-30T00:23:00.000Z', '2026-09-30T00:23:00.000Z',
     'ci:content-relations', 'ci:content-relations'
   );
+
+INSERT INTO directory_profile_seo (profile_id, canonical_url, updated_at, updated_by)
+VALUES (991104, 'https://psipedia.sk/adresar/chovatelske-kluby/content-relations-e2e-klub', '2026-09-30T00:23:00.000Z', 'ci:content-relations');
 
 INSERT INTO breed_article_relations (breed_id, article_id, created_at, created_by)
 SELECT id, 991101, '2026-09-30T00:30:00.000Z', 'ci:content-relations'

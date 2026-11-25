@@ -6,6 +6,7 @@
 import { directoryFilterRegistry,serviceFilterCategories,type ServiceFilterCategory } from "./directory-filter-contract";
 import { planDirectory0170FilterSqlMirror,planDirectory0170FactSqlMirror,approvedDirectoryFactSqlSlot } from "./directory-0170-editorial-sql-mirror";
 import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
+import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { normalizeProfileGalleryUrls } from "./partner-profile-gallery";
@@ -37,6 +38,12 @@ export function buildPartnerDraftRelationStatements(input:Input):D1PreparedState
         profileId:id,primaryCategory:category,submitted:additional,updatedAt:nowIso,actor,
       }):[];
     for(const statement of statements.slice(1))plans.push(sql(db,statement));
+  }
+  if(Object.hasOwn(data,"services")){
+    for(const item of planDirectoryStep3PresentationSqlMirror({
+      identity:{kind:"id",profileId:id,updatedAt:nowIso,actor},
+      services:data.services as string[],
+    }))plans.push(sql(db,item));
   }
   const hours=Object.hasOwn(data,"openingHours")?String(data.openingHours??""):undefined;
   const gallery=Object.hasOwn(data,"galleryUrls")?normalizeProfileGalleryUrls(data.galleryUrls):undefined;
@@ -84,7 +91,7 @@ export async function readPartnerDraftRelations(input:{
   // Directory relations are SQL-only. A missing migration is a real error,
   // not permission to surface an obsolete JSON fallback.
   const category=input.category??"";
-  const [additional,gallery,hours,filters]=await Promise.all([
+  const [additional,gallery,hours,filters,services,qualifications]=await Promise.all([
     db.prepare("SELECT category FROM directory_profile_additional_categories WHERE profile_id=? ORDER BY category")
       .bind(id).all<{category:string}>(),
     db.prepare("SELECT image_url url FROM directory_profile_media WHERE profile_id=? ORDER BY item_order")
@@ -93,7 +100,13 @@ export async function readPartnerDraftRelations(input:{
       .bind(id).all<{hours:string}>(),
     db.prepare("SELECT filter_id id,value_text val FROM directory_profile_filter_values WHERE profile_id=?")
       .bind(id).all<{id:string;val:string}>(),
+    db.prepare("SELECT service_text value FROM directory_profile_service_texts WHERE profile_id=? ORDER BY item_order")
+      .bind(id).all<{value:string}>(),
+    db.prepare("SELECT qualification_text value FROM directory_profile_qualifications WHERE profile_id=? ORDER BY item_order")
+      .bind(id).all<{value:string}>(),
   ]);
+  values.services=services.results.map(x=>x.value);
+  values.qualifications=qualifications.results.map(x=>x.value);
   values.additionalCategories=additional.results.map(x=>x.category);
   values.galleryUrls=gallery.results.map(x=>x.url);
   values.openingHours=hours.results.map(x=>x.hours).join("\n");

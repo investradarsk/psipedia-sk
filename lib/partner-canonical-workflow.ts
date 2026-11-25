@@ -50,7 +50,6 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
     fields:{
       ...textFields(["name","category","excerpt","description","city","district","region","address","priceNote",
         "websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"]),
-      services:"services_json",qualifications:"qualifications_json",
     },
   },
   HELP_ORGANIZATION:{
@@ -128,7 +127,7 @@ function inputObject(raw:unknown):Record<string,unknown>{
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new PartnerCanonicalWorkflowError("Údaje profilu musia byť objekt.");
   return raw as Record<string,unknown>;
 }
-const draftDirectoryRelations=new Set(["additionalCategories","openingHours","galleryUrls"]);
+const draftDirectoryRelations=new Set(["additionalCategories","openingHours","galleryUrls","services","qualifications"]);
 const draftOrganizationRelations=new Set(["galleryUrls"]);
 const helpFieldDefinitions=Object.fromEntries(
   Object.entries(helpEditorFields).map(([type,fields])=>[type,Object.fromEntries(fields.map(field=>[field.key,field]))])

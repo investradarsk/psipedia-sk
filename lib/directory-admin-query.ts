@@ -1,3 +1,4 @@
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
 export const DIRECTORY_ADMIN_PAGE_SIZE = 50;
 export type DirectoryAdminStatus = "all" | "published" | "draft" | "archived";
 export type DirectoryAdminVerification = "all" | "verified" | "unverified";
@@ -159,7 +160,7 @@ function adminSearchExpression(categories: readonly DirectoryAdminCategoryOption
   const categoryLabel = categories.length
     ? `CASE category ${categories.map((item) => `WHEN ${sqlLiteral(item.slug)} THEN ${sqlLiteral(item.label)}`).join(" ")} ELSE category END`
     : "category";
-  return sqlNormalizedExpression(`coalesce(name, '') || ' ' || coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' || (${categoryLabel}) || ' ' || coalesce(services_json, '')`);
+  return sqlNormalizedExpression(`coalesce(name, '') || ' ' || coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' || (${categoryLabel}) || ' ' || coalesce(${directoryServicesSqlExpression()}, '')`);
 }
 
 export function directoryAdminMembershipQuery(
@@ -242,7 +243,7 @@ export async function queryDirectoryAdmin<T>(
   const direction: DirectoryAdminDirection = filters.direction === "asc" || filters.direction === "desc"
     ? filters.direction : sort === "updated" ? "desc" : "asc";
   const sortSql = orderBy[sort]?.[direction] ?? orderBy.updated.desc;
-  const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
+  const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, ${directoryServicesSqlExpression()} AS services_json, city, district, region, image_url, verified, featured, updated_at,
       COALESCE((SELECT NULLIF(TRIM(s.reviewed_at),'') FROM directory_profile_review_state s WHERE s.profile_id=directory_profiles.id), '') AS reviewed_at
     FROM directory_profiles${filteredWhere} ORDER BY ${sortSql} LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();

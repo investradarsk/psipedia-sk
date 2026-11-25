@@ -7,7 +7,7 @@ const source = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "
 const start = source.indexOf("export async function listManagedBreedSummaries");
 const end = source.indexOf("export async function listPublishedBreedIndex", start);
 const fn = source.slice(start, end);
-const found = source.match(/const legacyBreedSummarySql = `([\s\S]*?)`;/);
+const found = source.match(/const sqlBreedSummarySql = `([\s\S]*?)`;/);
 const sqlRead = source.match(/const sqlBreedSummarySql = `([\s\S]*?)`;/);
 if (!sqlRead) throw Error("SQL-primary admin summary statement is missing.");
 if (!found) throw Error("Admin breed summary statement is missing.");
@@ -31,7 +31,7 @@ test("breed list queries only scalar overview and FCI references, not full JSON 
   assert.match(fn, /result\s*\.results\s*\.map\(\s*fromSummaryRow\s*\)/);
 });
 
-test("projection agrees with the original JSON parsing for complete, sparse and corrupt breeds", () => {
+test("canonical summary works with complete, sparse and absent SQL rows after physical drop", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(
@@ -123,6 +123,8 @@ test("projection agrees with the original JSON parsing for complete, sparse and 
     db.prepare("INSERT INTO breed_article_relations(breed_id) VALUES (?)").run(1);
     db.prepare("INSERT INTO breed_directory_relations(breed_id) VALUES (?)").run(1);
 
+    db.exec("CREATE TABLE breed_editorial_text(breed_id INTEGER PRIMARY KEY, overview TEXT); CREATE TABLE breed_fci_standard(breed_id INTEGER PRIMARY KEY, fci_fci_standard_pdf TEXT, fci_fci_nomenklatura_url TEXT);");
+    db.exec("INSERT INTO breed_editorial_text VALUES (1,'Overený text'),(3,'  '); INSERT INTO breed_fci_standard VALUES (1,'https://example.test/fci.pdf',NULL),(3,NULL,'https://example.test/list'); ALTER TABLE managed_breeds DROP COLUMN editorial_json; ALTER TABLE managed_breeds DROP COLUMN fci_standard_json;");
     const projection = db.prepare(found[1]).all(500);
     assert.deepEqual(
       projection.map((row) => [row.id, row.article_relation_count, row.directory_relation_count]),
@@ -134,20 +136,9 @@ test("projection agrees with the original JSON parsing for complete, sparse and 
     );
     for (let i = 0; i < samples.length; i++) {
       const row = projection[i];
-      const original = samples[i];
-      const parse = (value) => {
-        try {
-          const o = JSON.parse(value);
-          return o && typeof o === "object" && !Array.isArray(o) ? o : {};
-        } catch {
-          return {};
-        }
-      };
-      const editorial = parse(original[14]);
-      const fci = parse(original[16]);
-      assert.equal(row.editorial_overview, editorial.overview ?? "");
-      assert.equal(row.fci_standard_pdf, fci.fci_standard_pdf ?? "");
-      assert.equal(row.fci_nomenklatura_url, fci.fci_nomenklatura_url ?? "");
+      assert.equal(row.editorial_overview ?? "", ["Overený text", "", "  "][i]);
+      assert.equal(row.fci_standard_pdf ?? "", ["https://example.test/fci.pdf", "", ""][i]);
+      assert.equal(row.fci_nomenklatura_url ?? "", ["", "", "https://example.test/list"][i]);
     }
     assert.equal(
       projection.some((row) => String(row.editorial_overview).includes("x".repeat(1000))),

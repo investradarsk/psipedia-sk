@@ -1,10 +1,9 @@
+import { legacyArticleBlocks, normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
+import type { ArticleSection, ArticleSource } from "@/lib/content";
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { isDirectoryCategory } from "@/lib/directory";
 import { buildGeneralImportPlan } from "@/lib/admin-import-plan";
-import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
 import { importFciBreeds, previewFciBreedImport } from "@/lib/breed-import";
-import { ensureReviewableResourceAnchors } from "@/lib/canonical-resource";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 
 export const dynamic = "force-dynamic";
@@ -46,22 +45,6 @@ function jsonArray(value: unknown) {
   return JSON.stringify(Array.isArray(value) ? value : []);
 }
 
-function valueFrom(row: JsonRecord, ...keys: string[]) {
-  for (const key of keys) if (row[key] !== undefined && row[key] !== null) return row[key];
-  return undefined;
-}
-
-function importedText(row: JsonRecord, keys: string[], fallback = "") {
-  const value = valueFrom(row, ...keys);
-  return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : fallback;
-}
-
-function importedList(row: JsonRecord, listKey: string, fallbackKeys: string[]) {
-  const direct = row[listKey];
-  if (Array.isArray(direct)) return direct.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim());
-  return fallbackKeys.map((key) => importedText(row, [key])).filter(Boolean);
-}
-
 function migratedImage(row: JsonRecord) {
   const key = nullableText(row.imageKey);
   if (key) return `/migrated-media/${key}`;
@@ -92,15 +75,13 @@ export async function POST(request: Request) {
       const breedPayload = { breeds: payload.breeds };
       if (payload.preview === true) {
         const { preview } = await previewFciBreedImport(database, breedPayload, {
-          sqlPrimary:(env as RuntimeBindings & {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql",
+          sqlPrimary:true,
         });
         return Response.json({ success: preview.errors.length === 0, preview });
       }
-      // This historical FCI importer writes legacy JSON without the SQL v2
-      // CAS/shadow transaction. Never allow it to overwrite canonical SQL.
-      // Preview remains available; edits must go through the breed Admin editor.
+      // Preserve the production preview-only policy; only the disposable
+      // local E2E fixture import may create records through this endpoint.
       const runtime = env as RuntimeBindings & {
-        BREED_SQL_V2_READ_MODE?: string;
         PSIPEDIA_E2E_LOCAL_BOOTSTRAP?: string;
         AUTH_MODE?: string;
       };
@@ -110,14 +91,14 @@ export async function POST(request: Request) {
       const localFixtureImport = runtime.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"
         && runtime.AUTH_MODE === "local-e2e-preview"
         && url.protocol === "http:" && url.hostname === "localhost" && url.port === "5173";
-      if (runtime.BREED_SQL_V2_READ_MODE === "sql" && !localFixtureImport) {
+      if (!localFixtureImport) {
         return Response.json({ error: "Import plemien je po prechode na SQL iba na náhľad. Na zmeny použi editor plemena v Admine." }, { status: 409 });
       }
       const result = await importFciBreeds(database, breedPayload, user.email);
       return Response.json({ success: result.success, imported: { breeds: result }, preview: result }, { status: result.success ? 200 : 400 });
     }
     const plan = await buildGeneralImportPlan(database, payload);
-    const { articles, profiles, events, helpItems, inquiries, legal, profileCategory: selectedProfileCategory } = plan.payload;
+    const { articles, profiles, events, helpItems, inquiries, legal } = plan.payload;
     if (plan.preview.totals.rejected > 0) {
       throw new Error(`Import obsahuje ${plan.preview.totals.rejected} odmietnutých záznamov. Oprav ich a spusti Preview znova.`);
     }
@@ -132,22 +113,20 @@ export async function POST(request: Request) {
     }
 
     const statements: D1PreparedStatement[] = [];
-    const profileStatementIndexes: number[] = [];
-    const directoryProfilesToReconcile: Array<{ importKey: string | null; category: string; slug: string }> = [];
 
     for (const [index, row] of articles.entries()) {
       if (plan.actions.articles[index] === "skipped") continue;
       statements.push(database.prepare(`
         INSERT INTO managed_articles (
           slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
-          takeaway, sections_json, sources_json, image_url, image_key, reading_minutes,
+          takeaway, blocks_json, sources_json, image_url, image_key, reading_minutes,
           created_at, updated_at, published_at, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(slug) DO UPDATE SET
           title=excluded.title, excerpt=excluded.excerpt, category=excluded.category,
           portal_section=excluded.portal_section, news_category=excluded.news_category,
           status=excluded.status, accent=excluded.accent, author=excluded.author, intro=excluded.intro,
-          takeaway=excluded.takeaway, sections_json=excluded.sections_json, sources_json=excluded.sources_json,
+          takeaway=excluded.takeaway, blocks_json=excluded.blocks_json, sources_json=excluded.sources_json,
           image_url=excluded.image_url, reading_minutes=excluded.reading_minutes,
           created_at=excluded.created_at, updated_at=excluded.updated_at, published_at=excluded.published_at,
           created_by=excluded.created_by, updated_by=excluded.updated_by
@@ -155,64 +134,14 @@ export async function POST(request: Request) {
         required(row.slug, "adresa článku"), required(row.title, "názov článku"), text(row.excerpt),
         text(row.category, "Život so psom"), text(row.portalSection, "clanky"), nullableText(row.newsCategory),
         "draft", text(row.accent, "forest"), text(row.author, "Redakcia Psipedia"),
-        text(row.intro), text(row.takeaway), jsonArray(row.sections), jsonArray(row.sources), migratedImage(row),
+        text(row.intro), text(row.takeaway),
+        JSON.stringify(normalizeArticleBlocks(Array.isArray(row.blocks) ? row.blocks as ArticleBlock[] : legacyArticleBlocks(
+          Array.isArray(row.sections) ? row.sections as ArticleSection[] : [],
+          Array.isArray(row.sources) ? row.sources as ArticleSource[] : [],
+        ))), jsonArray(row.sources), migratedImage(row),
         integer(row.readingMinutes, 5), required(row.createdAt, "dátum vytvorenia"),
         required(row.updatedAt, "dátum úpravy"), null,
         text(row.createdBy, user.email), text(row.updatedBy, user.email),
-      ));
-    }
-
-    for (const [index, row] of profiles.entries()) {
-      if (plan.actions.profiles[index] === "skipped") continue;
-      const category = importedText(row, ["category", "Kategória"], selectedProfileCategory);
-      if (!isDirectoryCategory(category)) throw new Error("Import profilov nemá platnú kategóriu.");
-      const name = required(valueFrom(row, "name", "Názov", "Názov klubu"), "názov profilu");
-      const slug = required(valueFrom(row, "slug", "Slug"), "adresa profilu");
-      const excerpt = importedText(row, ["excerpt", "Krátky popis", "Popis"]);
-      const description = importedText(row, ["description", "Popis"], excerpt);
-      const services = importedList(row, "services", ["Zameranie"]);
-      const qualifications = importedList(row, "qualifications", ["Organizácia"]);
-      const city = importedText(row, ["city", "Mesto / obec", "Mesto", "Obec"]);
-      const district = importedText(row, ["district", "Okres"]);
-      const rawRegion = importedText(row, ["region", "Kraj"]);
-      const region = normalizeDirectoryRegion(rawRegion);
-      if (!region) throw new Error(`Profil ${name} nemá platný kraj.`);
-      const address = importedText(row, ["address", "Adresa / cvičisko", "Adresa"]);
-      const websiteUrl = nullableText(valueFrom(row, "websiteUrl", "Web"));
-      const internalEmail = nullableText(valueFrom(row, "internalEmail", "E-mail"));
-      const importKey = importedText(row, ["importKey", "Import key"]) || null;
-      const status = "draft";
-      const createdAt = importedText(row, ["createdAt"], new Date().toISOString());
-      const updatedAt = importedText(row, ["updatedAt", "Dátum overenia"], new Date().toISOString()).replace(/^(\d{4}-\d{2}-\d{2})$/, "$1T00:00:00.000Z");
-      const publishedAt = null;
-      const sourcePlan = plan.profileSources[index];
-      if (!sourcePlan) throw new Error("Profil neprešiel validáciou importných filtrov.");
-      const rawSourceData = sourcePlan.mergedSourceJson;
-      // The old catch-all JSON column is retired. Do not silently discard
-      // unmapped import fields: these require the canonical SQL editor path.
-      if (rawSourceData.trim() !== "{}") {
-        throw new Error(`Profil ${name} má historické importné polia bez SQL mapovania. Použi editor Adresára.`);
-      }
-      const searchText = normalizeDirectorySearchText([name, excerpt, description, services.join(" "), qualifications.join(" "), city, district, region, address].join(" "));
-      directoryProfilesToReconcile.push({ importKey, category, slug });
-      profileStatementIndexes.push(statements.length);
-      statements.push(database.prepare(`
-        INSERT INTO directory_profiles (
-          slug, name, category, status, excerpt, description, services_json, qualifications_json,
-          city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-          import_key, search_text, verified, featured, created_at, updated_at, published_at, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        -- The generic historical import is INSERT-ONLY. A conflicting
-        -- import_key OR category+slug is an existing Admin-owned profile:
-        -- never overwrite a saved draft or reconstruct old JSON.
-        ON CONFLICT DO NOTHING
-      `).bind(
-        slug, name, category, status, excerpt, description, JSON.stringify(services), JSON.stringify(qualifications),
-        city, district, region, address, 0, importedText(row, ["priceNote", "Cena"]), websiteUrl,
-        internalEmail, migratedImage(row), importKey, searchText,
-        bool(valueFrom(row, "verified", "Overené")) || importedText(row, ["Stav"]) === "Overené",
-        bool(row.featured), createdAt, updatedAt, publishedAt,
-        text(row.createdBy, user.email), text(row.updatedBy, `import:${category}`),
       ));
     }
 
@@ -307,12 +236,7 @@ export async function POST(request: Request) {
       ));
     }
 
-    const results = await runBatches(database, statements);
-    for (const statementIndex of profileStatementIndexes) {
-      if (results[statementIndex]?.meta?.changes !== 1) {
-        throw new Error("Konflikt pri potvrdení importu profilu: medzi Preview a zápisom sa zmenil existujúci profil. Opakuj Preview.");
-      }
-    }
+    await runBatches(database, statements);
     const changedEventSlugs = events
       .filter((_row, index) => plan.actions.events[index] !== "skipped")
       .map((row) => required(row.slug, "adresa podujatia"));
@@ -329,19 +253,6 @@ export async function POST(request: Request) {
           actorType: "ADMIN",
         }, database);
       }
-    }
-    if (plan.preview.domains.profiles.inserted > 0) await ensureReviewableResourceAnchors(database);
-    for (const target of directoryProfilesToReconcile) {
-      const row = target.importKey
-        ? await database.prepare("SELECT id FROM directory_profiles WHERE import_key = ? LIMIT 1").bind(target.importKey).first<{ id: number }>()
-        : await database.prepare("SELECT id FROM directory_profiles WHERE category = ? AND slug = ? LIMIT 1").bind(target.category, target.slug).first<{ id: number }>();
-      if (!row) throw new Error(`Importovaný profil ${target.category}/${target.slug} sa po zápise nenašiel.`);
-      await reconcileGeoAfterSourceMutation({
-        targetType: "DIRECTORY_PROFILE",
-        targetId: Number(row.id),
-        actorRef: user.email,
-        actorType: "ADMIN",
-      }, database);
     }
     return Response.json({
       success: true,

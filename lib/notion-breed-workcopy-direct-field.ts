@@ -3,7 +3,6 @@ import { normalizeBreedSearchText } from "@/lib/breed-fci";
 import { env } from "cloudflare:workers";
 import { summarizeBreedSqlV2Write } from "@/lib/breed-sql-v2-bridge.mjs";
 import {
-  breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,
   breedSqlV2DirectFieldStatements,breedSqlV2CasGuard,
 } from "@/lib/breed-sql-v2-writer.mjs";
 import { breedFieldSnapshot } from "@/lib/notion-breed-field-delta";
@@ -73,14 +72,13 @@ export async function saveBreedNotionField(input:{
     // SQL-primary FCI/editorial/SEO fields live in typed tables/columns.
     // CAS increments the parent revision, but must not touch stored legacy
     // JSON object blobs; the named SQL cell is updated in the SAME D1 batch.
-    const sqlOnlyObjectField=breedSqlV2PrimaryWriteEnabled(env)&&
-      /^(?:fciStandard|editorial|seo)\./.test(input.field);
+    const sqlOnlyObjectField=/^(?:fciStandard|editorial|seo)\./.test(input.field);
     const assignments=sqlOnlyObjectField?[]:patch.assignments;
     const params=sqlOnlyObjectField?[]:patch.params;
     const sql="UPDATE managed_breeds SET "+
       [...assignments,"updated_at=?","updated_by=?"].join(",")+
       " WHERE id=? AND updated_at=? RETURNING id";
-    if(breedSqlV2StructuredWritesEnabled(env)){
+    {
       // CAS + exactly one canonical SQL cell in ONE D1 transaction;
       // shadow mode additionally retains the old JSON object update.
       // The guard rolls back everything if an independent writer won.
@@ -93,11 +91,6 @@ export async function saveBreedNotionField(input:{
       ];
       const result=await input.database.batch(statements);
       if(result[0]?.results?.length!==1)continue;
-    }else{
-      const result=await input.database.prepare(sql)
-        .bind(...params,next,input.actor??actor,input.breedId,before.updatedAt)
-        .first<{id:number}>();
-      if (!result) continue; // Independent legitimate writer won this version.
     }
     const breed=await getManagedBreed(input.breedId);
     if (!breed) throw Error("BREED_EVENT_RELOAD_FAILED");

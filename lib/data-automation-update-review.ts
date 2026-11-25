@@ -16,6 +16,17 @@ import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeDirectorySearchText } from "./directory-store.ts";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
+import { directory0173QualificationsSqlExpression } from "./directory-0173-editorial-sql-read.ts";
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror.ts";
+
+function canonicalRowProjection(entityType: AutomationEntityType) {
+  return entityType === "DIRECTORY"
+    ? `directory_profiles.*, ${directoryServicesSqlExpression()} AS sql_services, ${directory0173QualificationsSqlExpression()} AS sql_qualifications`
+    : "*";
+}
+
 export type AutomationUpdateOrigin = "DIRECT_ENTITY" | "FEED_SOURCE";
 export type AutomationUpdateDecision = "ACCEPTED" | "REJECTED";
 export type AutomationUpdateFieldState = "OPEN" | "STALE" | "UNSUPPORTED" | "LIFECYCLE";
@@ -93,6 +104,7 @@ type FieldSpec = {
   column?: string;
   kind: FieldKind;
   label?: string;
+  directoryList?: "services" | "qualifications";
   directoryContact?: "phone" | "email" | "facebook" | "instagram";
   max?: number;
   allowed?: readonly string[];
@@ -170,8 +182,8 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
       name: text("name", "Názov", 240),
       excerpt: text("excerpt", "Krátky popis", 1000),
       description: text("description", "Popis"),
-      services: json("services_json", "Služby"),
-      qualifications: json("qualifications_json", "Kvalifikácie"),
+      services: { kind: "json", directoryList: "services", label: "Služby" },
+      qualifications: { kind: "json", directoryList: "qualifications", label: "Kvalifikácie" },
       priceNote: text("price_note", "Poznámka k cene", 1000),
       websiteUrl: url("website_url", "Web"),
       publicPhone: { kind: "phone", directoryContact: "phone", label: "Verejný telefón", max: 80 },
@@ -394,7 +406,7 @@ function currentValue(row: Record<string, unknown>, entityType: AutomationEntity
     if (spec.directoryContact === "facebook") return contacts.facebook;
     return contacts.instagram;
   }
-  const raw = spec.column ? row[spec.column] : null;
+  const raw = spec.directoryList ? row[`sql_${spec.directoryList}`] : spec.column ? row[spec.column] : null;
   if (spec.kind === "boolean") return Boolean(raw);
   if (spec.kind === "number") return raw === null || raw === undefined ? null : Number(raw);
   if (spec.kind === "json") {
@@ -488,8 +500,8 @@ function derivedSearchText(
   if (entityType === "DIRECTORY") {
     const affecting = new Set(["name", "excerpt", "description", "services", "qualifications"]);
     if (!affecting.has(field)) return null;
-    const services = field === "services" ? jsonStringArray(value) : jsonStringArray(row.services_json);
-    const qualifications = field === "qualifications" ? jsonStringArray(value) : jsonStringArray(row.qualifications_json);
+    const services = field === "services" ? jsonStringArray(value) : jsonStringArray(row.sql_services);
+    const qualifications = field === "qualifications" ? jsonStringArray(value) : jsonStringArray(row.sql_qualifications);
     return normalizeDirectorySearchText([
       String(nextColumnValue(row, "name", field, value, "name") ?? ""),
       String(nextColumnValue(row, "excerpt", field, value, "excerpt") ?? ""),
@@ -585,7 +597,7 @@ function validateResultingRecord(
 
 async function getCanonicalRow(entityType: AutomationEntityType, canonicalEntityId: number, db: Database) {
   const config = configs[entityType];
-  return db.prepare(`SELECT * FROM ${config.table} WHERE id=? LIMIT 1`).bind(canonicalEntityId).first<Record<string, unknown>>();
+  return db.prepare(`SELECT ${canonicalRowProjection(entityType)} FROM ${config.table} WHERE id=? LIMIT 1`).bind(canonicalEntityId).first<Record<string, unknown>>();
 }
 
 async function proposedHash(field: string, spec: FieldSpec | null, proposed: unknown) {
@@ -737,7 +749,7 @@ async function loadCanonicalRows(rows: SuggestionRow[], db: Database) {
     const ids = [...idsSet];
     if (!ids.length) continue;
     const placeholders = ids.map(() => "?").join(",");
-    const result = await db.prepare(`SELECT * FROM ${configs[entityType].table} WHERE id IN (${placeholders})`)
+    const result = await db.prepare(`SELECT ${canonicalRowProjection(entityType)} FROM ${configs[entityType].table} WHERE id IN (${placeholders})`)
       .bind(...ids).all<Record<string, unknown>>();
     for (const row of result.results) {
       output.set(`${entityType}:${Number(row.id)}`, row);
@@ -1064,8 +1076,23 @@ async function writeCanonicalFieldAndDecision(input: {
   const config = configs[input.suggestion.entity_type];
   const expectedUpdatedAt = String(input.row.updated_at ?? "");
   let updateStatement: D1PreparedStatement;
+  const relationStatements: D1PreparedStatement[] = [];
 
-  if (input.suggestion.entity_type === "DIRECTORY" && input.spec.directoryContact) {
+  if (input.suggestion.entity_type === "DIRECTORY" && input.spec.directoryList) {
+    if (!Array.isArray(input.value) || input.value.some((v) => typeof v !== "string" || !v.trim())) {
+      throw new AutomationUpdateReviewValidationError("Zoznam obsahuje neplatnú položku.");
+    }
+    const identity = { kind: "id" as const, profileId: input.suggestion.canonical_entity_id, updatedAt: input.at, actor: input.actor };
+    const values = input.value as string[];
+    const plans = input.spec.directoryList === "services"
+      ? planDirectoryStep3PresentationSqlMirror({ identity, services: values })
+      : planDirectory0173EditorialSqlMirror({ identity, qualifications: values });
+    const searchText = derivedSearchText("DIRECTORY", input.row, input.field, values);
+    updateStatement = db.prepare(`UPDATE directory_profiles SET search_text=?,updated_at=?,updated_by=? WHERE id=? AND updated_at=?`)
+      .bind(searchText, input.at, input.actor, identity.profileId, expectedUpdatedAt);
+    relationStatements.push(db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('AUTOMATION_DIRECTORY_REVISION_CONFLICT',char(36)) END"));
+    relationStatements.push(...plans.map((item) => db.prepare(item.sql).bind(...item.bindings)));
+  } else if (input.suggestion.entity_type === "DIRECTORY" && input.spec.directoryContact) {
     const contact = {
       phone:"public_phone",email:"public_email",facebook:"facebook_url",instagram:"instagram_url",
     } as const;
@@ -1131,7 +1158,7 @@ async function writeCanonicalFieldAndDecision(input: {
         input.at,
       );
 
-  const [updateResult] = await db.batch([updateStatement, decisionStatement]);
+  const [updateResult] = await db.batch([updateStatement, ...relationStatements, decisionStatement]);
   if (Number(updateResult.meta.changes ?? 0) < 1) throw new AutomationUpdateReviewConflictError();
   const updated = await getCanonicalRow(input.suggestion.entity_type, input.suggestion.canonical_entity_id, db);
   if (!updated) throw new AutomationUpdateReviewNotFoundError();

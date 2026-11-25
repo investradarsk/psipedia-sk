@@ -302,6 +302,7 @@ test("directory sitemap reader is lightweight, cursor-batched and not capped at 
       seo_json TEXT NOT NULL DEFAULT '{}',
       archived_at TEXT
     );
+    CREATE TABLE directory_profile_seo(profile_id INTEGER PRIMARY KEY, canonical_url TEXT, noindex INTEGER);
     BEGIN;
   `);
   const insert = database.prepare(
@@ -333,7 +334,11 @@ test("directory sitemap reader is lightweight, cursor-batched and not capped at 
     "{}",
     "2026-09-28T11:00:00.000Z",
   );
-  database.exec("COMMIT;");
+  database.exec(`
+    INSERT INTO directory_profile_seo VALUES (1205,'https://psipedia.sk/adresar/veterinari/profil-1205',0);
+    UPDATE directory_profiles SET seo_json = '{"noindex":true}';
+    COMMIT;
+  `);
 
   let queryCount = 0;
   const d1 = {
@@ -821,6 +826,8 @@ test("sitemap D1 canonical projection reproduces the SQLite scalar crash and saf
       id INTEGER PRIMARY KEY, slug TEXT, category TEXT, status TEXT,
       updated_at TEXT, seo_json TEXT, archived_at TEXT
     );
+    CREATE TABLE directory_profile_seo(profile_id INTEGER PRIMARY KEY, canonical_url, noindex INTEGER);
+    INSERT INTO directory_profile_seo VALUES (1,17,0),(2,'/adresar/veterinari/valid',0),(4,NULL,1);
     CREATE TABLE managed_events (
       id INTEGER PRIMARY KEY, slug TEXT, status TEXT,
       updated_at TEXT, image_url TEXT, seo_json TEXT

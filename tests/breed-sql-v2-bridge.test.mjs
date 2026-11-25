@@ -139,14 +139,14 @@ test("read parity never mistakes empty/unknown NULL SQL slots for verified value
  assert.equal(unavailable.checked,0);
 });
 
-test("all three entrypoints are wired as read-only preview, without activating canonical v2",()=>{
+test("production detail uses canonical SQL, historical preview is read-only",()=>{
  const store=read("lib/breed-store.ts");
  const writer=read("lib/notion-breed-workcopy-direct-field.ts");
  const preview=read("lib/breed-sql-v2-preview.ts");
  const bridge=read("lib/breed-sql-v2-bridge.mjs");
- assert.match(store,/await compareBreedSqlV2Detail\(database, row, env/);
- assert.ok(store.split("await compareBreedSqlV2Detail(database, row, env").length>=3,
-   "Admin and public detail must both be protected");
+ assert.match(store,/const readSelect=breedSqlPrimaryProjection\(select\)/);
+ assert.doesNotMatch(store,/await compareBreedSqlV2Detail\(/);
+ assert.match(store,/breedSqlV2FullSnapshotStatements\(database,id,value\)/);
  assert.match(writer,/summarizeBreedSqlV2Write\(input.field,input.value\)/);
  assert.match(preview,/if\(!breedSqlV2CompareEnabled\(bindings\)\) return/);
  assert.match(preview,/SELECT \* FROM breed_fci_standard/);

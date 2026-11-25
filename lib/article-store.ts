@@ -186,7 +186,6 @@ type ArticleRow = {
   intro_rich_text_json: string | null;
   takeaway: string;
   takeaway_rich_text_json: string | null;
-  sections_json: string;
   sources_json: string;
   blocks_json: string;
   image_url: string | null;
@@ -355,10 +354,10 @@ function rowToManagedArticle(row: ArticleRow, relatedBreedIds: number[] = [], to
   const publishedAt = typeof row.published_at === "string" && row.published_at
     ? row.published_at
     : createdAt;
-  const sections = parseJsonArray<ArticleSection>(row.sections_json, []);
+  const sections: ArticleSection[] = [];
   const sources = parseJsonArray<ArticleSource>(row.sources_json, []);
   const storedBlocks = parseJsonArray<ArticleBlock>(row.blocks_json ?? "[]", []);
-  const blocks = storedBlocks.length ? normalizeArticleBlocks(storedBlocks) : legacyArticleBlocks(sections, sources);
+  const blocks = normalizeArticleBlocks(storedBlocks);
   const introRichText = parseRichTextDocument(row.intro_rich_text_json, row.intro);
   const takeawayRichText = parseRichTextDocument(row.takeaway_rich_text_json, row.takeaway);
   return {
@@ -613,7 +612,7 @@ async function normalizeInput(
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
   // On any canonical Admin/Notion write, keep D1 free of Notion-only prose.
   // Photo credits are retained until a complete public attribution exists.
-  const canonicalBlocks = publicArticleBlocks(normalizeArticleBlocks(payload.blocks ?? []), {
+  const canonicalBlocks = publicArticleBlocks(normalizeArticleBlocks(payload.blocks ?? legacyArticleBlocks(payload.sections ?? [], payload.sources ?? [])), {
     hasImageCredit: hasCompletePublicPhotoCredit(payload.imageCredit, payload.imageCreditUrl),
   });
   const staticQaIssues = assessArticleContentQa({ ...payload, blocks: canonicalBlocks });
@@ -641,14 +640,7 @@ async function normalizeInput(
   const readingMinutes = Math.min(60, Math.max(1, Math.round(Number(payload.readingMinutes) || 5)));
   const publishedAt = payload.publishedAt ? new Date(payload.publishedAt).toISOString() : null;
   const contentUpdatedAt = payload.contentUpdatedAt ? new Date(payload.contentUpdatedAt).toISOString() : payload.showUpdated ? new Date().toISOString() : null;
-  const sections = (payload.sections ?? [])
-    .map((section) => ({
-      heading: section.heading?.trim() ?? "",
-      paragraphs: (section.paragraphs ?? []).map((paragraph) => paragraph.trim()).filter(Boolean),
-      bullets: (section.bullets ?? []).map((bullet) => bullet.trim()).filter(Boolean),
-      tip: section.tip?.trim() || undefined,
-    }))
-    .filter((section) => section.heading || section.paragraphs.length || section.bullets?.length || section.tip);
+  const sections: ArticleSection[] = [];
   const blocks = canonicalBlocks;
   const relatedBreedIds=[...new Set((payload.relatedBreedIds??[]).map(Number).filter((id)=>Number.isSafeInteger(id)&&id>0))].slice(0,50);
   const blockSources = articleBlockSources(blocks);
@@ -668,7 +660,7 @@ async function normalizeInput(
   if (portalSection === "recenzie" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Recenzie a testy.");
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
-  if (!blocks.length && !sections.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
+  if (!blocks.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
   if (status === "scheduled" && (!publishedAt
     || (new Date(publishedAt).getTime() <= Date.now() && !allowPastDueScheduledContentEdit))) {
     throw new Error("Pre plánované publikovanie vyber budúci dátum a čas.");
@@ -1042,7 +1034,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<PublishedArtic
   await ensureArticleStore(database);
   const row = await retryTransientPublicRead(async () => database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
-      status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json,
+      status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sources_json, blocks_json,
       image_url, image_key, ${await articleImageProjection(database)}, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
       updated_by, content_updated_at, show_updated_label, seo_title, meta_description,
       canonical_url, noindex, focus_keyword, og_title, og_description, og_image_url, og_image_key
@@ -1230,12 +1222,12 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
   const articleStatement = database.prepare(`
     INSERT INTO managed_articles (
       slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
-      intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json,
+      intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sources_json, blocks_json, image_url, image_key, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json,
       image_alt, image_caption, image_credit, image_credit_url,
       reading_minutes, social_caption, created_at, updated_at, published_at, created_by, updated_by,
       content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
       focus_keyword, og_title, og_description, og_image_url, og_image_key
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).bind(
     input.slug,
@@ -1253,7 +1245,6 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
     JSON.stringify(input.introRichText),
     input.takeaway,
     JSON.stringify(input.takeawayRichText),
-    JSON.stringify(input.sections),
     JSON.stringify(input.sources),
     JSON.stringify(input.blocks),
     input.imageUrl,
@@ -1370,7 +1361,7 @@ export async function updateManagedArticle(
   const articleStatement = database.prepare(`
     UPDATE managed_articles SET
       slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
-      author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
+      author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sources_json = ?, blocks_json = ?,
       image_url = ?, image_key = ?, image_display = ?, image_focus_x = ?, image_focus_y = ?, thumbnail_display_json = ?, detail_display_json = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, social_caption = ?, updated_at = ?,
       published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
       seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
@@ -1395,7 +1386,6 @@ export async function updateManagedArticle(
     JSON.stringify(input.introRichText),
     input.takeaway,
     JSON.stringify(input.takeawayRichText),
-    JSON.stringify(input.sections),
     JSON.stringify(input.sources),
     JSON.stringify(input.blocks),
     input.imageUrl,
