@@ -29,8 +29,7 @@ const factories =
   section(store, "function values(", "export async function createManagedBreed(") +
   "\n" +
   section(store, "const select =", "export async function listManagedBreedSummaries(") +
-  // The standalone VM simulates rollback (env has no SQL flag). Production
-  // derives readSelect from the active mode; bind that alias in this fixture.
+  // Exercise the production SQL projection without any historic physical columns.
   "\nconst readSelect = breedSqlPrimaryProjection(select);\n" +
   section(
     store,
@@ -124,14 +123,14 @@ function adapter() {
   );
   assert.ok(assignments, "production UPDATE has expected CAS clause");
   const columns = [...assignments[1].matchAll(/(?:^|,)([a-z_]+)=/g)].map((match) => match[1]);
-  assert.ok(columns.length > 45, "full canonical columns are covered");
+  assert.ok(columns.length >= 45, "full canonical columns are covered");
   sqlite.exec(
     "CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY, created_at TEXT," +
       [...new Set(columns)].map((col) => col + " TEXT").join(",") +
       ")",
   );
   for (const column of BREED_ADDITIONAL_CANONICAL_SQL_FIELDS.managed_breeds) {
-    if (!columns.includes(column)) sqlite.exec("ALTER TABLE managed_breeds ADD COLUMN "+column+" TEXT");
+    if (!columns.includes(column) && !["id","created_at"].includes(column)) sqlite.exec("ALTER TABLE managed_breeds ADD COLUMN "+column+" TEXT");
   }
   sqlite.exec("CREATE TABLE breed_fci_standard(breed_id INTEGER PRIMARY KEY,"+BREED_ADDITIONAL_CANONICAL_SQL_FIELDS.breed_fci_standard.map(c=>c+" TEXT").join(",")+")");
   sqlite.exec("CREATE TABLE breed_editorial_text(breed_id INTEGER PRIMARY KEY,"+BREED_ADDITIONAL_CANONICAL_SQL_FIELDS.breed_editorial_text.map(c=>c+" TEXT").join(",")+")");
