@@ -654,7 +654,7 @@ export function sqlNormalizedExpression(columnExpression: string) {
 const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
   coalesce(name, '') || ' ' || coalesce(excerpt, '') || ' ' || coalesce(description, '') || ' ' ||
   coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' ||
-  coalesce(address, '') || ' ' || coalesce(services_json, '') || ' ' || coalesce(qualifications_json, '') || ' ' ||
+  coalesce(address, '') || ' ' || coalesce(${directoryServicesSqlExpression()}, '') || ' ' || coalesce(${directory0173QualificationsSqlExpression()}, '') || ' ' ||
   ${directoryEffectiveDistrictSql()}
 `);
 
