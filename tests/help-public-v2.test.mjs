@@ -130,7 +130,7 @@ test("adoption and lost-found listings expose canonical data-first fields", () =
   assert.match(adoption, /href=\{"\/organizacie\/" \+ dog\.organizationSlug\}/);
   assert.match(adoptionModel, /"publishedAt" \| "lastVerifiedAt"/);
   assert.match(lostFound, /listPublicDogReports\(type/);
-  assert.match(lostFound, /dogReportTypeLabel\(type\)/);
+  assert.match(lostFound, /category=\{dogReportTypeLabel\(report\.type\)\}/);
   assert.match(lostFound, /formatDogReportDate\(report\.eventDate\)/);
 });
 
@@ -267,8 +267,8 @@ test("Help navigation remains present in the report hub, lists and profile detai
   assert.match(nav, /current: current === tab.key/);
   assert.doesNotMatch(nav, /<Link\b/);
   const paths = [
-    ["app/pomoc-psom/stratene-a-najdene/page.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope="all"/],
-    ["components/lost-found-dogs-page.tsx", /reportScope=\{type\}/],
+    ["app/pomoc-psom/stratene-a-najdene/page.tsx", /<LostFoundDogsPage type="all" searchParams=\{searchParams\}/],
+    ["components/lost-found-dogs-page.tsx", /<PublicHelpCategoryNav\s+items=\{publicHelpCategoryItems\("stratene-a-najdene"\)\}\s+reportScope=\{type\}/],
     ["components/lost-found-dog-detail.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope=\{type\}/],
     ["components/adoption-detail.tsx", /<PublicHelpSectionNav current="adopcia"/],
     ["components/help-details/help-detail-shell.tsx", /<PublicHelpSectionNav current=\{item.category\}/],

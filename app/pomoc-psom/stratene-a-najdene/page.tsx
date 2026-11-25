@@ -1,99 +1,22 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
-import premiumStyles from "@/components/help-public-premium.module.css";
-import { Breadcrumbs } from "@/components/page-system";
-import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { StructuredData } from "@/components/structured-data";
-import { PublicHelpPhotoBanner, lostFoundSubmitPromo } from "@/components/public-visual-system/public-help-banner";
-import { listPublicDogReports } from "@/lib/lost-found-dog-store";
-import { activeDogReportCountNoun } from "@/lib/lost-found-dogs";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { buildPageMetadata } from "@/lib/seo";
-import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { LostFoundDogsPage } from "@/components/lost-found-dogs-page";
+import { buildListingPageMetadata } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Stratené a nájdené psy",
-  description: "Prehľad hlásení o stratených a nájdených psoch na Slovensku.",
-  path: "/pomoc-psom/stratene-a-najdene",
-});
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export default async function LostFoundHubPage() {
-  const [lost, found, sharedHeroVisual] = await Promise.all([
-    listPublicDogReports("LOST", { page: 1, pageSize: 1 }),
-    listPublicDogReports("FOUND", { page: 1, pageSize: 1 }),
-    getSectionHeroVisual("help.stratene-a-najdene"),
-  ]);
-  const heroVisual = {
-    ...sharedHeroVisual,
-    heroContent: sharedHeroVisual.heroContent
-      ? { config: sharedHeroVisual.heroContent.config }
-      : undefined,
-  };
-
-  const schema = buildCollectionPageJsonLd({
-    name: "Stratené a nájdené psy",
-    description: "Prehľad hlásení o stratených a nájdených psoch na Slovensku.",
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  return buildListingPageMetadata({
+    title: "Stratené a nájdené psy",
+    description:
+      "Aktuálne hlásenia o stratených a nájdených psoch na Slovensku s filtrovaním podľa lokality, dátumu, pohlavia, veľkosti a plemena.",
     path: "/pomoc-psom/stratene-a-najdene",
-    breadcrumbs: [
-      { name: "Domov", path: "/" },
-      { name: "Pomoc psom", path: "/pomoc-psom" },
-      { name: "Stratené a nájdené psy", path: "/pomoc-psom/stratene-a-najdene" },
-    ],
-    items: [
-      { name: "Stratené psy", path: "/pomoc-psom/stratene-psy" },
-      { name: "Nájdené psy", path: "/pomoc-psom/najdene-psy" },
-    ],
+    searchParams: await searchParams,
+    indexPagination: true,
   });
+}
 
-  return (
-    <>
-      <StructuredData value={schema} />
-      <main id="obsah">
-        <PublicFoundation>
-          <UnifiedSectionHeroShell>
-            <UnifiedSectionHero
-              breadcrumbs={<Breadcrumbs>
-                <Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><span>Stratené a nájdené psy</span>
-              </Breadcrumbs>}
-              eyebrow="Pomoc psom"
-              title="Stratené a nájdené psy"
-              intro="Vyberte správny prehľad podľa toho, či psa hľadáte alebo ste ho našli."
-              visual={heroVisual}
-              metaSlot={<span><strong>{lost.total + found.total}</strong> {activeDogReportCountNoun(lost.total + found.total)}</span>}
-            />
-          </UnifiedSectionHeroShell>
-
-          <PublicHelpSectionNav current="stratene-a-najdene" reportScope="all" />
-          <PublicHelpPhotoBanner promo={lostFoundSubmitPromo} />
-
-          <PublicContentShell variant="listing" className="page-body">
-            <div className={`article-grid ${premiumStyles.hubCards}`}>
-              <article className="article-card article-card--large article-card--coral" data-report-kind="LOST">
-                <div className="article-card-body">
-                  <span className="eyebrow">Aktuálne hlásenia</span>
-                  <h2>Stratené psy</h2>
-                  <p>{lost.total === 1 ? "1 aktívne hlásenie" : `${lost.total} aktívnych hlásení`} o psoch, ktorých majitelia hľadajú.</p>
-                  <Link className="button button--dark" href="/pomoc-psom/stratene-psy">Zobraziť stratené psy</Link>
-                </div>
-              </article>
-
-              <article className="article-card article-card--large article-card--forest" data-report-kind="FOUND">
-                <div className="article-card-body">
-                  <span className="eyebrow">Aktuálne hlásenia</span>
-                  <h2>Nájdené psy</h2>
-                  <p>{found.total === 1 ? "1 aktívne hlásenie" : `${found.total} aktívnych hlásení`} o nájdených psoch, pri ktorých sa hľadá majiteľ.</p>
-                  <Link className="button button--dark" href="/pomoc-psom/najdene-psy">Zobraziť nájdené psy</Link>
-                </div>
-              </article>
-            </div>
-
-            <p><Link href="/pomoc-psom">← Späť na Pomoc psom</Link></p>
-          </PublicContentShell>
-        </PublicFoundation>
-      </main>
-    </>
-  );
+export default function LostFoundHubPage({ searchParams }: Props) {
+  return <LostFoundDogsPage type="all" searchParams={searchParams} />;
 }

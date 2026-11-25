@@ -1,6 +1,7 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { listPriorityEditorialLinks } from "@/lib/priority-editorial-links";
 import { DirectoryPage } from "@/components/directory-page";
 import { StructuredData } from "@/components/structured-data";
 import {
@@ -52,12 +53,12 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   const path = `/adresar/${category.slug}`;
   const cleanedUrl = directoryEmptyQueryRedirect(path, rawSearchParams, filters);
   if (cleanedUrl) redirect(cleanedUrl);
-  const result = await retryTransientPublicRead(() =>
-    listPublishedDirectoryProfiles({ category: category.slug, filters }),
-    { stage: "directory_listing" },
-  );
-  if (filters.page > result.page) redirect(directoryPageHref(path, filters, result.page));
   const policy = resolveListingIndexPolicy(path, rawSearchParams, { indexPagination: true });
+  const [result, priorityLinks] = await Promise.all([
+    retryTransientPublicRead(() => listPublishedDirectoryProfiles({ category: category.slug, filters }), { stage: "directory_listing" }),
+    policy.kind === "clean" ? listPriorityEditorialLinks(path) : Promise.resolve([]),
+  ]);
+  if (filters.page > result.page) redirect(directoryPageHref(path, filters, result.page));
   const schema =
     policy.kind === "query"
       ? null
@@ -78,7 +79,7 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   return (
     <>
       {schema && <StructuredData value={schema} />}
-      <DirectoryPage result={result} filters={filters} initialCategory={category.slug} />
+      <DirectoryPage result={result} filters={filters} initialCategory={category.slug} priorityLinks={priorityLinks} />
     </>
   );
 }

@@ -224,8 +224,7 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable compact category links"
   assert.match(page, /current:\s*initialType\s*===\s*type/);
   assert.match(calendar, /view\.type\s*===\s*"Všetky"/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(page, /PublicContextBanner/);
-  assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
+  assert.match(page, /<PublicMagazineBanner\b[\s\S]*?testId="events-organizer-cta"[\s\S]*?href="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(page, /SectionHeroSearch|PublicCategoryTiles|searchSlot=/);
   assert.equal((page.match(/<HomePortalSearch/g) ?? []).length, 1);
   assert.match(page, /searchScope="events"/);

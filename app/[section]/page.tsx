@@ -84,7 +84,7 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
    const rawSearchParams = await searchParams;
   const typeRedirect = slug === 'podujatia' ? eventTypeSelectionRedirect(rawSearchParams) : null;
   if (typeRedirect) redirect(typeRedirect);
-  const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
+  const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
   const [section, allSections, articles, events, monthEvents] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),

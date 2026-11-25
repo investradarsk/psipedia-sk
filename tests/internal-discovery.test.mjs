@@ -66,7 +66,7 @@ test("target validation is one aggregate read without SELECT star", () => {
   assert.match(q.sql, /FROM directory_profile_seo/);
   assert.doesNotMatch(q.sql, /\bseo_json\b/);
   assert.doesNotMatch(q.sql, /SELECT\s+\*/i);
-  assert.match(q.sql, /SUM\(\s*CASE\s*WHEN/);
+  assert.match(q.sql, /GROUP_CONCAT\(\s*CASE\s*WHEN/);
   assert.equal(q.candidates.length, 3);
 });
 test("thin target is omitted with one DB call", async () => {
@@ -74,13 +74,13 @@ test("thin target is omitted with one DB call", async () => {
   const db = {
     prepare(sql) {
       calls++;
-      assert.match(sql, /target_0/);
+      assert.match(sql, /profiles_0/);
       return {
         bind(...b) {
           assert.equal(b.at(-1), "veterinari");
           return {
             async first() {
-              return { target_0: 2, target_1: 1, target_2: 5 };
+              return { profiles_0: "1,2", profiles_1: "1", profiles_2: "1,2,3,4,5" };
             },
           };
         },
@@ -134,7 +134,13 @@ test("breed-region graph is canonical and bounded", () => {
   const base = {
     kind: "breed-region",
     path: "/adresar/chovatelske-stanice/plemeno/labradorsky-retriver/kraj/nitriansky",
-    breed: { id: 1, slug: "labradorsky-retriver", name: "Labradorský retriever", fciGroup: 8, updatedAt: null },
+    breed: {
+      id: 1,
+      slug: "labradorsky-retriver",
+      name: "Labradorský retriever",
+      fciGroup: 8,
+      updatedAt: null,
+    },
     region,
     profiles: [{}, {}],
     total: 2,

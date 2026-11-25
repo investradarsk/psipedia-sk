@@ -1,6 +1,7 @@
 import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { listPriorityEditorialLinks } from "@/lib/priority-editorial-links";
 import { ArticleDetail } from "@/components/article-detail";
 import { getPublishedArticle, getPublishedArticleAuthorProfile } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
@@ -40,7 +41,7 @@ export default async function LegacyArticlePage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/clanky/${slug}`) permanentRedirect(canonical);
 
-  const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
+  const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads, priorityLinks] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
     settleOptionalRead("article_author_profile", getPublishedArticleAuthorProfile(article), null),
@@ -58,6 +59,7 @@ export default async function LegacyArticlePage({ params }: Props) {
           window: "all",
         })
       : Promise.resolve(null),
+    listPriorityEditorialLinks(`/clanky/${article.slug}`),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} priorityLinks={priorityLinks} />;
 }

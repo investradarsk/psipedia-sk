@@ -8,12 +8,12 @@ export function parseEventListing(raw: Record<string, string | string[] | undefi
     const date = (key: string) => { const v = scalar(key); return /^20\d{2}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v + 'T12:00:00Z')) && new Date(v + 'T12:00:00Z').toISOString().slice(0, 10) === v ? v : ''; };
     const from = date('od'), to = date('do');
     const page = /^\d{1,7}$/.test(scalar('strana')) ? Math.max(1, Number(scalar('strana'))) : 1;
-    return { query: eventSearchQueryFromParam(raw.q), region: eventRegionFilterFromParam(raw.region), month: eventMonthFilterFromParam(raw.mesiac), time: eventTimeFilterFromParam(raw.termin), type, from, to, city: scalar('mesto').trim().slice(0, 120), page, sort: ['najblizsie', 'najnovsie'].includes(scalar('zoradenie')) ? scalar('zoradenie') : '', error: from && to && from > to ? 'Dátum od musí byť pred dátumom do alebo rovnaký.' : '' };
+    return { query: eventSearchQueryFromParam(raw.q), region: eventRegionFilterFromParam(raw.region), month: eventMonthFilterFromParam(raw.mesiac), time: eventTimeFilterFromParam(raw.termin), type, from, to, ...(date('den') ? { day: date('den') } : {}), city: scalar('mesto').trim().slice(0, 120), page, sort: ['najblizsie', 'najnovsie'].includes(scalar('zoradenie')) ? scalar('zoradenie') : '', error: from && to && from > to ? 'Dátum od musí byť pred dátumom do alebo rovnaký.' : '' };
 }
 export type EventListingFilters = ReturnType<typeof parseEventListing>;
 export function eventListingParams(f: EventListingFilters) {
     const p = new URLSearchParams();
-    for (const [key, value] of Object.entries({ q: f.query, region: f.region, mesiac: f.month, termin: eventTimeFilterParam(f.time), od: f.from, do: f.to, mesto: f.city, zoradenie: f.sort }))
+    for (const [key, value] of Object.entries({ q: f.query, region: f.region, mesiac: f.month, termin: eventTimeFilterParam(f.time), od: f.from, do: f.to, den: f.day, mesto: f.city, zoradenie: f.sort }))
         if (value)
             p.set(key, value);
     return p;
@@ -66,7 +66,7 @@ function eventSearchFields(columns: string[]) {
 /** The default unfiltered overview cycles event categories in blocks of five. */
 export function eventTypeBatchGroupingEnabled(f: EventListingFilters): boolean {
     return f.type === 'Všetky' && f.time === 'upcoming' && !f.sort &&
-        !f.query && !f.region && !f.month && !f.from && !f.to && !f.city;
+        !f.query && !f.region && !f.month && !f.from && !f.to && !f.day && !f.city;
 }
 export function eventListingSql(f: EventListingFilters, today = bratislavaDateKey()) {
     const clauses = ["status = 'published'"], values: string[] = [];
@@ -82,6 +82,8 @@ export function eventListingSql(f: EventListingFilters, today = bratislavaDateKe
         add(`${end} >= ?`, f.from);
     if (f.to)
         add('start_date <= ?', f.to);
+    if (f.day)
+        add(`start_date <= ? AND ${end} >= ?`, f.day, f.day);
     if (f.month) {
         const bounds = calendarMonthBounds(f.month);
         add(`start_date <= ? AND ${end} >= ?`, bounds.end, bounds.start);

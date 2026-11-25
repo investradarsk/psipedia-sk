@@ -6,9 +6,11 @@ import {
   DIRECTORY_LOCATION_LANDING_REGISTRY,
   canonicalDirectoryLocationLandingCategory,
   directoryLocationLandingIndexable,
+  directoryLocationCanonicalPath,
+  getDirectoryLocationLandingAncestors,
   directoryLocationLandingPath,
   directoryLocationLandingSupportsDimension,
-  publicCanonicalDirectoryLocationSql,
+  buildDirectoryLocationMembershipQuery,
   type DirectoryLocationLanding,
   type DirectoryLocationLandingCategory,
 } from "@/lib/directory-location-landings";
@@ -19,14 +21,9 @@ import {
 } from "@/lib/breeding-station-landings";
 import {
   getSlovakLandingLocationByRawValue,
-  slovakLandingLocationSqlClause,
   type SlovakLandingDimension,
   type SlovakLandingLocation,
 } from "@/lib/slovak-location-landings";
-import {
-  SLOVAK_DISTRICTS_BY_REGION,
-  SLOVAK_MUNICIPALITIES_BY_DISTRICT,
-} from "@/lib/slovakia-locations";
 
 export const INTERNAL_DISCOVERY_MAX_LINKS = 8;
 
@@ -79,10 +76,6 @@ export function boundInternalDiscoveryLinks(
   }).slice(0, safeLimit);
 }
 
-function locationColumn(dimension: SlovakLandingDimension) {
-  return dimension === "region" ? "d.region" : dimension === "district" ? "d.district" : "d.city";
-}
-
 function directoryLandingLabel(
   category: DirectoryLocationLandingCategory,
   location: SlovakLandingLocation,
@@ -112,81 +105,45 @@ export function buildDirectoryProfileLocationCandidates(
   if (!category) return [];
   return [
     candidate(category, "city", getSlovakLandingLocationByRawValue("city", profile.city)),
-    candidate(category, "district", getSlovakLandingLocationByRawValue("district", profile.district)),
+    candidate(
+      category,
+      "district",
+      getSlovakLandingLocationByRawValue("district", profile.district),
+    ),
     candidate(category, "region", getSlovakLandingLocationByRawValue("region", profile.region)),
   ].filter((item): item is DirectoryLandingCandidate => Boolean(item));
 }
 
-function regionForDistrictName(districtName: string) {
-  for (const [regionName, districts] of Object.entries(SLOVAK_DISTRICTS_BY_REGION)) {
-    if (districts.includes(districtName)) {
-      return getSlovakLandingLocationByRawValue("region", regionName);
-    }
-  }
-  return null;
-}
-
-function parentLocationsForCity(location: SlovakLandingLocation) {
-  const rawNames = new Set(location.sql.values);
-  const districts = Object.entries(SLOVAK_MUNICIPALITIES_BY_DISTRICT)
-    .filter(([, cities]) => cities.some((city) => rawNames.has(city)))
-    .map(([district]) => district);
-
-  const uniqueDistricts = [...new Set(districts)];
-  const district = uniqueDistricts.length === 1
-    ? getSlovakLandingLocationByRawValue("district", uniqueDistricts[0])
-    : null;
-
-  const regions = uniqueDistricts
-    .map((districtName) => regionForDistrictName(districtName)?.name ?? "")
-    .filter(Boolean);
-  const uniqueRegions = [...new Set(regions)];
-  const region = uniqueRegions.length === 1
-    ? getSlovakLandingLocationByRawValue("region", uniqueRegions[0])
-    : null;
-
-  return { district, region };
-}
-
 export function buildDirectoryLocationParentCandidates(landing: DirectoryLocationLanding) {
-  const category = landing.category;
-  if (landing.dimension === "region") return [];
-
-  if (landing.dimension === "district") {
-    return [
-      candidate(category, "region", regionForDistrictName(landing.location.name)),
-    ].filter((item): item is DirectoryLandingCandidate => Boolean(item));
-  }
-
-  const parents = parentLocationsForCity(landing.location);
-  return [
-    candidate(category, "district", parents.district),
-    candidate(category, "region", parents.region),
-  ].filter((item): item is DirectoryLandingCandidate => Boolean(item));
+  return getDirectoryLocationLandingAncestors(landing.category, landing.location)
+    .reverse()
+    .map((location) => candidate(landing.category, location.dimension, location))
+    .filter((item): item is DirectoryLandingCandidate => item !== null);
 }
 
 export function buildDirectoryDiscoveryCountQuery(
   category: DirectoryLocationLandingCategory,
   candidates: readonly DirectoryLandingCandidate[],
 ) {
-  const unique = [...new Map(candidates.map((item) => [item.href, item])).values()].slice(0, 3);
+  const requested = [...new Map(candidates.map((item) => [item.href, item])).values()].slice(0, 3);
+  const withAncestors = requested.flatMap((item) => [
+    item,
+    ...getDirectoryLocationLandingAncestors(category, item.location)
+      .map((location) => candidate(category, location.dimension, location))
+      .filter((parent): parent is DirectoryLandingCandidate => parent !== null),
+  ]);
+  const unique = [
+    ...new Map([...requested, ...withAncestors].map((item) => [item.href, item])).values(),
+  ];
   if (!unique.length) return null;
 
-  const bindings: unknown[] = [];
-  const projections = unique.map((item, index) => {
-    const clause = slovakLandingLocationSqlClause(locationColumn(item.dimension), item.location);
-    bindings.push(...clause.bindings);
-    return `SUM(CASE WHEN ${clause.sql} THEN 1 ELSE 0 END) AS target_${index}`;
-  });
-
   return {
-    sql: `SELECT
-      ${projections.join(",\n      ")}
-    FROM directory_profiles d
-    WHERE ${publicCanonicalDirectoryLocationSql("d")}
-      AND d.category = ?`,
-    bindings: [...bindings, category] as readonly unknown[],
+    ...buildDirectoryLocationMembershipQuery(
+      category,
+      unique.map((item) => item.location),
+    ),
     candidates: unique,
+    requestedCount: requested.length,
   };
 }
 
@@ -199,22 +156,42 @@ async function resolveIndexableDirectoryLinks(
   const database = discoveryDatabase(databaseInput);
   if (!query || !database) return [];
 
-  const row = await database.prepare(query.sql).bind(...query.bindings).first<Record<string, number | string | null>>();
+  const row = await database
+    .prepare(query.sql)
+    .bind(...query.bindings)
+    .first<Record<string, number | string | null>>();
   if (!row) return [];
 
-  return boundInternalDiscoveryLinks(query.candidates.flatMap((item, index) => {
-    const profileCount = Number(row[`target_${index}`] ?? 0);
-    if (!directoryLocationLandingIndexable(category, profileCount)) return [];
-    return [{
-      href: item.href,
-      label: item.label,
-      description: formatSlovakCount(profileCount, {
-        one: "publikovaný profil",
-        few: "publikované profily",
-        many: "publikovaných profilov",
-      }),
-    }];
-  }), 3);
+  const memberships = new Map(
+    query.candidates.map((item, index) => [
+      item.href,
+      String(row[`profiles_${index}`] ?? "")
+        .split(",")
+        .filter(Boolean),
+    ]),
+  );
+  return boundInternalDiscoveryLinks(
+    query.candidates.slice(0, query.requestedCount).flatMap((item) => {
+      const profileCount = memberships.get(item.href)?.length ?? 0;
+      if (
+        !directoryLocationLandingIndexable(category, profileCount) ||
+        directoryLocationCanonicalPath(category, item.location, memberships) !== item.href
+      )
+        return [];
+      return [
+        {
+          href: item.href,
+          label: item.label,
+          description: formatSlovakCount(profileCount, {
+            one: "publikovaný profil",
+            few: "publikované profily",
+            many: "publikovaných profilov",
+          }),
+        },
+      ];
+    }),
+    3,
+  );
 }
 
 export async function listIndexableDirectoryProfileLocationLinks(
@@ -223,14 +200,22 @@ export async function listIndexableDirectoryProfileLocationLinks(
 ) {
   const category = canonicalDirectoryLocationLandingCategory(profile.category);
   if (!category) return [];
-  return resolveIndexableDirectoryLinks(category, buildDirectoryProfileLocationCandidates(profile), database);
+  return resolveIndexableDirectoryLinks(
+    category,
+    buildDirectoryProfileLocationCandidates(profile),
+    database,
+  );
 }
 
 export async function listIndexableDirectoryLandingParentLinks(
   landing: DirectoryLocationLanding,
   database?: DiscoveryDatabase,
 ) {
-  return resolveIndexableDirectoryLinks(landing.category, buildDirectoryLocationParentCandidates(landing), database);
+  return resolveIndexableDirectoryLinks(
+    landing.category,
+    buildDirectoryLocationParentCandidates(landing),
+    database,
+  );
 }
 
 export function buildBreedingStationDiscoveryLinks(landing: BreedingStationLanding) {

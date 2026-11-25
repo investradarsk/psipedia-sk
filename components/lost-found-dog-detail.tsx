@@ -10,6 +10,7 @@ import {
   DetailContactsCard,
   DetailFactsCard,
   DetailHero,
+  DetailProfileTitle,
   DetailParagraphs,
   DetailSection,
   type DetailContact,
@@ -257,6 +258,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
       <StructuredData value={schema} />
       <DetailHero
         kind="lost-found"
+        mediaPresentation="compact"
         breadcrumbs={
           <nav className={styles.crumbs} aria-label="Omrvinková navigácia">
             <Link href="/pomoc-psom">Pomoc psom</Link>
@@ -270,19 +272,19 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         }
         copy={
           <>
-            <div className={styles.badges}>
-              <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>
-                {dogReportTypeLabel(type)}
-              </span>
-              {active && (
-                <span className={styles.badge} data-state={report.status}>
-                  {dogReportStatusLabel[report.status]}
-                </span>
-              )}
-            </div>
-            <h1 className={styles.reportTitle} id={`dog-report-${report.id}`}>
-              {dogProfileTitle(report)}
-            </h1>
+            <DetailProfileTitle
+              title={dogProfileTitle(report)}
+              id={`dog-report-${report.id}`}
+              category={dogReportTypeLabel(type)}
+              categoryClassName={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}
+              badges={
+                active && (
+                  <span className={styles.badge} data-state={report.status}>
+                    {dogReportStatusLabel[report.status]}
+                  </span>
+                )
+              }
+            />
             {!active && (
               <div className={styles.statusBanner} data-state={report.status}>
                 <strong>{dogReportStatusLabel[report.status]}</strong>

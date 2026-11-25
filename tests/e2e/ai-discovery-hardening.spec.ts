@@ -1,14 +1,23 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const routes = [
+const canonicalTrainerRegion = "/adresar/treneri/kraj/nitriansky";
+const routes: ReadonlyArray<{ area: string; path: string; canonicalPath?: string }> = [
   { area: "breed", path: "/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak" },
   { area: "breeder breed", path: "/adresar/chovatelske-stanice/plemeno/biely-svajciarsky-ovciak" },
   { area: "breeder region", path: "/adresar/chovatelske-stanice/kraj/nitriansky" },
   { area: "breeder breed+region", path: "/adresar/chovatelske-stanice/plemeno/biely-svajciarsky-ovciak/kraj/nitriansky" },
   { area: "directory region", path: "/adresar/treneri/kraj/nitriansky" },
-  { area: "directory district", path: "/adresar/treneri/okres/nitra" },
-  { area: "directory city", path: "/adresar/treneri/mesto/nitra" },
+  {
+    area: "directory district",
+    path: "/adresar/treneri/okres/nitra",
+    canonicalPath: canonicalTrainerRegion,
+  },
+  {
+    area: "directory city",
+    path: "/adresar/treneri/mesto/nitra",
+    canonicalPath: canonicalTrainerRegion,
+  },
   { area: "directory profile", path: "/adresar/treneri/e2e-services-detail-long" },
   { area: "event", path: "/podujatia/e2e-admin-event-2" },
   { area: "organization", path: "/organizacie/org-3b-e2e-kanonicka-organizacia" },
@@ -36,7 +45,7 @@ async function assertA11y(page: Page, area: string) {
 }
 
 for (const route of routes) {
-  test(`${route.area}: canonical SSR route stays indexable, structured and accessible`, async ({ page }, testInfo) => {
+  test(`${route.area}: SSR route declares its canonical, stays crawlable, structured and accessible`, async ({ page }, testInfo) => {
     await page.setViewportSize(
       testInfo.project.name.includes("mobile") ? { width: 390, height: 844 } : { width: 1440, height: 900 },
     );
@@ -45,7 +54,7 @@ for (const route of routes) {
     await expect(page.locator("h1").first(), route.path).toBeVisible();
 
     const canonical = page.locator('link[rel="canonical"]');
-    await expect(canonical, route.path).toHaveAttribute("href", `https://psipedia.sk${route.path}`);
+    await expect(canonical, route.path).toHaveAttribute("href", `https://psipedia.sk${route.canonicalPath ?? route.path}`);
 
     const robots = await page.locator('meta[name="robots"]').getAttribute("content");
     expect(robots ?? "", route.path).not.toMatch(/noindex/i);

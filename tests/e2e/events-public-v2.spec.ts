@@ -54,7 +54,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
   await upcoming.click();
   await expect(page).not.toHaveURL(/termin=/);
 
-  const organizer = page.locator("[data-public-context-banner]");
+  const organizer = page.locator('[data-home-banner="events-organizer-cta"]');
   await expect(organizer).toHaveCount(1);
   await expect(organizer.getByRole("link", { name: "Pridať podujatie", exact: true })).toHaveAttribute("href", "/podujatia/pridat-podujatie");
 });

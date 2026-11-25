@@ -38,8 +38,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     title: landing.seoTitle,
     description: landing.description,
     path: landing.path,
-    canonical: landing.path,
-    robots: landing.indexable && queryPolicy.kind === "clean"
+    canonical: landing.canonicalPath,
+    robots: (landing.indexable || landing.canonicalPath !== landing.path) && queryPolicy.kind === "clean"
       ? INDEXABLE_ROBOTS
       : NOINDEX_FOLLOW_ROBOTS,
   });

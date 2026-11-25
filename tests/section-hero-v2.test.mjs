@@ -107,10 +107,11 @@ test("events keep the safe managed CTA default while the public listing uses one
   const organizer = events.indexOf('title="Organizujete podujatie?"');
   const categories = events.indexOf("data-event-category-navigation");
   const calendar = events.indexOf("<EventCalendar");
-  assert.ok(organizer > 0 && organizer < categories && categories < calendar);
+  const affiliate = events.indexOf("<AffiliateRotatingBanner");
+  assert.ok(categories > 0 && categories < organizer && organizer < affiliate && affiliate < calendar);
   assert.equal(events.match(/Organizujete podujatie\?/g)?.length, 1);
   assert.match(events, /ctaEnabled:\s*false/);
-  assert.match(events, /<PublicContextBanner[\s\S]*ctaHref="\/podujatia\/pridat-podujatie"/);
+  assert.match(events, /<PublicMagazineBanner[\s\S]*?testId="events-organizer-cta"[\s\S]*?href="\/podujatia\/pridat-podujatie"/);
 });
 
 test("missing hero config falls back to route copy and static canonical defaults", () => {

@@ -6,6 +6,7 @@ import {
   DetailFactList,
   DetailFactsCard,
   DetailHero,
+  DetailProfileTitle,
   DetailParagraphs,
   DetailSection,
   type DetailContact,
@@ -159,6 +160,7 @@ export function AdoptionDetail({
     <main id="obsah" tabIndex={-1} className={dogStyles.detail} data-adoption-source="canonical">
       <DetailHero
         kind="adoption"
+        mediaPresentation="compact"
         breadcrumbs={
           <nav className={dogStyles.crumbs} aria-label="Omrvinková navigácia">
             <Link href="/pomoc-psom">Pomoc psom</Link>
@@ -193,25 +195,29 @@ export function AdoptionDetail({
         }
         copy={
           <>
-            {dog.status === "RESERVED" ? (
-              <div
-                className={`${dogStyles.statusBanner} ${styles.reservedBanner}`}
-                data-state={dog.status}
-                role="status"
-              >
-                <strong>{adoptionDetailStatusLabels[dog.status]}</strong>
-                <span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span>
-              </div>
-            ) : (
-              <span
-                className={`${dogStyles.badge} ${styles.adoptionBadge}`}
-                data-state={dog.status}
-                role="status"
-              >
-                {adoptionDetailStatusLabels[dog.status]}
-              </span>
-            )}
-            <h1>{dog.name}</h1>
+            <DetailProfileTitle
+              title={dog.name}
+              badges={
+                dog.status === "RESERVED" ? (
+                  <div
+                    className={`${dogStyles.statusBanner} ${styles.reservedBanner}`}
+                    data-state={dog.status}
+                    role="status"
+                  >
+                    <strong>{adoptionDetailStatusLabels[dog.status]}</strong>
+                    <span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span>
+                  </div>
+                ) : (
+                  <span
+                    className={`${dogStyles.badge} ${styles.adoptionBadge}`}
+                    data-state={dog.status}
+                    role="status"
+                  >
+                    {adoptionDetailStatusLabels[dog.status]}
+                  </span>
+                )
+              }
+            />
             <div className={dogStyles.detailMeta}>
               {location && (
                 <span>

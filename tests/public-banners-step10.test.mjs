@@ -51,7 +51,7 @@ test("event, service and review banners appear only on their top-level overviews
     assert.match(source, /import \{ PublicPhotoCallout \} from "@\/components\/public-visual-system\/public-photo-callout"/);
   }
   assert.match(events, /<EventCalendar/);
-  assert.match(events, /<PublicContextBanner/);
+  assert.match(events, /<PublicMagazineBanner[\s\S]*?testId="events-organizer-cta"/);
   assert.match(directory, /<DirectoryResults/);
   assert.match(reviews, /<PublicSubcategoryNavigator/);
 });

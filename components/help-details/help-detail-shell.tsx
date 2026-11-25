@@ -20,6 +20,7 @@ import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-present
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import {
   DetailHero,
+  DetailProfileTitle,
   DetailHeroActions,
   DetailContactsCard,
   DetailFactsCard,
@@ -86,6 +87,7 @@ export function HelpDetailShell({
     <main id="obsah" tabIndex={-1} className={styles.detail}>
       <DetailHero
         kind="help"
+        mediaPresentation="compact"
         breadcrumbs={
           <Breadcrumbs>
             <Link href="/">Domov</Link>
@@ -99,18 +101,18 @@ export function HelpDetailShell({
         }
         copy={
           <>
-            <div className={styles.tags}>
-              <span className={styles.tag}>{category?.singular ?? "Pomoc psom"}</span>
-              {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
-              {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
-            </div>
-            <PublicHeading
-              role="page"
-              as="h1"
-              data-long-title={heroTitle.length >= 70 ? "" : undefined}
-            >
-              {heroTitle}
-            </PublicHeading>
+            <DetailProfileTitle
+              title={heroTitle}
+              category={category?.singular ?? "Pomoc psom"}
+              categoryClassName={styles.tag}
+              badgeClassName={styles.tags}
+              badges={
+                <>
+                  {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
+                  {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
+                </>
+              }
+            />
             {contextTitle && contextTitle !== heroTitle && (
               <p className={styles.contextTitle}>{contextTitle}</p>
             )}

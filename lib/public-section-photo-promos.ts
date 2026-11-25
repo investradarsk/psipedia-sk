@@ -1,3 +1,4 @@
+import type { EventType } from "@/lib/events";
 import type { PublicPhotoCalloutData } from "@/components/public-visual-system/public-photo-callout";
 
 /**
@@ -58,3 +59,13 @@ export const publicSectionPhotoPromos = {
   "events" | "services" | "reviews" | "steniatka" | "starostlivost" | "aktivity",
   PublicPhotoCalloutData
 >;
+
+/** Contextual copy only; all placements use the existing magazine banner. */
+export const eventCategoryPhotoPromos = {
+  "Výstava": { eyebrow: "Chov a plemená", title: "Hľadáte chovateľskú stanicu?", text: "Nájdite chovateľov a informácie o ich chove v adresári.", href: "/adresar/chovatelske-stanice", action: "Chovateľské stanice", tone: "care" },
+  "Preteky": publicSectionPhotoPromos.events,
+  "Seminár": { eyebrow: "Starostlivosť", title: "Rozšírte si vedomosti o psoch", text: "Praktické informácie o zdraví a každodennej starostlivosti.", href: "/starostlivost", action: "Praktické rady", tone: "care" },
+  "Tréning": { eyebrow: "Psie školy", title: "Nájdite trénera pre svojho psa", text: "Vyberte si výcvik podľa zamerania a lokality.", href: "/adresar/treneri", action: "Nájsť trénera", tone: "volunteer" },
+  "Stretnutie": publicSectionPhotoPromos.aktivity,
+  "Iné": { eyebrow: "Pomoc psom", title: "Zapojte sa do pomoci psom", text: "Objavte aktuálne možnosti pomoci a organizácie.", href: "/pomoc-psom", action: "Pomoc psom", tone: "rescue" },
+} as const satisfies Record<EventType, PublicPhotoCalloutData>;
