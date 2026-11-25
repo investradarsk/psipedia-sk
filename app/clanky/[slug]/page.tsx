@@ -1,3 +1,4 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
@@ -42,7 +43,7 @@ export default async function LegacyArticlePage({ params }: Props) {
   const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
-    getPublishedArticleAuthorProfile(article),
+    settleOptionalRead("article_author_profile", getPublishedArticleAuthorProfile(article), null),
     listRelatedBreedsForArticle(article.slug).catch((error) => {
       console.error("Public article breed relations read failed", {
         articleSlug: article.slug,
