@@ -80,3 +80,10 @@
     max-height: 300px;
   }
 }
+
+/* Portrait and square side ads must never follow stacked content. */
+@media (max-width: 1199px) {
+  .sidebar {
+    display: none;
+  }
+}
