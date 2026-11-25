@@ -1,0 +1,73 @@
+import { decideUnifiedField, type FieldIdentity, type FieldObservation } from "./notion-unified-field-sync.ts";
+import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
+
+export type FieldReservation = {
+  identity: FieldIdentity;
+  version: number;
+  value: unknown;
+};
+
+/** Reserve one field before attempting any cross-system write. Existing PENDING
+ * rows are deliberately not stolen. Recovery requires an observed-state check,
+ * not a repeat of the original mutation (step 10). */
+export async function reserveUnifiedField(input: {
+  database: D1Database;
+  identity: FieldIdentity;
+  historicalBaseline: { value: unknown; version: string } | null;
+  notion: FieldObservation;
+  psipedia: FieldObservation;
+  direction: "pull" | "push";
+}): Promise<FieldReservation | null> {
+  const { database, identity } = input;
+  const old = await readUnifiedFieldState(database, identity);
+  if (old?.status === "PENDING") throw Error("UNIFIED_FIELD_PENDING_RECOVERY");
+  const baseline = old
+    ? old.baseline === undefined ? null : { value: old.baseline, version: String(old.version) }
+    : input.historicalBaseline;
+  const decision = decideUnifiedField({
+    identity, baseline, notion: input.notion, psipedia: input.psipedia,
+    notionEdit: old?.notionEdit, psipediaEdit: old?.psipediaEdit,
+  });
+  const notion = input.notion.present ? input.notion.value : undefined;
+  const psipedia = input.psipedia.present ? input.psipedia.value : undefined;
+  const unchanged = decision.action === "unchanged";
+  const allowed = decision.action === input.direction;
+  const reason = unchanged || allowed ? null :
+    decision.action === "review" ? decision.reason : "OPPOSITE_DIRECTION_REQUIRED";
+  const version = await writeUnifiedFieldState(database, identity, old?.version ?? null, {
+    baseline: unchanged ? decision.value : baseline?.value,
+    notion, psipedia,
+    // Evidence from a previous CAS version must never be recycled.
+    notionEdit: undefined, psipediaEdit: undefined,
+    status: unchanged ? "SYNCED" : allowed ? "PENDING" : "REVIEW",
+    reason,
+  });
+  if (version === null) throw Error("UNIFIED_FIELD_CONCURRENT_RESERVATION");
+  if (unchanged) return null;
+  if (!allowed || decision.action === "review") throw Error(reason ?? "UNIFIED_FIELD_REVIEW");
+  return { identity, version, value: decision.value };
+}
+
+/** Only a freshly verified observation of both systems may advance baseline. */
+export async function confirmUnifiedField(
+  database: D1Database, reservation: FieldReservation,
+  notion: FieldObservation, psipedia: FieldObservation,
+): Promise<void> {
+  const decision = decideUnifiedField({
+    identity: reservation.identity,
+    baseline: { value: reservation.value, version: String(reservation.version) },
+    notion, psipedia,
+  });
+  const matches = decision.action === "unchanged" &&
+    decideUnifiedField({
+      identity: reservation.identity, baseline: null,
+      notion: { present: true, value: reservation.value },
+      psipedia: { present: true, value: decision.value },
+    }).action === "unchanged";
+  if (!matches) throw Error("UNIFIED_FIELD_WRITEBACK_UNVERIFIED");
+  const version = await writeUnifiedFieldState(database, reservation.identity, reservation.version, {
+    baseline: reservation.value, notion: reservation.value, psipedia: reservation.value,
+    notionEdit: undefined, psipediaEdit: undefined, status: "SYNCED", reason: null,
+  });
+  if (version === null) throw Error("UNIFIED_FIELD_CONCURRENT_CONFIRMATION");
+}
