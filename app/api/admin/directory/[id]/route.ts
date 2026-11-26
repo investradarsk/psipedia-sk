@@ -1,4 +1,4 @@
-import { planDirectoryAdminReceipts } from "@/lib/notion-directory-admin-receipts";
+import { planDirectoryAdminReceipts, directoryFacetReceiptField } from "@/lib/notion-directory-admin-receipts";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
@@ -502,6 +502,7 @@ export async function PUT(request: Request, { params }: Props) {
         try {
           profile = await savePilotDirectoryMetadataField({
             database: db, profileId: id, category: profile.category, field, value,
+            adminReceiptActor: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true" ? user.email : undefined,
             expectedValue: typeof metadataOriginalValues?.[field] === "string"
               ? (metadataOriginalValues[field] as string).trim() : undefined,
           });
@@ -982,7 +983,8 @@ export async function PATCH(request: Request, { params }: Props) {
         }
       }
       if (Object.keys(normalizedValues).length) {
-        const now = new Date().toISOString();
+        const previousTime = Date.parse(row.updated_at);
+        const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
         const canonical = db.prepare(`UPDATE directory_profiles
           SET updated_at=?1,updated_by=?2
           WHERE id=?3 AND category=?4 AND updated_at=?5 AND status<>'archived' RETURNING id`)
@@ -993,10 +995,15 @@ export async function PATCH(request: Request, { params }: Props) {
           updatedAt: now, actor: user.email,
         });
         // The revision CAS and only the changed filter rows commit together.
+        const receipt = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true"
+          ? planDirectoryAdminReceipts(db, { id, expectedRevision: row.updated_at, nextRevision: now,
+              editor: user.email, fields: [], structured: Object.keys(normalizedValues).map(field => directoryFacetReceiptField(row.category, field)) })
+          : { before: [], after: [] };
         const results = await db.batch([
-          canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
+          ...receipt.before, canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
+          ...receipt.after,
         ]);
-        if (!(results[0]?.results?.[0] as {id?:number}|undefined)?.id)
+        if (!(results[receipt.before.length]?.results?.[0] as {id?:number}|undefined)?.id)
           return Response.json({ error: "Údaje profilu sa medzičasom zmenili. Obnovte stránku." }, { status: 409 });
       }
       // Category filters are a separate structured channel from free-text
