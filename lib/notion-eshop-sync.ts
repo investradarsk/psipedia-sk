@@ -1,5 +1,5 @@
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { notionPageIsTombstoned } from "./admin-record-lifecycle";
 import { updateEshopV2NotionField } from "./eshop-ratings.ts";
@@ -735,6 +735,7 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
           if(current.shop.updatedAt!==fresh.shop.updatedAt||current.page.last_edited_time!==fresh.page.last_edited_time||
             !equalV2(current.notion,fresh.notion))throw Error("ESHOP_V2_SOURCE_CHANGED");
         }
+        if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
         await updateEshopV2NotionField({database:input.database,id:first.shop.id,pageId:first.page.id,
           revision:first.shop.updatedAt,field,value,logo});
       }else{
@@ -750,6 +751,7 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
         const desired=Object.fromEntries(names.filter(name=>Object.hasOwn(fresh.page.properties??{},name)).map(name=>[name,all[name]]));
         if(field==="slug"&&!Object.hasOwn(desired,"URL Psipedia"))throw Error("ESHOP_V2_SCHEMA_MISSING");
         const patch=selectiveNotionProperties(fresh.page.properties??{},desired);
+        if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
         if(patch)await patchPage(input.bindings,first.page.id,patch);
         const confirmed=await observeEshopV2(input,field);
         if(confirmed.shop.updatedAt!==fresh.shop.updatedAt||
