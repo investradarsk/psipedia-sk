@@ -37,3 +37,17 @@ CREATE TABLE IF NOT EXISTS notion_unified_scope_invalidation (
   invalidated_at TEXT NOT NULL,
   PRIMARY KEY (agenda,entity_id)
 );
+
+-- An approved manual transfer fences ordinary V2 reservations for its scope.
+-- No automatic expiry: an interrupted external write is ambiguous. Diagnose
+-- and release only after the owner verifies the exact scope.
+CREATE TABLE IF NOT EXISTS notion_unified_manual_fence (
+  agenda TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  owner_token TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  PRIMARY KEY(agenda,entity_id)
+);
+CREATE INDEX IF NOT EXISTS notion_unified_field_recovery_due
+  ON notion_unified_field_state(status,recovery_after,updated_at)
+  WHERE status IN ('PENDING','REVIEW');
