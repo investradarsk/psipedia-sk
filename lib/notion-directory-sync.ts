@@ -4355,26 +4355,29 @@ export async function inspectManualDirectoryProfile(input:{
 /** Recovery uses the exact same field-scoped observers and does not replay
  * webhook events or bypass an Admin review lock. */
 export async function recoverDirectoryV2Field(database:D1Database,bindings:NotionDirectorySyncBindings,
-  id:number,pageId:string,field:string) {
+  id:number,pageId:string,field:string,direction:"observe"|"push"="observe") {
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!notionFlagEnabled(bindings.NOTION_DIRECTORY_SYNC_ENABLED))throw Error("DIRECTORY_V2_RECOVERY_DISABLED");
-  if(field==="additionalCategories"){await reserveUnifiedDirectoryCategories(database,bindings,id,pageId,"observe");return;}
+  if(field==="additionalCategories"){
+    if(direction==="push"){const mapping=await loadMappingByProfile(database,id);if(mapping?.notion_page_id!==pageId)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");await mirrorDirectoryAdditionalCategoriesToNotion({database,bindings,profileId:id});}
+    else await reserveUnifiedDirectoryCategories(database,bindings,id,pageId,"observe");return;
+  }
   if(field.startsWith("meta:")){
-    await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction:"observe",fields:[{kind:"meta",field:field.slice(5)}]});return;
+    await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction,fields:[{kind:"meta",field:field.slice(5)}]});return;
   }
   if(field.startsWith("facet:")){
     const [,category,key]=field.split(":");
     const profile=await getManagedDirectoryProfileById(id,database);
     if(!profile||profile.category!==category||!key)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
-    await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction:"observe",fields:[{kind:"facet",field:key}]});return;
+    await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction,fields:[{kind:"facet",field:key}]});return;
   }
   if(field==="relation:breedIds"||field==="relation:clubIds"){
-    await syncUnifiedDirectoryBreederRelations({database,bindings,profileId:id,pageId,direction:"observe",fields:[field.slice(9) as BreederRelationField]});return;
+    await syncUnifiedDirectoryBreederRelations({database,bindings,profileId:id,pageId,direction,fields:[field.slice(9) as BreederRelationField]});return;
   }
   if(!Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS,field))throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
   const profile=await getManagedDirectoryProfileById(id,database);
   if(!profile)throw Error("DIRECTORY_V2_RECOVERY_MISSING");
   const page=await fetchNotionPage(bindings,pageId);
-  await syncUnifiedDirectoryEditorialFields({database,bindings,profile,page,direction:"observe",fields:[field as BreederEditorialField]});
+  await syncUnifiedDirectoryEditorialFields({database,bindings,profile,page,direction,fields:[field as BreederEditorialField]});
 }
 
 export async function directoryV2RecoveryFields(database:D1Database,id:number):Promise<string[]>{
