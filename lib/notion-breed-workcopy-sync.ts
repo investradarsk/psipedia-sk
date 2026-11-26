@@ -172,7 +172,7 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
 }
 
 async function reserveBreedField(database: D1Database, bindings: BreedWorkCopyBindings,
-  link: ShadowLink, field: string, direction: "pull" | "push") {
+  link: ShadowLink, field: string, direction: "pull" | "push" | "observe") {
   if (!isUnifiedBreedEditorialField(field)) throw Error("BREED_UNIFIED_PROTECTED_FIELD");
   const observed = await observeUnifiedBreedField(database, bindings, link, field);
   const identity = { agenda: "breeds" as const, entityId: String(link.breed_id),
@@ -499,4 +499,12 @@ export async function inspectManualBreedWorkCopyProfile(input: {
     if (!present.has(field)) excluded.add(field);
   }
   return {notion,admin,excluded:[...excluded]};
+}
+
+export async function recoverBreedV2Field(database:D1Database,bindings:BreedWorkCopyBindings,id:number,pageId:string,field:string){
+  if(!unifiedBreedEnabled(bindings)||!requireWorkCopyOnly(bindings))throw Error("BREED_V2_RECOVERY_DISABLED");
+  const link=await getActiveLink(database,id);
+  if(!link||link.work_notion_page_id!==pageId)throw Error("BREED_V2_RECOVERY_SCOPE");
+  if(!BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField)&&field!=="fciNumber")throw Error("BREED_V2_RECOVERY_SCOPE");
+  await reserveBreedField(database,bindings,link,field,"observe");
 }
