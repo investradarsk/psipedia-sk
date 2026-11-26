@@ -43,17 +43,17 @@ async function fields(database:D1Database,agenda:UnifiedSyncAgenda,id:number):Pr
     case "help-cases":return [...Object.keys(HELP_CASE_V2_FIELDS),...Object.keys(HELP_CASE_V2_SEO)].sort();
   }
 }
-async function observe(database:D1Database,bindings:Bindings,field:FieldIdentity){
+async function observe(database:D1Database,bindings:Bindings,field:FieldIdentity,direction:"observe"|"pull"="observe"){
   const id=Number(field.entityId);
   if(!Number.isSafeInteger(id)||id<1)throw Error("UNIFIED_RECOVERY_ID");
   switch(field.agenda){
-    case "directory":return recoverDirectoryV2Field(database,bindings,id,field.pageId,field.field);
+    case "directory":return recoverDirectoryV2Field(database,bindings,id,field.pageId,field.field,direction);
     case "breeds":return field.field.startsWith("controlled.")
-      ?recoverControlledBreedV2Field(database,bindings,id,field.pageId,field.field.slice(11))
-      :recoverBreedV2Field(database,bindings,id,field.pageId,field.field);
-    case "events":return recoverEventV2Field(database,bindings,id,field.pageId,field.field);
-    case "eshops":return recoverEshopV2Field(database,bindings,id,field.pageId,field.field);
-    default:return recoverEventsHelpV2Field(database,bindings,field.agenda,id,field.pageId,field.field);
+      ?recoverControlledBreedV2Field(database,bindings,id,field.pageId,field.field.slice(11),direction)
+      :recoverBreedV2Field(database,bindings,id,field.pageId,field.field,direction);
+    case "events":return recoverEventV2Field(database,bindings,id,field.pageId,field.field,direction);
+    case "eshops":return recoverEshopV2Field(database,bindings,id,field.pageId,field.field,direction);
+    default:return recoverEventsHelpV2Field(database,bindings,field.agenda,id,field.pageId,field.field,direction);
   }
 }
 async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,identity:FieldIdentity){
@@ -92,7 +92,16 @@ async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,iden
 async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   const key=identity(row);
   await observe(database,bindings,key);
-  await retryVerifiedAdminEdit(database,bindings,key);
+  const observed=await readUnifiedFieldState(database,key);
+  // Catch missed inbound events only where one current value differs from a
+  // verified baseline. The adapter re-observes and reserves before writing.
+  // Never fabricate a signed event, resolve a dual edit or erase with blanks.
+  if(observed?.status==="REVIEW"&&observed.reason==="RECOVERY_DIRECTION_REQUIRED"&&
+    observed.baselineVersion&&observed.baseline!==undefined&&observed.notion!==undefined&&observed.psipedia!==undefined&&
+    decideUnifiedField({identity:key,baseline:{value:observed.baseline,version:observed.baselineVersion},
+      notion:{present:true,value:observed.notion},psipedia:{present:true,value:observed.psipedia}}).action==="pull"){
+    await observe(database,bindings,key,"pull");
+  }else await retryVerifiedAdminEdit(database,bindings,key);
   const state=await readUnifiedFieldState(database,key);
   return state?.status==="SYNCED"?"synced":"review";
 }
