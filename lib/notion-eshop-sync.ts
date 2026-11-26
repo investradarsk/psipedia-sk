@@ -1258,11 +1258,13 @@ export async function inspectManualEshopProfile(input:{
     excluded:["slug","status","logoUrl"]};
 }
 
-export async function recoverEshopV2Field(database:D1Database,bindings:NotionEshopSyncBindings,id:number,pageId:string,field:string){
+export async function recoverEshopV2Field(database:D1Database,bindings:NotionEshopSyncBindings,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe"){
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!configured(bindings)||!Object.hasOwn(ESHOP_V2_FIELDS,field))throw Error("ESHOP_V2_RECOVERY_SCOPE");
   const mapping=await loadMappingByShop(database,id);
   if(!mapping||mapping.notion_page_id!==pageId)throw Error("ESHOP_V2_RECOVERY_MAPPING");
-  const observed=await observeEshopV2({database,bindings,dataSourceId:bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim(),mapping},field as EshopEventField);
+  const scope={database,bindings,dataSourceId:bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim(),mapping};
+  if(direction==="pull"){await syncEshopV2Fields(scope,[field as EshopEventField],"pull");return;}
+  const observed=await observeEshopV2(scope,field as EshopEventField);
   if(observed.shop.status==="archived")throw Error("ESHOP_V2_ARCHIVED");
   const historical=await readProfileFieldBaseline({database,agenda:"eshops",entityId:id,pageId,expectedHash:mapping.content_hash});
   const identity={agenda:"eshops" as const,entityId:String(id),pageId,field};
