@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationLocationAdminValidationError } from "@/lib/organization-location-admin";
 import {
@@ -52,9 +54,13 @@ export async function PUT(request: Request, { params }: RouteContext) {
   }
 
   try {
-    const item = await updateOrganizationLocationFromAdmin(organizationId, locationId, body.payload);
+    const bindings = env as unknown as TargetedNotionSaveBindings;
+    const unified = bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+    const beforeHelpSnapshot = unified ? await captureHelpNotionSnapshot({bindings,agenda:"organizations",entityId:organizationId}) : null;
+    const item = await updateOrganizationLocationFromAdmin(organizationId, locationId, body.payload, undefined, unified ? auth.user.email : undefined);
+    const notionFieldSync = unified && item ? await syncSavedNotionRecord({bindings,agenda:"organizations",entityId:organizationId,beforeHelpSnapshot}) : undefined;
     if (!item) return Response.json({ error: "Lokalita sa nenašla v tejto organizácii." }, { status: 404 });
-    return Response.json({ item });
+    return Response.json({ item, ...(notionFieldSync ? {notionFieldSync}: {}) });
   } catch (error) {
     return errorResponse(error, "Lokalitu sa nepodarilo uložiť.");
   }
@@ -67,9 +73,13 @@ export async function DELETE(request: Request, { params }: RouteContext) {
   if (!organizationId || !locationId) return Response.json({ error: "Neplatné ID lokality." }, { status: 400 });
 
   try {
-    const deleted = await deleteOrganizationLocationFromAdmin(organizationId, locationId);
+    const bindings = env as unknown as TargetedNotionSaveBindings;
+    const unified = bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+    const beforeHelpSnapshot = unified ? await captureHelpNotionSnapshot({bindings,agenda:"organizations",entityId:organizationId}) : null;
+    const deleted = await deleteOrganizationLocationFromAdmin(organizationId, locationId, undefined, unified ? auth.user.email : undefined);
+    const notionFieldSync = unified && deleted ? await syncSavedNotionRecord({bindings,agenda:"organizations",entityId:organizationId,beforeHelpSnapshot}) : undefined;
     return deleted
-      ? Response.json({ deleted: true, id: locationId })
+      ? Response.json({ deleted: true, id: locationId, ...(notionFieldSync ? {notionFieldSync}: {}) })
       : Response.json({ error: "Lokalita sa nenašla v tejto organizácii." }, { status: 404 });
   } catch (error) {
     return errorResponse(error, "Lokalitu sa nepodarilo odstrániť.");
