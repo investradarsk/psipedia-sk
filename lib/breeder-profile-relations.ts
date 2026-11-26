@@ -125,12 +125,7 @@ export async function saveBreederRelationSelection(
     const canonical = database.prepare(
       "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id",
     ).bind(now,actor,profileId,profile.category,revision.updated_at);
-    const verify = database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT','
-    throw Error("Profil sa nepodarilo potvrdiť po uložení vzťahov.");
-  return chosen;
-}
-
-) END AS cas_ok");
+    const verify = database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT','$') END AS cas_ok");
     const results = await database.batch([...receipt.before,canonical,verify,...statements,...receipt.after]);
     if (!(results[receipt.before.length]?.results ?? []).length) throw Error("DIRECTORY_RELATION_CAS_CONFLICT");
     return chosen;
