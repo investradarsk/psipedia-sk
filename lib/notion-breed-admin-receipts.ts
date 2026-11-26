@@ -11,7 +11,7 @@ export function breedAdminFieldReceipt(database: D1Database, input: {
 }): D1PreparedStatement[] {
   if (!isUnifiedBreedEditorialField(input.field)) return [];
   const planned = planBreedSqlV2FieldWrite(input.field, input.value);
-  if (planned?.kind === "relations") return [];
+  if (planned && !("column" in planned)) return [];
   const scalar = (BREED_EVENT_SCALAR_COLUMNS as Record<string, string>)[input.field];
   const table = planned?.table ?? (scalar ? "managed_breeds" : null);
   const column = planned?.column ?? scalar;
