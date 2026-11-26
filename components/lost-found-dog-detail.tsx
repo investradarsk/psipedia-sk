@@ -181,7 +181,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
             label: "Web",
             value: (
               <a href={report.publicWebsiteUrl} target="_blank" rel="noreferrer">
-                Otvoriť web ↗
+                Otvoriť web
               </a>
             ),
           },
@@ -193,7 +193,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
             label: "Facebook",
             value: (
               <a href={report.publicFacebookUrl} target="_blank" rel="noreferrer">
-                Facebook ↗
+                Facebook
               </a>
             ),
           },
@@ -205,7 +205,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
             label: "Instagram",
             value: (
               <a href={report.publicInstagramUrl} target="_blank" rel="noreferrer">
-                Instagram ↗
+                Instagram
               </a>
             ),
           },
