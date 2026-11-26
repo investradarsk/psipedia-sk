@@ -32,6 +32,7 @@ export async function reserveUnifiedField(input: {
     });
     const equal = recovered.action === "unchanged";
     const version = await writeUnifiedFieldState(database, identity, old.version, {
+      baselineVersion: equal ? crypto.randomUUID() : old.baselineVersion,
       baseline: equal ? recovered.value : old.baseline,
       notion: equal ? recovered.value : old.notion,
       psipedia: equal ? recovered.value : old.psipedia,
@@ -48,7 +49,7 @@ export async function reserveUnifiedField(input: {
     if (observed.action !== "unchanged") throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
   }
   const baseline = old
-    ? old.baseline === undefined ? null : { value: old.baseline, version: String(old.version) }
+    ? old.baseline === undefined ? null : { value: old.baseline, version: old.baselineVersion ?? String(old.version) }
     : input.historicalBaseline;
   const decision = decideUnifiedField({
     identity, baseline, notion: input.notion, psipedia: input.psipedia,
@@ -61,9 +62,10 @@ export async function reserveUnifiedField(input: {
   const reason = unchanged || allowed ? null :
     decision.action === "review" ? decision.reason : "OPPOSITE_DIRECTION_REQUIRED";
   const version = await writeUnifiedFieldState(database, identity, old?.version ?? null, {
+    baselineVersion: unchanged ? (baseline && decideUnifiedField({identity,baseline:null,notion:{present:true,value:baseline.value},psipedia:{present:true,value:decision.value}}).action === "unchanged" ? baseline.version : crypto.randomUUID()) : baseline?.version,
     baseline: unchanged ? decision.value : baseline?.value,
     notion, psipedia,
-    // Evidence from a previous CAS version must never be recycled.
+    // Evidence is bound to the confirmed baseline generation, not a retry CAS.
     notionEdit: unchanged ? undefined : input.notionEdit,
     psipediaEdit: unchanged ? undefined : input.psipediaEdit,
     status: unchanged ? "SYNCED" : allowed ? "PENDING" : "REVIEW",
@@ -93,6 +95,7 @@ export async function confirmUnifiedField(
     }).action === "unchanged";
   if (!matches) throw Error("UNIFIED_FIELD_WRITEBACK_UNVERIFIED");
   const version = await writeUnifiedFieldState(database, reservation.identity, reservation.version, {
+    baselineVersion: crypto.randomUUID(),
     baseline: reservation.value, notion: reservation.value, psipedia: reservation.value,
     notionEdit: undefined, psipediaEdit: undefined, status: "SYNCED", reason: null,
   });
