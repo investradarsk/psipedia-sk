@@ -69,9 +69,12 @@ export async function PUT(request: Request, { params }: Context) {
   }
 
   try {
-    let input = await request.json() as ManagedDogReportInput;
+    let input = await request.json() as ManagedDogReportInput & {expectedUpdatedAt?:unknown};
     const existing = await getAdminDogReport(numericId);
     if (!existing) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
+    if (unifiedLostFoundEnabled() && (typeof input.expectedUpdatedAt !== "string" || input.expectedUpdatedAt !== existing.updatedAt)) {
+      return Response.json({error:"Hlásenie sa medzičasom zmenilo. Obnov stránku."},{status:409,headers:{"Cache-Control":"private, no-store"}});
+    }
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId });
 
     if (input.type !== undefined && input.type !== existing.type) {
