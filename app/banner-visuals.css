@@ -221,13 +221,11 @@
     --ps-bnr-title-size: clamp(1.65rem, 3vw, 2.15rem);
   }
 }
-/* The shared copy adapter uses generated CSS-module class names. Target the
- * semantic child structure, never guessed hashes, so the dark body is readable. */
-.ps-public-banner-frame[data-banner-visual][data-banner-size]
-  [data-public-banner-content]
-  > div
-  > div {
+/* All shared copy uses the same type and rhythm across placements. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-description] {
+  margin-top: 5px;
   color: var(--ps-bnr-body) !important;
+  font: 0.875rem / 1.5 var(--ps-font-body);
 }
 
 @media (min-width: 721px) {
@@ -333,9 +331,7 @@
  * not solve the overlap because CTA widths and desktop overrides vary. */
 @container ps-editorial-banner (min-width: 821px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"])
-    > [data-public-banner-content],
-  .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"])
-    > [class*="calloutLayout"] {
+    > [data-public-banner-content] {
     box-sizing: border-box;
     width: 72% !important;
     max-width: 72% !important;
@@ -358,8 +354,7 @@
   display: none;
 }
 @container ps-editorial-banner (max-width: 820px) {
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] > [data-public-banner-content],
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] > [class*="calloutLayout"] {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] > [data-public-banner-content] {
     box-sizing: border-box;
     width: 100% !important;
     max-width: 100% !important;
@@ -544,23 +539,27 @@
   width: fit-content !important;
   max-width: 100%;
 }
-.ps-public-banner-frame[data-banner-visual][data-banner-size] > [class*="calloutLayout"] {
-  grid-template-columns: minmax(0, 1fr) !important;
-  align-items: start;
-  justify-items: start;
-  gap: 12px;
-}
-.ps-public-banner-frame[data-banner-visual][data-banner-size] > [class*="calloutLayout"] > * {
-  grid-column: 1 !important;
-  grid-row: auto !important;
-}
-.ps-public-banner-frame[data-banner-visual][data-banner-size] :is([data-public-banner-actions], [class*="calloutActions"]) {
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-start !important;
   justify-self: start;
   min-width: 0;
   max-width: 100%;
 }
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  [data-public-banner-content] [data-public-banner-actions] > a[data-public-action="secondary"] {
+  border-color: var(--ps-bnr-ink) !important;
+  background: transparent !important;
+  color: var(--ps-bnr-ink) !important;
+}
 @container ps-editorial-banner (max-width: 520px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size]
+    [data-public-banner-content] [data-public-banner-actions] > a {
+    width: 100%;
+    min-height: 48px;
+  }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
     width: 100% !important;
     justify-self: stretch !important;

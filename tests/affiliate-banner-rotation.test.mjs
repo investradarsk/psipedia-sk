@@ -60,9 +60,8 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   assert.match(component, /nofollow sponsored noopener noreferrer/);
   assert.doesNotMatch(component, /sessionStorage|localStorage|setInterval/);
   assert.match(component, /nextAffiliateRotation/);
-  assert.match(css, /min-height: 100px/);
-  assert.match(css, /\.sidebar \.creative,[\s\S]*?min-height: 0/);
-  assert.match(css, /\.horizontal \.image\s*\{\s*max-height: 100px/);
+  assert.match(css, /\.horizontal\s*\{\s*--affiliate-max-creative-height: 100px/);
+  assert.match(css, /aspect-ratio: var\(--affiliate-creative-ratio\)/);
   assert.match(css, /max-width: 767px/);
   assert.match(component, /nextBannerIndexBySlot/);
   assert.match(component, /<img[\s\S]*src=\{original\.src\}/);
@@ -122,7 +121,8 @@ test("mobile uses square originals and sidebar uses compact portrait or square o
   assert.doesNotMatch(component, /"adaptive"/);
   assert.match(component, /referrerPolicy="no-referrer"/);
   assert.match(component, /getAvailableAffiliateOriginalBanners\(format\)/);
-  assert.match(css, /min-height: 300px/);
+  assert.match(css, /--affiliate-max-creative-height: 260px/);
+  assert.match(css, /\.horizontal\[data-affiliate-compact\]\s*\{\s*--affiliate-max-creative-height: 200px/);
   assert.match(css, /object-fit: contain/);
   assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });
@@ -135,7 +135,7 @@ test("single-column article shows one compatible banner after introduction, not 
   const inline = article.indexOf('data-article-mobile-affiliate-banner');
   const takeaway = article.indexOf('showTakeaway ? (');
   assert.ok(intro !== -1 && inline > intro && inline < takeaway);
-  assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
+  assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal" compact\s*\/>/);
   assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
   assert.match(articleCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
   assert.match(footerCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-rotating-banner\]\)/);
@@ -160,7 +160,7 @@ test("an unavailable external artwork never leaves a blank affiliate label", () 
   assert.match(component, /if \(!selected \|\| !original\) return null/);
   assert.match(component, /!failedSources\.includes\(creative\.src\)/);
   assert.match(component, /onLoad=\{\(\) => setLoadedImage\(\{ key: selectionKey, src: original\.src \}\)\}/);
-  assert.match(component, /onError=\{\(\) => setFailedImages/);
+  assert.match(component, /onError=\{\(\) =>\s*setFailedImages/);
   assert.match(component, /styles\.pending/);
   assert.match(css, /\.pending\s*\{\s*visibility:\s*hidden;/);
   assert.doesNotMatch(component, /styles\.placeholder/);
@@ -227,6 +227,7 @@ test("sidebar ads follow existing panel content; no external advertising rail", 
   assert.doesNotMatch(sitewide, /data-sitewide-affiliate-rail|placement="sidebar"/);
   assert.doesNotMatch(railCSS, /position:\s*absolute|\.rail\s*\{/);
   assert.match(css, /@media \(max-width: 1199px\)\s*\{\s*\.sidebar\s*\{\s*display: none;/);
-  assert.match(css, /\.sidebar \.image\s*\{\s*max-height: 360px/);
+  assert.match(css, /\.sidebar\s*\{\s*--affiliate-max-creative-height: 320px/);
+  assert.match(source("components/events-page.tsx"), /data-affiliate-stacked-fallback>\s*<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.doesNotMatch(source("components/affiliate-rotating-banner.tsx"), /Math\.random/);
 });

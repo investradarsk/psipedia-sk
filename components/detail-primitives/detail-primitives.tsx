@@ -202,7 +202,7 @@ export function PublicDetailLayout({
           data-public-detail-main
         >
           {children}
-          {!hasAside ? <AffiliateRotatingBanner placement="horizontal" /> : null}
+          {!hasAside ? <AffiliateRotatingBanner placement="horizontal" compact /> : null}
         </div>
         {hasAside ? (
           <aside
@@ -364,7 +364,7 @@ export function PublicDetailFlow({
               <AffiliateRotatingBanner placement="sidebar" />
             ) : null}
             {column === "main" && !hasAside ? (
-              <AffiliateRotatingBanner placement="horizontal" />
+              <AffiliateRotatingBanner placement="horizontal" compact />
             ) : null}
           </div>
         ))}

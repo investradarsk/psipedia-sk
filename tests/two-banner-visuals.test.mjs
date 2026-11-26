@@ -88,10 +88,9 @@ test("shared banner sizing preserves centered site shell for all non-compact mag
     "homepage lost/found banner is placed in the common shell layout");
 });
 
-test("desktop inline article banner shares the exact text-column width", () => {
+test("inline article banner shares the exact text-column width", () => {
   const css = read("components/article-detail.module.css");
-  assert.match(css, /@media \(min-width: 768px\) \{\s*\.readingShell :global\(\.article-blocks > \[data-home-banner\^="article-"\]\) \{/);
-  assert.match(css, /\.article-blocks > \[data-home-banner\^="article-"\]\) \{\s*width: 100%;\s*max-width: 100%;\s*margin-inline: 0;/);
+  assert.match(css, /\.readingShell :global\(\.article-blocks > \[data-home-banner\^="article-"\]\) \{\s*width: 100%;\s*max-width: 100%;\s*margin-inline: 0;/);
   assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /compact \? "home-magazine-banner" : "shell home-magazine-banner"/,
     "homepage banners retain the shared shell");
 });
@@ -148,7 +147,7 @@ test("all editorial hub callouts use the same S/M/L banner frame", () => {
   assert.match(section, /<PublicBannerFrame[\s\S]*?as="section"/);
   assert.match(section, /size=\{subpage \? "medium" : "large"\}/);
   assert.match(section, /data-banner-semantic=\{config\.urgent \? "urgent" : undefined\}/);
-  assert.match(section, /className=\{styles\.calloutLayout\}/);
+  assert.match(section, /<PublicBannerContent[\s\S]*?actions=\{config\.actions\.map/);
   assert.match(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(art, /viewBox="0 0 772 545"/);
@@ -193,8 +192,8 @@ test("both themes and every banner size place CTA beneath copy, not in a right c
   const canonical = css.slice(css.indexOf("/* Canonical CTA position:"));
   assert.match(canonical, /\[data-public-banner-content\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important;/);
   assert.match(canonical, /\[data-public-banner-content\] > a\s*\{[^}]*justify-self:\s*start !important;/);
-  assert.match(canonical, /\[class\*="calloutLayout"\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important;/);
+  assert.doesNotMatch(canonical, /calloutLayout|calloutActions/);
   assert.match(canonical, /justify-content:\s*flex-start !important;/);
   assert.match(read("components/content-hub-cta.tsx"), /data-public-banner-actions/);
-  assert.match(read("components/editorial-section.tsx"), /data-public-banner-actions/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /data-public-banner-actions/);
 });

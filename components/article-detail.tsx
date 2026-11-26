@@ -352,7 +352,7 @@ export function ArticleDetail({
               />
               {/* Mobile replaces the sitewide footer ad with one in-reading original Dognet banner. */}
               <div className={styles.mobileAffiliateBanner} data-article-mobile-affiliate-banner>
-                <AffiliateRotatingBanner placement="horizontal" />
+                <AffiliateRotatingBanner placement="horizontal" compact />
               </div>
               {showTakeaway ? (
                 <aside className="takeaway-box" aria-label="To najdôležitejšie">

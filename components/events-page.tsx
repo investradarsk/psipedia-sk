@@ -243,7 +243,9 @@ export async function EventsPage({
               label="Pridať podujatie"
               href="/podujatia/pridat-podujatie"
             />
-            <AffiliateRotatingBanner placement="horizontal" />
+            <div data-affiliate-stacked-fallback>
+              <AffiliateRotatingBanner placement="horizontal" />
+            </div>
             <EventCalendar
               key={listingIdentity}
               filters={filters}
