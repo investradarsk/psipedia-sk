@@ -212,8 +212,8 @@ test(
           // Affiliate creatives are lazy and may be hidden at this viewport.
           // They must not hold the profile-media fixture open. The separate
           // affiliate regression tests cover ad loading and placement.
-          await page.locator("main img:not([data-affiliate-rotating-banner] img)").evaluateAll(
-            (imgs) => Promise.all(imgs.map((img) => {
+          await page.locator("main img").evaluateAll(
+            (imgs) => Promise.all(imgs.filter((img) => !img.closest("[data-affiliate-rotating-banner]")).map((img) => {
               if (img.complete) return;
               // Resolve even on failed external media; the real fallback and
               // decoded nonzero dimensions are asserted below.
