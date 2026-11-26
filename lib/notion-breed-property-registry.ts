@@ -669,7 +669,7 @@ export const BREED_NOTION_SCHEMA = [
 export type BreedNotionEntry = (typeof BREED_NOTION_SCHEMA)[number];
 export type BreedNotionEditableEntry = Extract<BreedNotionEntry,{mode:"content"|"extra"}>;
 export const BREED_NOTION_PRIORITY_FIELDS = BREED_NOTION_SCHEMA
-  .filter(e => e.mode==="content" || e.mode==="extra");
+  .filter(e => (e.mode==="content" || e.mode==="extra") && !["accent"].includes(e.id));
 export const BREED_NOTION_SYSTEM_FIELDS = BREED_NOTION_SCHEMA
   .filter(e => e.mode==="system" || e.mode==="aggregate");
 export function breedNotionByField(field:string) {

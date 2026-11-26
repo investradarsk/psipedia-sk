@@ -207,8 +207,9 @@ test("signed Notion property IDs survive the webhook path to first-edit legacy b
   assert.match(sync, /partialBreedNotionReceipt\(\s*/);
 });
 
-test("93 independent content fields are listed; no identity is in the editable set", () => {
-  assert.equal(BREED_NOTION_EDITABLE_FIELDS.length, 93);
+test("92 independent content fields are listed; no identity or retired accent is in the editable set", () => {
+  assert.equal(BREED_NOTION_EDITABLE_FIELDS.length, 92);
+  assert.ok(!BREED_NOTION_EDITABLE_FIELDS.includes("accent"));
   assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("fciStandard.oci"));
   assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("editorial.healthTip"));
   assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("gallery"));
@@ -242,7 +243,9 @@ test("all 109 Notion Plemená properties have an explicit and unique mapping", (
   assert.equal(BREED_NOTION_SCHEMA.filter((entry) => entry.mode === "extra").length, 5);
   assert.equal(BREED_NOTION_SCHEMA.filter((entry) => entry.mode === "system").length, 9);
   assert.equal(BREED_NOTION_SCHEMA.filter((entry) => entry.mode === "aggregate").length, 2);
-  assert.equal(BREED_NOTION_PRIORITY_FIELDS.length, 98);
+  assert.equal(BREED_NOTION_PRIORITY_FIELDS.length, 97);
+  assert.ok(BREED_NOTION_SCHEMA.some((entry) => entry.id === "accent"));
+  assert.ok(!BREED_NOTION_PRIORITY_FIELDS.some((entry) => entry.id === "accent"));
   assert.ok(
     BREED_NOTION_SCHEMA.some(
       (entry) => entry.id === "fciStandard.oci" && entry.notion === "FCI oči",

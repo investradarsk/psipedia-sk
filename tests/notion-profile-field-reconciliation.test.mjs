@@ -1022,7 +1022,7 @@ test("Breed V2 workcopy never treats absent cells or moderation as editorial edi
   assert.deepEqual(breedWorkcopyObservation([],true),{present:true,value:[]});
   assert.equal(isUnifiedBreedEditorialField("intro"),true);
   assert.equal(isUnifiedBreedEditorialField("controlled.heightMinCm"),true);
-  for(const field of ["id","slug","status","seo.noindex","editorialComplete","relatedBreedIds"])
+  for(const field of ["id","slug","status","seo.noindex","editorialComplete","relatedBreedIds","accent"])
     assert.equal(isUnifiedBreedEditorialField(field),false);
   const {decideUnifiedField}=await import("../lib/notion-unified-field-sync.ts");
   const identity={agenda:"breeds",entityId:"1",pageId:"p",field:"intro"};
@@ -1410,5 +1410,19 @@ test("V2 numbered migrations install and invalidate only the affected record", a
     assert.equal(db.prepare("PRAGMA quick_check").get().quick_check,"ok");
   } finally {
     db.close();
+  }
+});
+
+
+test("Retired visual accent is not an editorial or recovery field", async () => {
+  const { BREED_NOTION_PRIORITY_FIELDS } = await import("../lib/notion-breed-property-registry.ts");
+  const { breedWorkcopyEventValues } = await import("../lib/notion-breed-workcopy-field-values.mjs");
+  assert.equal(BREED_NOTION_PRIORITY_FIELDS.some((field) => field.id === "accent"), false);
+  const page = { properties: { "Farba akcentu": { id: "accent", type: "select", select: { name: "coral" } } } };
+  const schema = [{ notion: "Farba akcentu", id: "accent", type: "select", mode: "content" }];
+  assert.deepEqual(breedWorkcopyEventValues(page, ["accent"], schema, true), { values: [], failures: [] });
+  for (const path of ["../lib/notion-unified-recovery.ts", "../lib/notion-unified-diagnostics.ts"]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /NOT \(agenda=\x27breeds\x27 AND field_key=\x27accent\x27\)/);
   }
 });

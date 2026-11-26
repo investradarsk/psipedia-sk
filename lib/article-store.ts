@@ -276,7 +276,6 @@ type RuntimeBindings = {
 };
 
 const ARTICLE_CATEGORIES = ["Výcvik", "Zdravie", "Výživa", "Život so psom", "Plemená"] as const;
-const ARTICLE_ACCENTS = ["forest", "coral", "gold", "blue"] as const;
 
 function getD1Binding() {
   const runtime = env as unknown as RuntimeBindings;
@@ -384,7 +383,7 @@ function rowToManagedArticle(row: ArticleRow, relatedBreedIds: number[] = [], to
     imageCaption: row.image_caption || undefined,
     imageCredit: row.image_credit || undefined,
     imageCreditUrl: row.image_credit_url || undefined,
-    accent: row.accent as Article["accent"],
+    accent: "forest" as const,
     author: row.author,
     authorProfileId: row.author_profile_id ?? null,
     intro: row.intro,
@@ -431,7 +430,7 @@ function rowToManagedArticleSummary(row: ArticleSummaryRow): ManagedArticleSumma
     portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
     newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
     status: row.status === "published" ? "published" : row.status === "scheduled" ? "scheduled" : "draft",
-    accent: row.accent as Article["accent"],
+    accent: "forest" as const,
     image: row.image_url ?? undefined,
     imageDisplay: normalizeSmartImageMode(row.image_display),
     imageFocusX: row.image_focus_x ?? null,
@@ -463,7 +462,7 @@ function rowToPublishedArticleSummary(row: ArticleSummaryRow): Article {
     imageFocusY: row.image_focus_y ?? null,
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
-    accent: row.accent as Article["accent"],
+    accent: "forest" as const,
     author: "Redakcia Psipedia",
     intro: "",
     takeaway: "",
@@ -498,7 +497,7 @@ function rowToHomepageArticle(row: HomepageArticleRow): Article {
     imageFocusY: row.image_focus_y ?? null,
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
-    accent: row.accent as Article["accent"],
+    accent: "forest" as const,
     author: "Redakcia Psipedia",
     intro: "",
     takeaway: "",
@@ -634,9 +633,7 @@ async function normalizeInput(
   const category = portalSection === "clanky" || !(portalSubpage || portalSection === "novinky")
     ? submittedCategory
     : articleCategoryForPortalPlacement(portalSection, portalSubpage ?? "");
-  const accent = ARTICLE_ACCENTS.includes(payload.accent as (typeof ARTICLE_ACCENTS)[number])
-    ? (payload.accent as Article["accent"])
-    : "forest";
+  const accent = "forest" as const;
   const readingMinutes = Math.min(60, Math.max(1, Math.round(Number(payload.readingMinutes) || 5)));
   const publishedAt = payload.publishedAt ? new Date(payload.publishedAt).toISOString() : null;
   const contentUpdatedAt = payload.contentUpdatedAt ? new Date(payload.contentUpdatedAt).toISOString() : payload.showUpdated ? new Date().toISOString() : null;

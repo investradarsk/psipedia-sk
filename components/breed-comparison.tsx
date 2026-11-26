@@ -50,7 +50,7 @@ function ComparisonValue({
 
 function BreedHeading({ breed }: { breed: BreedComparisonItem }) {
   return (
-    <div className={`compare-breed-heading compare-breed-heading--${breed.accent}`}>
+    <div className="compare-breed-heading compare-breed-heading--forest">
       <BreedPhoto
         className="compare-breed-image"
         src={breed.image}

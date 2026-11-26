@@ -582,7 +582,7 @@ function fromRow(
     goodFor: stringArray(row.good_for_json),
     consider: stringArray(row.consider_json),
     sources: parseArray(row.sources_json, isBreedSource),
-    accent: row.accent as Breed["accent"],
+    accent: "forest" as const,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
@@ -617,7 +617,7 @@ function fromSummaryRow(row: SummaryRow): ManagedBreedSummary {
     origin: row.origin,
     group: row.group_name,
     officialFciName: row.official_fci_name,
-    accent: row.accent as Breed["accent"],
+    accent: "forest" as const,
     intro: row.intro,
     updatedAt: row.updated_at,
     articleRelationCount,
@@ -653,7 +653,7 @@ function fromIndexRow(row: IndexRow): ManagedBreedIndexItem {
     origin: row.origin,
     group: row.group_name,
     officialFciName: row.official_fci_name,
-    accent: row.accent as Breed["accent"],
+    accent: "forest" as const,
     height: publicBreedMeasurement(
       row.height,
       "height",
@@ -831,7 +831,7 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
       origin: row.origin,
       group: row.group_name,
       officialFciName: row.official_fci_name,
-      accent: row.accent as Breed["accent"],
+      accent: "forest" as const,
       height: publicBreedMeasurement(
         row.height,
         "height",
@@ -927,7 +927,7 @@ export async function listPublishedBreedsForComparison(): Promise<BreedCompariso
         fciGroup: row.fci_group,
         fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
         origin: row.origin,
-        accent: row.accent as Breed["accent"],
+        accent: "forest" as const,
         size: publicBreedSize(row.size),
         weight: publicBreedMeasurement(
           row.weight,
@@ -1215,7 +1215,7 @@ export async function getBreedDetailRelations(
       portalSection,
       href: articleHref({ slug: row.slug, portalSection }),
       image: row.image_url,
-      accent: row.accent,
+      accent: "forest" as const,
     };
   });
   const stationTotal = Number(
@@ -1484,9 +1484,7 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEd
     goodFor: strings(input.goodFor),
     consider: strings(input.consider),
     sources,
-    accent: ["forest", "coral", "gold", "blue"].includes(String(input.accent))
-      ? (input.accent as Breed["accent"])
-      : "forest",
+    accent: "forest" as const,
     seo: cleanEditableSeo(input.seo),
     searchText: normalizeBreedSearchText(
       `${name} ${officialFciName} ${text(input.origin, 160)} ${text(input.group, 160)} ${text(input.fciSection, 160)}`,
