@@ -10,7 +10,12 @@ import type { CanonicalSourceRecord, ReconciliationValue } from "./notion-bulk-r
 
 type Agenda="adoptions"|"help-cases"|"lost-found";
 const TABLES={adoptions:"adoption_dogs","help-cases":"help_cases","lost-found":"lost_found_dog_reports"} as const;
-type FieldKind="text"|"number"|"checkbox"|"date";
+type FieldKind="text"|"number"|"checkbox"|"date"|"instant";
+function normalizeHelpObservation(field:string,value:unknown):unknown {
+  if(field!=="Naposledy videný"||typeof value!=="string"||!value.trim())return value;
+  if(!/(Z|[+-]\\d{2}:\\d{2})$/i.test(value))return value;
+  const parsed=new Date(value);return Number.isFinite(parsed.getTime())?parsed.toISOString():value;
+}
 /** Missing, wrong-type and potentially truncated values are observations of
  * absence, never proof of a deletion. Typed false/zero/null stay distinct. */
 export function helpV2NotionObservation(page:Pick<NotionPage,"properties">,field:string,kind:FieldKind):FieldObservation {
@@ -22,11 +27,14 @@ export function helpV2NotionObservation(page:Pick<NotionPage,"properties">,field
     return {present:true,value:p.number};
   }
   if(kind==="checkbox")return type==="checkbox"&&typeof p.checkbox==="boolean"?{present:true,value:p.checkbox}:{present:false};
-  if(kind==="date"){
+  if(kind==="date"||kind==="instant"){
     if(type!=="date")return {present:false};
     if(p.date===null)return {present:true,value:""};
     const date=p.date as {start?:unknown;end?:unknown}|undefined;
-    return typeof date?.start==="string" && !date.end ? {present:true,value:date.start.trim()}:{present:false};
+    if(typeof date?.start!=="string"||date.end)return {present:false};
+    const value=date.start.trim();
+    if(kind==="instant"&&(!/(Z|[+-]\\d{2}:\\d{2})$/i.test(value)||!Number.isFinite(Date.parse(value))))return {present:false};
+    return {present:true,value:normalizeHelpObservation(field,value)};
   }
   if(type==="title"||type==="rich_text"){
     const parts=p[type];
@@ -74,7 +82,7 @@ async function observe(input:Adapter,field:string,kind:FieldKind,slugChange:bool
   if(currentMapping?.notion_page_id!==pageId||currentMapping.content_hash!==mapping.content_hash||
     await isAdminNotionSyncLocked(database,agenda,entityId)||await notionPageIsTombstoned(database,pageId))throw Error("HELP_V2_SCOPE_CHANGED");
   const notion=helpV2NotionObservation(page,field,kind);
-  const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:source.properties[field]}:{present:false};
+  const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:normalizeHelpObservation(field,source.properties[field])}:{present:false};
   return {page,source,mapping,revision:before.updated_at,status:before.status,notion,psipedia};
 }
 
@@ -84,7 +92,9 @@ async function observe(input:Adapter,field:string,kind:FieldKind,slugChange:bool
 export async function syncHelpV2Fields(input:Adapter){
   const {database,agenda,entityId,pageId,direction}=input;
   const fields=[...new Set(input.fields)];
-  if(direction==="push"&&fields.includes("Slug"))fields.splice(0,0,...fields.splice(fields.indexOf("Slug"),1));
+  if(direction==="push")for(const key of ["Slug",...(agenda==="lost-found"?["Typ"]:[])]){
+    if(fields.includes(key))fields.splice(0,0,...fields.splice(fields.indexOf(key),1));
+  }
   let pulled=0,pushed=0;
   const failed:string[]=[];
   for(const field of fields){
@@ -92,14 +102,14 @@ export async function syncHelpV2Fields(input:Adapter){
       const structural=input.protectedFields.has(field),kind=input.kind(field);
       if(!kind)throw Error("HELP_V2_UNKNOWN_FIELD");
       if(structural&&direction==="pull")throw Error("HELP_V2_PROTECTED_FIELD");
-      const slug=direction==="push"&&field==="Slug";
+      const slug=direction==="push"&&(field==="Slug"||(agenda==="lost-found"&&field==="Typ"));
       const observed=await observe(input,field,kind,slug);
       if(observed.status==="ARCHIVED"&&!(structural&&direction==="push"))throw Error("HELP_V2_ARCHIVED");
       const identity={agenda,entityId:String(entityId),pageId,field};
       if(!observed.notion.present||!observed.psipedia.present)throw Error("HELP_V2_MISSING_FIELD");
       const historical=structural?null:await readProfileFieldBaseline({database,agenda,entityId,pageId,expectedHash:observed.mapping.content_hash});
       const reservation=structural?null:await reserveUnifiedField({
-        database,identity,historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:observed.mapping.content_hash}:null,
+        database,identity,historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
         notion:observed.notion,psipedia:observed.psipedia,direction,
         psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision),
       });
