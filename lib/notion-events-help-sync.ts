@@ -1,3 +1,5 @@
+import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
+import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
 import { HELP_CASE_V2_PROTECTED, helpCaseV2Kind } from "./notion-help-case-v2-contract.ts";
 import { updateHelpCaseV2NotionField } from "./help-store.ts";
 import { LOST_FOUND_V2_PROTECTED, lostFoundV2Kind } from "./notion-lost-found-v2-contract.ts";
@@ -2575,4 +2577,28 @@ export async function inspectManualEventsHelpProfile(input:{
     excluded:[...fixedNotionAgendaFields(input.agenda),
       ...(confirmed?["Adresa","Miesto","Mesto","Okres","Kraj"]:[])],
   };
+}
+
+/** Use the canonical target resolver without provisioning or persisting a
+ * replacement target. A missing/moved mapping is a recovery error. */
+export async function recoverEventsHelpV2Field(database:D1Database,bindings:NotionEventsHelpSyncBindings,
+  agenda:Exclude<BidirectionalAgendaKey,"events">,id:number,pageId:string,field:string){
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!enabled(bindings))throw Error("HELP_V2_RECOVERY_DISABLED");
+  const definition=definitions.find(item=>item.key===agenda);
+  if(!definition)throw Error("HELP_V2_RECOVERY_SCOPE");
+  const target=await resolveNotionCanonicalTarget({database,
+    bindings:bindings as NotionEventsHelpSyncBindings & Record<string,unknown>,
+    definition:canonicalTargetDefinition(definition),allowCreate:false,persist:false});
+  if(!target.dataSourceId)throw Error("HELP_V2_RECOVERY_TARGET_MISSING");
+  const scope={database,bindings,entityId:id,pageId,dataSourceId:target.dataSourceId};
+  if(agenda==="organizations"){await recoverOrganizationV2Field(scope,field);return;}
+  if(agenda==="adoptions"){
+    if(!isAdoptionV2Field(field))throw Error("HELP_V2_RECOVERY_SCOPE");
+    const kind=field==="Vek mesiace"||field==="Hmotnosť"?"number":field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":"text";
+    await recoverHelpV2Field({...scope,agenda,load:loadNotionV2Adoptions},field,kind);return;
+  }
+  const protectedFields=agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED;
+  const kind=agenda==="lost-found"?lostFoundV2Kind(field):helpCaseV2Kind(field);
+  if(!kind||protectedFields.has(field))throw Error("HELP_V2_RECOVERY_SCOPE");
+  await recoverHelpV2Field({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases},field,kind);
 }
