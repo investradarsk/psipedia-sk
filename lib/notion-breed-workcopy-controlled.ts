@@ -3,7 +3,7 @@
  * Stores their exact values separately from the historical expert prose in
  * managed_breeds. It only uses the existing 344 ACTIVE work-copy links.
  */
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { breedAdminFieldReceipt } from "./notion-breed-admin-receipts.ts";
 import { planBreedSqlV2FieldWrite } from "./breed-sql-v2-bridge.mjs";
@@ -415,12 +415,21 @@ export async function saveBreedControlledFromAdmin(args:{
   return {...state(latest),rejectedKeys};
 }
 
-export async function recoverControlledBreedV2Field(database:D1Database,bindings:ControlledBreedBindings,id:number,pageId:string,key:string){
+export async function recoverControlledBreedV2Field(database:D1Database,bindings:ControlledBreedBindings,id:number,pageId:string,key:string,direction:"observe"|"pull"="observe"){
   requireNewEngine(bindings);
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!keys.has(key))throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
   const link=await activeLink(database,id);
   if(link.work_notion_page_id!==pageId)throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
-  await reserveControlledV2(database,bindings,link,key,"observe");
+  const planned=await reserveControlledV2(database,bindings,link,key,direction);
+  if(direction==="pull"&&planned.reservation){
+    const fresh=await observeControlledV2(database,bindings,link,key);
+    if(fresh.revision!==planned.revision||fresh.row.revision!==planned.row.revision||!eq(fresh.notion,planned.notion))throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    const value=planned.reservation.value;
+    await commitControlledShadow({database,breedId:id,row:planned.row,values:{...parseBreedControlledValues(planned.row.values_json),[key]:value},notion:{...parseBreedControlledValues(planned.row.notion_values_json),[key]:value},changes:{[key]:value},incomingNotion:true,expectedBreedRevision:planned.revision});
+    const verified=await observeControlledV2(database,bindings,link,key);
+    await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
+  }
 }
 
 export function controlledBreedV2RecoveryFields():string[]{
