@@ -417,6 +417,13 @@ export async function writeBackBreedToWorkCopy(input: {
         assertOwnedPage(fresh, link, input.breed, input.bindings);
         if (fresh.last_edited_time !== page.last_edited_time)
           throw Error("BREED_WORKCOPY_FCI_CONCURRENT_EDIT");
+        if (pilot) {
+          const current = await getManagedBreed(link.breed_id);
+          const active = await getActiveLink(input.database, link.breed_id);
+          if (!current || current.updatedAt !== pilot.revision || active?.work_notion_page_id !== link.work_notion_page_id ||
+              await notionPageIsTombstoned(input.database, link.work_notion_page_id))
+            throw Error("BREED_UNIFIED_REVISION_CHANGED");
+        }
         await notionRequest(input.bindings,
           "/pages/" + encodeURIComponent(link.work_notion_page_id),{
             method:"PATCH",body:JSON.stringify({properties:{
