@@ -2582,7 +2582,7 @@ export async function inspectManualEventsHelpProfile(input:{
 /** Use the canonical target resolver without provisioning or persisting a
  * replacement target. A missing/moved mapping is a recovery error. */
 export async function recoverEventsHelpV2Field(database:D1Database,bindings:NotionEventsHelpSyncBindings,
-  agenda:Exclude<BidirectionalAgendaKey,"events">,id:number,pageId:string,field:string){
+  agenda:Exclude<BidirectionalAgendaKey,"events">,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe"){
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!enabled(bindings))throw Error("HELP_V2_RECOVERY_DISABLED");
   const definition=definitions.find(item=>item.key===agenda);
   if(!definition)throw Error("HELP_V2_RECOVERY_SCOPE");
@@ -2591,6 +2591,25 @@ export async function recoverEventsHelpV2Field(database:D1Database,bindings:Noti
     definition:canonicalTargetDefinition(definition),allowCreate:false,persist:false});
   if(!target.dataSourceId)throw Error("HELP_V2_RECOVERY_TARGET_MISSING");
   const scope={database,bindings,entityId:id,pageId,dataSourceId:target.dataSourceId};
+  if(direction==="pull"){
+    // The explicitly scoped recovery path is not a simulated signed webhook.
+    // Reuse field-only mutation adapters with the same baseline and readback.
+    const unavailable=()=>{throw Error("HELP_V2_RECOVERY_ENCODE_NOT_ALLOWED");};
+    const fields=[field];
+    if(agenda==="organizations"){
+      const result=await syncOrganizationV2Fields({...scope,fields,direction,encode:unavailable});
+      if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
+      return;
+    }
+    if(agenda==="adoptions"){
+      const result=await syncHelpV2Fields({...scope,agenda,load:loadNotionV2Adoptions,fields,direction,protectedFields:new Set(["Slug","Stav"]),kind:key=>key==="Vek mesiace"||key==="Hmotnosť"?"number":key==="Kríženec"?"checkbox":key==="Dátum narodenia"?"date":isAdoptionV2Field(key)?"text":undefined,pull:(key,value,revision)=>updateAdoptionV2NotionField({database,id,pageId,field:key,value,revision}),encode:unavailable});
+      if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
+      return;
+    }
+    const result=await syncHelpV2Fields({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases,fields,direction,protectedFields:agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED,kind:agenda==="lost-found"?lostFoundV2Kind:helpCaseV2Kind,pull:(key,value,revision)=>agenda==="lost-found"?updateLostFoundV2NotionField({database,id,pageId,field:key,value,revision}):updateHelpCaseV2NotionField({database,id,pageId,field:key,value,revision}),encode:unavailable});
+    if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
+    return;
+  }
   if(agenda==="organizations"){await recoverOrganizationV2Field(scope,field);return;}
   if(agenda==="adoptions"){
     if(!isAdoptionV2Field(field))throw Error("HELP_V2_RECOVERY_SCOPE");
