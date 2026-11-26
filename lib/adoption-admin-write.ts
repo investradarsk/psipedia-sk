@@ -1,3 +1,7 @@
+import { commitAdoptionV2AdminEdit, ADOPTION_V2_FIELDS, isAdoptionV2Field, adoptionV2Value } from "./notion-adoption-v2-contract.ts";
+import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
+import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
+import { normalizeAdoptionSearchText } from "./adoption.ts";
 import { env } from "cloudflare:workers";
 import type { ManagedAdoptionInput } from "./adoption.ts";
 import {
@@ -100,6 +104,7 @@ export async function updateAdoptionFromAdmin(
   editorEmail: string,
   expectedUpdatedAt: string,
   database?: AdoptionD1Database,
+  recordUnifiedReceipt = false,
 ) {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new AdoptionConcurrentEditError();
@@ -108,11 +113,85 @@ export async function updateAdoptionFromAdmin(
   if (!existing) return null;
   if (existing.updatedAt !== expectedUpdatedAt) throw new AdoptionConcurrentEditError();
 
-  const prepared = await prepareAdoptionWritePayload(db, payload, editorEmail, existing);
-  const result = await db.prepare(
+  const prepared = await prepareAdoptionWritePayload(db, payload, editorEmail, existing,
+    recordUnifiedReceipt ? new Date(nextHelpV2Revision(expectedUpdatedAt)) : new Date());
+  const statement = db.prepare(
     `UPDATE adoption_dogs SET ${MUTABLE_COLUMNS.map((column) => `${column} = ?`).join(", ")} WHERE id = ? AND updated_at = ?`,
-  ).bind(...writeValues(prepared), id, expectedUpdatedAt).run() as RunResult;
+  ).bind(...writeValues(prepared), id, expectedUpdatedAt);
+  const result = (recordUnifiedReceipt ? await commitAdoptionV2AdminEdit(db,statement,{
+    id,expectedRevision:expectedUpdatedAt,nextRevision:prepared.updatedAt,editor:prepared.updatedBy,
+  }) : await statement.run()) as RunResult;
   const changes = Number(result.meta?.changes ?? result.changes ?? 0);
   if (changes !== 1) throw new AdoptionConcurrentEditError();
   return getAdoptionById(id, db);
+}
+
+/** Narrow V2 Notion import: canonical validator resolves the exact intended
+ * field, but the SQL write cannot change unrelated content, lifecycle,
+ * gallery or freshness metadata. All identity/lock predicates are atomic. */
+export async function updateAdoptionV2NotionField(input:{
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+}) {
+  const {database,id,pageId,field,value,revision}=input;
+  if(!isAdoptionV2Field(field))throw Error("ADOPTION_V2_FIELD_PROTECTED");
+  const existing=await getAdoptionById(id,database);
+  if(!existing || existing.updatedAt!==revision || existing.status==="ARCHIVED")
+    throw Error("ADOPTION_V2_REVISION_CHANGED");
+  const [column,key]=ADOPTION_V2_FIELDS[field];
+  const patch:ManagedAdoptionInput={};
+  if(field==="Plemeno" || field==="Organizácia"){
+    if(typeof value!=="string" || !value.trim())throw Error("ADOPTION_V2_RELATION_INVALID");
+    const table=field==="Plemeno"?"managed_breeds":"help_organizations";
+    const rows=await database.prepare("SELECT id,name,slug FROM "+table+" WHERE lower(trim(name))=lower(trim(?))"+
+      (field==="Organizácia"?" AND archived_at IS NULL":"")+" ORDER BY id LIMIT 2").bind(value).all<{id:number;name:string;slug:string}>();
+    if(rows.results.length>1)throw Error("ADOPTION_V2_RELATION_AMBIGUOUS");
+    const target=rows.results[0];
+    // A typed Notion name must not silently unlink an existing canonical
+    // relationship just because its new label cannot be resolved.
+    if(!target && (field==="Plemeno"?existing.breedId:existing.organizationId))
+      throw Error("ADOPTION_V2_RELATION_UNRESOLVED");
+    if(field==="Plemeno"){patch.breedId=target?.id??null;patch.breedName=value;}
+    else{patch.organizationId=target?.id??null;patch.organizationName=value;patch.organizationSlug=target?.slug??null;}
+  }else if(field==="Hlavný obrázok URL"){
+    if(typeof value!=="string")throw Error("ADOPTION_V2_IMAGE_INVALID");
+    patch.mainImage=value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
+  }else{
+    // The canonical normalizer validates enums, URL, date and numeric ranges.
+    Object.assign(patch,{[key]:value});
+  }
+  const prepared=await prepareAdoptionWritePayload(database,patch,"notion-events-help-sync@psipedia.sk",existing,new Date(nextHelpV2Revision(revision)));
+  const values=Object.fromEntries(MUTABLE_COLUMNS.map((name,index)=>[name,writeValues(prepared)[index]]));
+  if(adoptionV2Value(field,values[column])!==value)throw Error("ADOPTION_V2_NORMALIZATION_REVIEW");
+  const columns:string[]=[column];
+  if(field==="Plemeno")columns.push("breed_id");
+  if(field==="Organizácia")columns.push("organization_id","organization_slug");
+  if(field==="Hlavný obrázok URL")columns.push("thumbnail_display_json","detail_display_json");
+  // Search projection must reflect exactly the cells that will be committed,
+  // not normalization of unrelated old fields from the form.
+  const searchColumns=["name","breed_name","color","region","district","city","organization_name","short_description","temperament"];
+  const raw=await database.prepare("SELECT "+searchColumns.join(",")+" FROM adoption_dogs WHERE id=? AND updated_at=?")
+    .bind(id,revision).first<Record<string,string|null>>();
+  if(!raw)throw Error("ADOPTION_V2_REVISION_CHANGED");
+  if(searchColumns.includes(column)){
+    values.search_text=normalizeAdoptionSearchText(searchColumns.map(name=>name===column?String(values[name]??""):raw[name]));
+    columns.push("search_text");
+  }
+  columns.push("updated_at","updated_by");
+  let relationGuard="",relationArgs:unknown[]=[];
+  if(field==="Plemeno" && prepared.breedId!==null){
+    relationGuard=" AND EXISTS(SELECT 1 FROM managed_breeds WHERE id=? AND name=?)";
+    relationArgs=[prepared.breedId,prepared.breedName];
+  }
+  if(field==="Organizácia" && prepared.organizationId!==null){
+    relationGuard=" AND EXISTS(SELECT 1 FROM help_organizations WHERE id=? AND name=? AND slug IS ? AND archived_at IS NULL)";
+    relationArgs=[prepared.organizationId,prepared.organizationName,prepared.organizationSlug];
+  }
+  const result=await database.prepare("UPDATE adoption_dogs SET "+columns.map(c=>c+"=?").join(",")+
+    " WHERE id=? AND updated_at=? AND status<>'ARCHIVED' "+
+    "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ADOPTION' AND entity_id=adoption_dogs.id) "+
+    "AND NOT "+partnerReviewOwnerSql("ADOPTION","adoption_dogs.id")+" "+
+    "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='adoptions' AND record_id=adoption_dogs.id) "+
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='adoptions' AND entity_id=adoption_dogs.id AND notion_page_id=?)"+relationGuard)
+    .bind(...columns.map(c=>values[c]),id,revision,pageId,...relationArgs).run();
+  if(result.meta.changes!==1)throw Error("ADOPTION_V2_WRITE_CONFLICT");
 }
