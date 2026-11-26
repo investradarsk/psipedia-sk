@@ -43,7 +43,7 @@ function ContactLink({
       target={external ? "_blank" : undefined}
       rel={external ? "noreferrer" : undefined}
     >
-      {value}{external ? " ↗" : ""}
+      {value}
     </a>
   );
 }
