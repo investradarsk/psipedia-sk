@@ -369,9 +369,9 @@ export async function saveBreedControlledFromAdmin(args:{
       await verifyPage(page,link,args.bindings);
       const remote=readBreedControlledNotionPage(page,[key]);
       if (remote.errors.length) throw Error("BREED_CONTROLLED_REMOTE_INVALID");
-      if (!pilot && !eq(remote.values[key],notion[key]))
+      if (!pilot && !eq((remote.values as Record<string,unknown>)[key],notion[key]))
         throw Error("BREED_CONTROLLED_REMOTE_CHANGED");
-      if (!eq(remote.values[key],values[key])) {
+      if (!eq((remote.values as Record<string,unknown>)[key],values[key])) {
         // Notion has no field-level CAS. Recheck the page revision and exact
         // target cell immediately before PATCH; unrelated concurrent edits
         // are deferred instead of risking a lost update.
@@ -380,7 +380,7 @@ export async function saveBreedControlledFromAdmin(args:{
         await verifyPage(preflight,link,args.bindings);
         const latestCell=readBreedControlledNotionPage(preflight,[key]);
         if (preflight.last_edited_time!==page.last_edited_time ||
-            latestCell.errors.length || !eq(latestCell.values[key],pilot ? remote.values[key] : notion[key]))
+            latestCell.errors.length || !eq((latestCell.values as Record<string,unknown>)[key],pilot ? (remote.values as Record<string,unknown>)[key] : notion[key]))
           throw Error("BREED_CONTROLLED_CONCURRENT_NOTION_EDIT");
         if(pilot){
           const current=await getManagedBreed(link.breed_id);
@@ -398,7 +398,7 @@ export async function saveBreedControlledFromAdmin(args:{
         "/pages/"+encodeURIComponent(link.work_notion_page_id));
       await verifyPage(confirmed,link,args.bindings);
       const check=readBreedControlledNotionPage(confirmed,[key]);
-      if (check.errors.length || !eq(check.values[key],values[key]))
+      if (check.errors.length || !eq((check.values as Record<string,unknown>)[key],values[key]))
         throw Error("BREED_CONTROLLED_WRITE_NOT_CONFIRMED");
       if(pilot?.reservation){
         const fresh=await observeControlledV2(args.database,args.bindings,link,key);

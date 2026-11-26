@@ -192,9 +192,7 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
     const row=await db.prepare("SELECT notion_page_id FROM "+map.table+" WHERE "+map.entity+"=? LIMIT 1")
       .bind(id).first<{notion_page_id:string}>();
     if (!row?.notion_page_id) return [];
-    const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:
-      kind==="events"?bindings.NOTION_EVENTS_DATA_SOURCE_ID:
-      kind==="breeds"?bindings.NOTION_BREEDS_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
+    const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
     return [{pageId:row.notion_page_id,sourceId:clean(source)}];
   }
   const agenda=specs[kind].agenda;
@@ -204,7 +202,7 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
   if (!mapping?.notion_page_id) return [];
   const target=await db.prepare("SELECT data_source_id FROM notion_agenda_targets WHERE agenda=? LIMIT 1")
     .bind(agenda).first<{data_source_id:string}>();
-  const source=kind==="events"?(bindings.NOTION_EVENTS_DATA_SOURCE_ID||target?.data_source_id):target?.data_source_id;
+  const source=target?.data_source_id;
   return [{pageId:mapping.notion_page_id,sourceId:clean(source)}];
 }
 async function tombstone(db:D1Database,kind:RecordKind,id:number) {
