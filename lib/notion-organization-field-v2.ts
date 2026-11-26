@@ -39,7 +39,7 @@ export function organizationNotionObservation(page: NotionPage, field: string): 
   }
   return {present:false};
 }
-type Scope = { database: D1Database; bindings: NotionSyncBindings; entityId:number; pageId:string; dataSourceId:string };
+export type OrganizationV2Scope = { database: D1Database; bindings: NotionSyncBindings; entityId:number; pageId:string; dataSourceId:string };
 type LocationRow = {id:number;role:string;label:string;address:string;city:string;district:string;region:string;country_code:string;is_primary:number;sort_order:number;google_current:number};
 const selectedLocationSql = "SELECT id FROM organization_locations WHERE organization_id=? "+
   "ORDER BY CASE WHEN role='SITE' THEN 0 ELSE 1 END,is_primary DESC,sort_order,id LIMIT 1";
@@ -51,7 +51,7 @@ async function readLocation(database:D1Database,entityId:number) {
     currentGoogleSql+" AS google_current FROM organization_locations WHERE id=("+selectedLocationSql+")")
     .bind(entityId).first<LocationRow>();
 }
-async function observe(input: Scope, field: string, allowSlugChange: boolean) {
+async function observe(input: OrganizationV2Scope, field: string, allowSlugChange: boolean) {
   const {database,bindings,entityId,pageId,dataSourceId}=input;
   if(await isAdminNotionSyncLocked(database,"organizations",entityId) || await notionPageIsTombstoned(database,pageId))
     throw Error("ORGANIZATION_V2_LOCKED");
@@ -76,7 +76,7 @@ async function observe(input: Scope, field: string, allowSlugChange: boolean) {
     psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:source.properties[field]} : {present:false as const}};
 }
 
-async function pullScalar(input:Scope,field:string,value:unknown,revision:string) {
+async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string) {
   if(!isOrganizationV2Field(field))throw Error("ORGANIZATION_V2_FIELD_PROTECTED");
   const normalized=normalizeOrganizationNotionField(field,value);
   // URL normalization is allowed only when it does not silently change the
@@ -95,7 +95,7 @@ async function pullScalar(input:Scope,field:string,value:unknown,revision:string
   if(result.meta.changes!==1)throw Error("ORGANIZATION_V2_WRITE_CONFLICT");
 }
 
-async function pullLocation(input:Scope,field:string,value:unknown,observed:Awaited<ReturnType<typeof observe>>) {
+async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown,observed:Awaited<ReturnType<typeof observe>>) {
   if(!isOrganizationLocationV2Field(field) || typeof value!=="string" || !value.trim())throw Error("ORGANIZATION_V2_LOCATION_INVALID");
   if(observed.location?.google_current)throw Error("ORGANIZATION_V2_GOOGLE_LOCATION_LOCKED");
   const {database,entityId,pageId}=input;
@@ -131,7 +131,7 @@ async function pullLocation(input:Scope,field:string,value:unknown,observed:Awai
   await reconcileGeoAfterSourceMutation({targetType:"ORGANIZATION_LOCATION",targetId:id,actorRef:ACTOR,actorType:"SYSTEM"},database);
 }
 
-export async function syncOrganizationV2Fields(input:Scope & {
+export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
   fields:readonly string[]; direction:"pull"|"push";
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>;
 }) {
@@ -195,4 +195,16 @@ export async function syncOrganizationV2Fields(input:Scope & {
     }
   }
   return {pulled,pushed,failed};
+}
+
+export async function recoverOrganizationV2Field(input:OrganizationV2Scope,field:string){
+  if(!isOrganizationV2Field(field)&&!isOrganizationLocationV2Field(field))throw Error("ORGANIZATION_V2_RECOVERY_SCOPE");
+  const observed=await observe(input,field,false);
+  if(observed.archived||observed.location?.google_current)throw Error("ORGANIZATION_V2_RECOVERY_PROTECTED");
+  const {database,entityId,pageId}=input;
+  const historical=await readProfileFieldBaseline({database,agenda:"organizations",entityId,pageId,expectedHash:observed.mapping.content_hash});
+  const identity={agenda:"organizations" as const,entityId:String(entityId),pageId,field};
+  await reserveUnifiedField({database,identity,direction:"observe",notion:observed.notion,psipedia:observed.psipedia,
+    historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:observed.mapping.content_hash}:null,
+    psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision)});
 }
