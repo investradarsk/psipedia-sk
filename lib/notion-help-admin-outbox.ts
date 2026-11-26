@@ -175,7 +175,9 @@ export async function retryOneHelpNotionWriteback(input: {
       return "review";
     }
     // Prevent an older queued edit from overwriting a newer Admin or Notion value.
-    if (Object.entries(fields).some(([name,field])=>!same(agenda,name,source.properties[name],field.after))) {
+    const unifiedHelp=(agenda==="organizations"||agenda==="adoptions") && bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";
+    const staleFields=Object.entries(fields).filter(([name,field])=>!same(agenda,name,source.properties[name],field.after)).map(([name])=>name);
+    if (!unifiedHelp && staleFields.length) {
       await finish(database,row,"REVIEW","ADMIN_FIELD_CHANGED");
       return "review";
     }
@@ -186,8 +188,7 @@ export async function retryOneHelpNotionWriteback(input: {
     }
     // V2 resolves each organization's remote observation against its verified
     // field baseline, not the record-wide legacy before/after precheck.
-    const unifiedOrganization=agenda==="organizations" && bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";
-    if (!unifiedOrganization && Object.entries(fields).some(([name,field])=>{
+    if (!unifiedHelp && Object.entries(fields).some(([name,field])=>{
       const remote=pageProperty(page,name);
       return !same(agenda,name,remote,field.before) && !same(agenda,name,remote,field.after) &&
         !(agenda === "lost-found" && canonicalLostFoundChangeCanBackfill(name,remote,field.after));
@@ -195,10 +196,15 @@ export async function retryOneHelpNotionWriteback(input: {
       await finish(database,row,"REVIEW","NOTION_FIELD_CHANGED");
       return "review";
     }
-    const result=await syncOneAdminHelpRecord({
+    const eligibleFields=unifiedHelp ? Object.keys(fields).filter(name=>!staleFields.includes(name)) : Object.keys(fields);
+    const result=eligibleFields.length ? await syncOneAdminHelpRecord({
       database, bindings, agenda, entityId,
-      changedHelpFields:Object.keys(fields),
-    });
+      changedHelpFields:eligibleFields,
+    }) : "synced";
+    if(unifiedHelp && staleFields.length){
+      await finish(database,row,"REVIEW","ADMIN_FIELD_CHANGED");
+      return "review";
+    }
     if (result==="synced") {
       const deleted=await database.prepare(
         "DELETE FROM notion_help_admin_writeback_outbox " +
