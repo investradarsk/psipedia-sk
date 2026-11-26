@@ -1014,3 +1014,19 @@ test("V2 Directory structured sets retain populated values when Notion is blank"
     assert.equal(decideUnifiedField({identity,baseline,notion:observe(["new"]),psipedia:observe(["previous"])}).action,"pull");
   }
 });
+
+test("Breed V2 workcopy never treats absent cells or moderation as editorial edits", async () => {
+  const {breedWorkcopyObservation,isUnifiedBreedEditorialField}=await import("../lib/notion-breed-unified-policy.ts");
+  assert.deepEqual(breedWorkcopyObservation("",false),{present:false});
+  assert.deepEqual(breedWorkcopyObservation(undefined,true),{present:false});
+  assert.deepEqual(breedWorkcopyObservation([],true),{present:true,value:[]});
+  assert.equal(isUnifiedBreedEditorialField("intro"),true);
+  assert.equal(isUnifiedBreedEditorialField("controlled.heightMinCm"),true);
+  for(const field of ["id","slug","status","seo.noindex","editorialComplete","relatedBreedIds"])
+    assert.equal(isUnifiedBreedEditorialField(field),false);
+  const {decideUnifiedField}=await import("../lib/notion-unified-field-sync.ts");
+  const identity={agenda:"breeds",entityId:"1",pageId:"p",field:"intro"};
+  const present=value=>({present:true,value});
+  assert.equal(decideUnifiedField({identity,baseline:null,notion:present("remote"),psipedia:present("SQL")}).reason,"BASELINE_UNAVAILABLE");
+  assert.equal(decideUnifiedField({identity,baseline:{value:"old",version:"1"},notion:present(""),psipedia:present("old")}).reason,"UNVERIFIED_NOTION_CLEAR");
+});
