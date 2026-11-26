@@ -1,4 +1,4 @@
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { breedWorkcopyObservation, isUnifiedBreedEditorialField } from "./notion-breed-unified-policy.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
@@ -506,12 +506,20 @@ export async function inspectManualBreedWorkCopyProfile(input: {
   return {notion,admin,excluded:[...excluded]};
 }
 
-export async function recoverBreedV2Field(database:D1Database,bindings:BreedWorkCopyBindings,id:number,pageId:string,field:string){
+export async function recoverBreedV2Field(database:D1Database,bindings:BreedWorkCopyBindings,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe"){
   if(!unifiedBreedEnabled(bindings)||!requireWorkCopyOnly(bindings))throw Error("BREED_V2_RECOVERY_DISABLED");
   const link=await getActiveLink(database,id);
   if(!link||link.work_notion_page_id!==pageId)throw Error("BREED_V2_RECOVERY_SCOPE");
   if(!BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField)&&field!=="fciNumber")throw Error("BREED_V2_RECOVERY_SCOPE");
-  await reserveBreedField(database,bindings,link,field,"observe");
+  const planned=await reserveBreedField(database,bindings,link,field,direction);
+  if(direction==="pull"&&planned.reservation){
+    const fresh=await observeUnifiedBreedField(database,bindings,link,field);
+    if(fresh.revision!==planned.revision||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision});
+    const verified=await observeUnifiedBreedField(database,bindings,link,field);
+    await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
+  }
 }
 
 export function breedV2RecoveryFields():string[]{
