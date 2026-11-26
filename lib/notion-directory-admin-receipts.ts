@@ -14,12 +14,12 @@ const seoFields = {
   canonicalUrl: "canonical_url", ogTitle: "og_title", ogDescription: "og_description",
   ogImage: "og_image_url",
 } as const;
-const projection = "json_object(" + [
+const scalarProjection = [
   ...Object.entries(scalarFields).map(([key, column]) => "'" + key + "',COALESCE(p." + column + ",'')"),
   ...Object.entries(seoFields).map(([key, column]) => "'seo." + key + "',COALESCE(s." + column + ",'')"),
   "'qualifications',json((SELECT json_group_array(qualification_text) FROM (SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=p.id ORDER BY item_order)))",
   "'additionalCategories',json((SELECT json_group_array(category) FROM (SELECT category FROM directory_profile_additional_categories WHERE profile_id=p.id ORDER BY category)))",
-].join(",") + ")";
+];
 const supported = new Set<string>([
   ...Object.keys(scalarFields), ...Object.keys(seoFields).map(k => "seo." + k), "qualifications", "additionalCategories",
 ]);
@@ -27,16 +27,24 @@ const supported = new Set<string>([
 export function planDirectoryAdminReceipts(database: D1Database, input: {
   id: number; expectedRevision: string; nextRevision: string; editor: string;
   fields: readonly (BreederEditorialField | "additionalCategories")[];
+  /** SQL expressions come exclusively from server-owned registry/column allowlists. */
+  structured?: readonly { key: string; expression: string; bindings: readonly (string | number)[] }[];
 }): { before: D1PreparedStatement[]; after: D1PreparedStatement[] } {
   const fields = [...new Set(input.fields)].filter(field => supported.has(field) && (field === "additionalCategories" || BREEDER_EDITORIAL_PATHS.includes(field)));
-  if (!fields.length) return { before: [], after: [] };
+  const structured = input.structured ?? [];
+  if (!fields.length && !structured.length) return { before: [], after: [] };
+  const keys = [...fields, ...structured.map(field => field.key)];
+  const projection = "json_object(" + [...scalarProjection,
+    ...structured.map(field => "?," + field.expression),
+  ].join(",") + ")";
+  const projectionBindings = structured.flatMap(field => [field.key, ...field.bindings]);
   const editId = crypto.randomUUID();
   const before = database.prepare(
     "INSERT INTO notion_directory_admin_edit_intent(edit_id,entity_id,notion_page_id,baseline_json,fields_json) " +
     "SELECT ?,p.id,m.notion_page_id," + projection + ",? FROM directory_profiles p " +
     "JOIN directory_notion_sync m ON m.directory_profile_id=p.id " +
     "LEFT JOIN directory_profile_seo s ON s.profile_id=p.id WHERE p.id=? AND p.updated_at=?",
-  ).bind(editId, JSON.stringify(fields), input.id, input.expectedRevision);
+  ).bind(editId, ...projectionBindings, JSON.stringify(keys), input.id, input.expectedRevision);
   const after = database.prepare(
     "INSERT INTO notion_unified_admin_field_edits(agenda,entity_id,notion_page_id,field_key,edit_id,baseline_version,canonical_revision,observed_at,value_json,explicit_clear) " +
     "SELECT 'directory',CAST(p.id AS TEXT),m.notion_page_id,n.key,i.edit_id||':'||n.key," +
@@ -55,6 +63,6 @@ export function planDirectoryAdminReceipts(database: D1Database, input: {
     "ON CONFLICT(agenda,entity_id,notion_page_id,field_key) DO UPDATE SET " +
     "edit_id=excluded.edit_id,baseline_version=excluded.baseline_version,canonical_revision=excluded.canonical_revision," +
     "observed_at=excluded.observed_at,value_json=excluded.value_json,explicit_clear=excluded.explicit_clear",
-  ).bind(editId, input.nextRevision, input.editor);
+  ).bind(...projectionBindings, editId, input.nextRevision, input.editor);
   return { before: [before], after: [after, database.prepare("DELETE FROM notion_directory_admin_edit_intent WHERE edit_id=?").bind(editId)] };
 }
