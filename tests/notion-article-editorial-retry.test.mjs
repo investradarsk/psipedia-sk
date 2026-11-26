@@ -91,6 +91,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
               calls.push(["sql-first", sql]);
               if (sql.includes("SELECT notion_page_id, article_id, content_hash")) return { ...mapping };
               if (sql.includes("SELECT article_id, content_hash, last_synced_at")) return { ...mapping };
+              if (sql.includes("SELECT breed_id FROM breed_notion_")) return null;
               if (sql.includes("SELECT status, updated_at FROM managed_articles"))
                 return { status: article.status, updated_at: article.updatedAt };
               if (sql.includes("SELECT * FROM article_notion_editorial_outbox")) return journal.deleted ? null : { ...journal };
@@ -313,6 +314,10 @@ for (const status of ["draft", "published"]) {
     h.notion.properties.Stav.select.name = status === "published" ? "Publikované" : "Ready";
     h.notion.properties.Perex = { id: "opaque-perex", rich_text: rich("Samostatný redakčný perex článku.") };
     h.notion.properties["Meta description"].id = "opaque-seo";
+    h.notion.properties["Prepojené plemená"] = {
+      id: "opaque-breeds",
+      relation: [{ id: "b2222222-2222-4222-8222-222222222222" }],
+    };
     h.notion.properties["Zdroj obrázka"].url = "https://example.test/old-photo-source";
     const untouched = {
       takeaway: "Hlavná myšlienka uložená v Admine.",
@@ -380,6 +385,17 @@ for (const status of ["draft", "published"]) {
     assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
     assert.equal(stored.imageKey, local.imageKey);
     assert.deepEqual(stored.relatedBreedIds, [160]);
+    assert.equal(h.calls.some(([method, sql]) =>
+      method === "sql-first" && sql.includes("FROM breed_notion_")), false);
+
+    assert.equal((await send("opaque-breeds")).failed, 1);
+    assert.deepEqual(stored.relatedBreedIds, [160]);
+    h.notion.properties["Prepojené plemená"].relation = [{ id: "invalid-id" }];
+    assert.equal((await send("opaque-breeds")).failed, 1);
+    assert.deepEqual(stored.relatedBreedIds, [160]);
+    h.notion.properties["Prepojené plemená"].relation = [];
+    assert.equal((await send("opaque-breeds")).updated, 1);
+    assert.deepEqual(Array.from(stored.relatedBreedIds), []);
   });
 }
 test("regular Notion article sync retains draft fields maintained by the Admin editor", async () => {

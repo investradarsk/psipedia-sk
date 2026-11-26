@@ -237,15 +237,20 @@ function checkboxProperty(page: NotionPage, name: string) {
 
 
 /** The existing Notion article relation is authoritative only when present and fully read. */
-function notionArticleBreedPageIds(page: NotionPage): string[] | null {
+function notionArticleBreedPageIds(page: NotionPage, requireValidIds = false): string[] | null {
   const property = propertyRecord(page, "Prepojené plemená");
   if (!property) return null; // older schema or inaccessible property: do not erase Admin relations
   if (property.has_more === true) throw new Error("NOTION_ARTICLE_BREED_RELATION_TRUNCATED");
   if (!Array.isArray(property.relation)) throw new Error("NOTION_ARTICLE_BREED_RELATION_INVALID");
-  return [...new Set(property.relation.map((entry) =>
+  const ids = property.relation.map((entry) =>
     entry && typeof entry === "object" && typeof (entry as { id?: unknown }).id === "string"
       ? (entry as { id: string }).id.toLowerCase().replace(/-/g, "") : ""
-  ).filter((id) => /^[a-f0-9]{32}$/.test(id)))];
+  );
+  const valid = ids.filter((id) => /^[a-f0-9]{32}$/.test(id));
+  if (requireValidIds && valid.length !== ids.length) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_INVALID");
+  }
+  return [...new Set(valid)];
 }
 function notionArticleBreedFingerprint(page: NotionPage) {
   const ids = notionArticleBreedPageIds(page);
@@ -254,7 +259,7 @@ function notionArticleBreedFingerprint(page: NotionPage) {
 async function resolveNotionArticleBreedIds(
   database: D1Database, page: NotionPage, existingIds: readonly number[] = [],
 ): Promise<number[]> {
-  const pageIds = notionArticleBreedPageIds(page);
+  const pageIds = notionArticleBreedPageIds(page, true);
   if (pageIds === null) return [...existingIds];
   const resolved: number[] = [];
   for (const pageId of pageIds) {
@@ -2577,11 +2582,12 @@ async function syncOneNotionPage(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
   );
-  const relatedBreedIdsFromNotion = await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
-  // An unrelated Notion body or metadata sweep must not erase Admin's existing relations.
-  // Explicit relation webhook edits (including clearing the relation) remain authoritative.
-  sourcePayload.relatedBreedIds = existing?.relatedBreedIds.length && !signedFields?.has("relatedBreedIds")
-    ? existing.relatedBreedIds : relatedBreedIdsFromNotion;
+  // Do not look up unrelated remote relations for a scoped update. Stale
+  // Notion mappings must not block a change to an independent article field.
+  const preserveBreedIds = existing && !signedFields?.has("relatedBreedIds") &&
+    ((mapping && signedFields !== null) || existing.relatedBreedIds.length > 0);
+  sourcePayload.relatedBreedIds = preserveBreedIds
+    ? existing.relatedBreedIds : await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   // Keep the legacy source projection used in stored receipts. For D1 writes,
