@@ -1284,3 +1284,39 @@ test("V2 observation preserves confirmed baseline generation across review and r
     await assert.rejects(assertUnifiedReservationCurrent(adapter,reservation),/INVALIDATED/);
   }finally{db.close()}
 });
+
+test("V2 manual transfer fence blocks both insertion and update of automatic field reservations", async () => {
+  const {acquireUnifiedManualFence,releaseUnifiedManualFence}=await import("../lib/notion-unified-manual-fence.ts");
+  const {writeUnifiedFieldState,readUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{const x=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}};});db.exec("COMMIT");return results;}
+        catch(error){db.exec("ROLLBACK");throw error;}
+      }
+    };
+    const id={agenda:"directory",entityId:"42",pageId:"page",field:"description"};
+    const snapshot={baselineVersion:"old-version",baseline:"old",notion:"old",psipedia:"old",notionEdit:undefined,psipediaEdit:undefined,status:"SYNCED",reason:null};
+    await writeUnifiedFieldState(adapter,id,null,{...snapshot,status:"PENDING"});
+    await assert.rejects(acquireUnifiedManualFence(adapter,{scope:"directory:veterinari",profile_id:42}),/SCOPE_BUSY/);
+    await writeUnifiedFieldState(adapter,id,1,snapshot);
+    const fence=await acquireUnifiedManualFence(adapter,{scope:"directory:veterinari",profile_id:42});
+    const state=await readUnifiedFieldState(adapter,id);
+    assert.equal(state.reason,"SCOPE_INVALIDATED");
+    assert.equal(state.baseline,undefined);
+    assert.equal(await writeUnifiedFieldState(adapter,id,state.version,snapshot),null);
+    assert.equal(await writeUnifiedFieldState(adapter,{...id,field:"name"},null,snapshot),null);
+    assert.equal(await writeUnifiedFieldState(adapter,{...id,entityId:"43"},null,snapshot),1);
+    await releaseUnifiedManualFence(adapter,fence);
+    const after=await readUnifiedFieldState(adapter,id);
+    assert.ok(after.version>state.version);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_manual_fence").get().n,0);
+    assert.equal(await writeUnifiedFieldState(adapter,id,after.version,snapshot),after.version+1);
+  }finally{db.close()}
+});
