@@ -138,9 +138,10 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
         const key={agenda:cursor.agenda,entityId:String(id),pageId:mapping.page,field:catalog[offset]};
         offset++;
         const existing=await readUnifiedFieldState(database,key);
-        if(!existing){
-          result.seeded++;
-          try{await observe(database,bindings,key);}
+        if(!existing||existing.status==="SYNCED"){
+          if(!existing)result.seeded++;
+          result.checked++;
+          try{const outcome=await recoverOne(database,bindings,{agenda:key.agenda,entity_id:key.entityId,notion_page_id:key.pageId,field_key:key.field});result[outcome]++;}
           catch{result.failed++;}
         }
       }
