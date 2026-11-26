@@ -3,7 +3,7 @@ import type { DogEvent } from "./events.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
 import { getManagedEventById, updateManagedEvent, nextManagedEventUpdatedAt } from "./event-store.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
-import { reserveUnifiedField, confirmUnifiedField, type FieldReservation } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { loadNotionBulkEvents } from "./notion-bulk-sources.ts";
@@ -386,7 +386,16 @@ export async function syncEventAdminFields(input:{
         // All unedited and missing fields remain unchanged.
         if(value===undefined)continue;
         const encoded=encodeValue(value,original);
-        if(sameNotionProperty(original,encoded))continue;
+        if(sameNotionProperty(original,encoded)){
+          if(planned?.reservation)await confirmPilotField(input.database,input.bindings,input.eventId,page.id,path,planned.reservation);
+          continue;
+        }
+        if(planned?.reservation){
+          const fresh=await observePilotField(input.database,input.bindings,input.eventId,page.id,path);
+          if(fresh.revision!==planned.revision||fresh.page.last_edited_time!==planned.page.last_edited_time||
+            JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("EVENT_NOTION_FIELD_CHANGED");
+          await assertUnifiedReservationCurrent(input.database,planned.reservation);
+        }
         // Each PATCH is isolated: a rejected URL must not undo other writes.
         const reply=await patchNotion(input.bindings,page.id,{[name]:encoded});
         if(reply.id!==page.id || !reply.properties?.[name] ||
