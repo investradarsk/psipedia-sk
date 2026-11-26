@@ -18,10 +18,11 @@ const scalarProjection = [
   ...Object.entries(scalarFields).map(([key, column]) => "'" + key + "',COALESCE(p." + column + ",'')"),
   ...Object.entries(seoFields).map(([key, column]) => "'seo." + key + "',COALESCE(s." + column + ",'')"),
   "'qualifications',json((SELECT json_group_array(qualification_text) FROM (SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=p.id ORDER BY item_order)))",
+  "'services',CASE WHEN p.category='treneri' THEN COALESCE((SELECT text_value FROM directory_profile_extra_fields WHERE profile_id=p.id AND field_key='_psipedia_trainer_services_text' AND value_kind='text'),'') ELSE json((SELECT json_group_array(service_text) FROM (SELECT service_text FROM directory_profile_service_texts WHERE profile_id=p.id ORDER BY item_order))) END",
   "'additionalCategories',json((SELECT json_group_array(category) FROM (SELECT category FROM directory_profile_additional_categories WHERE profile_id=p.id ORDER BY category)))",
 ];
 const supported = new Set<string>([
-  ...Object.keys(scalarFields), ...Object.keys(seoFields).map(k => "seo." + k), "qualifications", "additionalCategories",
+  ...Object.keys(scalarFields), ...Object.keys(seoFields).map(k => "seo." + k), "qualifications", "services", "additionalCategories",
 ]);
 
 export function planDirectoryAdminReceipts(database: D1Database, input: {
