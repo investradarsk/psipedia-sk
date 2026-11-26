@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits (
   observed_at TEXT NOT NULL,
   value_json TEXT NOT NULL CHECK (json_valid(value_json)),
   explicit_clear INTEGER NOT NULL CHECK (explicit_clear IN (0,1)),
+  recovery_after TEXT,
   PRIMARY KEY (agenda, entity_id, notion_page_id, field_key)
 );
+CREATE INDEX IF NOT EXISTS notion_unified_admin_edit_recovery ON notion_unified_admin_field_edits(recovery_after,observed_at);
 -- Trigger sees actual OLD/NEW committed values, not submitted form values.
 -- No receipt is created for a failed CAS, an unchanged field, or a sync echo.
 CREATE TRIGGER IF NOT EXISTS notion_event_admin_field_receipt
