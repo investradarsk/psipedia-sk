@@ -1030,3 +1030,43 @@ test("Breed V2 workcopy never treats absent cells or moderation as editorial edi
   assert.equal(decideUnifiedField({identity,baseline:null,notion:present("remote"),psipedia:present("SQL")}).reason,"BASELINE_UNAVAILABLE");
   assert.equal(decideUnifiedField({identity,baseline:{value:"old",version:"1"},notion:present(""),psipedia:present("old")}).reason,"UNVERIFIED_NOTION_CLEAR");
 });
+
+test("V2 organization receipts include actual scalar and canonical location edits only", async () => {
+  const {commitOrganizationAdminEdit,commitOrganizationLocationAdminEdit,ORGANIZATION_V2_COLUMNS}=await import("../lib/notion-organization-admin-receipts.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(ORGANIZATION_V2_COLUMNS),"city","district","region","status","archived_at","updated_at","updated_by"])];
+    db.exec("CREATE TABLE help_organizations(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" TEXT").join(",")+");");
+    db.exec("CREATE TABLE organization_locations(id INTEGER PRIMARY KEY,organization_id INTEGER,role TEXT,city TEXT,district TEXT,region TEXT,is_primary INTEGER,sort_order INTEGER); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const proposal=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(proposal.slice(proposal.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),proposal.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.exec("INSERT INTO help_organizations(id,name,description,public_email,city,status,updated_at,updated_by) VALUES(1,'Old','Keep','contact@example.com','Old town','PUBLISHED','2026-11-25T08:00:00.000Z','admin'); INSERT INTO notion_agenda_sync VALUES('organizations',1,'page','hash'); INSERT INTO organization_locations VALUES(1,1,'SITE','Town','','',1,0);");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const statement=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:statement.all(...args)};
+          const result=statement.run(...args);
+          return {success:true,meta:{changes:Number(result.changes),last_row_id:Number(result.lastInsertRowid)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const before="2026-11-25T08:00:00.000Z",next="2026-11-25T08:00:01.000Z";
+    const mutation=adapter.prepare("UPDATE help_organizations SET name=?,public_email=NULL,updated_at=?,updated_by='admin' WHERE id=1 AND updated_at=?");
+    await assert.rejects(commitOrganizationAdminEdit(adapter,mutation.bind("Wrong",next,"stale"),{id:1,expectedRevision:"stale",nextRevision:next,editor:"admin"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitOrganizationAdminEdit(adapter,mutation.bind("New",next,before),{id:1,expectedRevision:before,nextRevision:next,editor:"admin"});
+    const receipts=()=>Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts()["Názov"],["New",0]);
+    assert.deepEqual(receipts()["Verejný e-mail"],["",1]);
+    assert.equal(receipts()["Popis"],undefined);
+    await commitOrganizationLocationAdminEdit(adapter,adapter.prepare("UPDATE organization_locations SET city=? WHERE id=1").bind("New town"),1,"admin");
+    assert.deepEqual(receipts()["Mesto"],["New town",0]);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    assert.notEqual(db.prepare("SELECT updated_at FROM help_organizations WHERE id=1").get().updated_at,next);
+  } finally {db.close()}
+});
