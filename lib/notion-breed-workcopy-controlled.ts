@@ -426,3 +426,15 @@ export async function recoverControlledBreedV2Field(database:D1Database,bindings
 export function controlledBreedV2RecoveryFields():string[]{
   return [...keys].map(key=>"controlled."+key).sort();
 }
+
+export async function retryControlledBreedV2AdminField(database:D1Database,bindings:ControlledBreedBindings,id:number,pageId:string,key:string){
+  requireNewEngine(bindings);
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!keys.has(key))throw Error("BREED_CONTROLLED_RETRY_SCOPE");
+  const link=await activeLink(database,id);
+  if(link.work_notion_page_id!==pageId)throw Error("BREED_CONTROLLED_RETRY_SCOPE");
+  const row=await record(database,id);
+  if(!row)throw Error("BREED_CONTROLLED_RECORD_MISSING");
+  const values=parseBreedControlledValues(row.values_json);
+  // Existing exact controlled revision means this is a retry, not a new edit.
+  await saveBreedControlledFromAdmin({database,bindings,breedId:id,expectedRevision:row.revision,changes:{[key]:values[key]}});
+}
