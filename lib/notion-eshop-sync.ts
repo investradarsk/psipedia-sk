@@ -1,4 +1,4 @@
-import { ESHOP_V2_FIELDS, observeEshopV2Property, type EshopV2Field } from "./notion-eshop-v2-contract.ts";
+import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
 import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { notionPageIsTombstoned } from "./admin-record-lifecycle";
@@ -1200,7 +1200,10 @@ export async function runNotionEshopSyncSweep(input: {
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
-      await markPageError(input.bindings, page.id, error);
+      if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true") {
+        // Never PATCH error metadata onto an unverified or moved page.
+        console.warn("ESHOP_V2_SYNC_PENDING",page.id,error instanceof Error?error.message:"UNKNOWN");
+      } else await markPageError(input.bindings, page.id, error);
     }
   }
 
