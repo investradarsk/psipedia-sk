@@ -25,6 +25,7 @@ import {
   loadNotionBulkAdoptions,
   loadNotionV2Adoptions,
   loadNotionBulkHelpCases,
+  loadNotionV2HelpCases,
   loadNotionBulkLostFound,
 } from "./notion-bulk-sources.ts";
 import type {
@@ -1186,7 +1187,7 @@ async function syncAgenda(input: {
             : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
           const result=await syncHelpV2Fields({
             database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
-            dataSourceId:target.dataSourceId,load:loadNotionBulkHelpCases,fields,
+            dataSourceId:target.dataSourceId,load:loadNotionV2HelpCases,fields,
             direction:inbound?"pull":"push",protectedFields:HELP_CASE_V2_PROTECTED,
             kind:helpCaseV2Kind,
             pull:(field,value,revision)=>updateHelpCaseV2NotionField({
