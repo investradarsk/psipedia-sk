@@ -6,25 +6,28 @@ import type { AdoptionD1Database, AdoptionD1Statement } from "./adoption-store.t
  * with Organizations. The canonical mutation remains inside the same batch. */
 export async function commitHelpV2AdminEdit(
   database: AdoptionD1Database, statement: AdoptionD1Statement,
-  input: {agenda:"adoptions"|"help-cases"|"lost-found"; table:"adoption_dogs"|"help_cases"|"lost_found_dog_reports";
+  input: {agenda:"adoptions"|"help-cases"|"lost-found"|"eshops"; table:"adoption_dogs"|"help_cases"|"lost_found_dog_reports"|"managed_eshops";
     projection:string; id:number; expectedRevision:string; nextRevision:string; editor:string;
     companionStatements?:readonly D1PreparedStatement[]},
 ) {
   const db=database as unknown as D1Database;
   const editId=crypto.randomUUID();
+  const eshop=input.agenda==="eshops";
+  const mapping=eshop?"eshop_notion_sync":"notion_agenda_sync";
+  const mappingEntity=eshop?"m.eshop_id":"m.entity_id";
   const before=db.prepare(
     "INSERT INTO notion_help_admin_edit_intent(edit_id,agenda,entity_id,notion_page_id,before_json) "+
     "SELECT ?,?,p.id,m.notion_page_id,"+input.projection+" FROM "+input.table+" p "+
-    "JOIN notion_agenda_sync m ON m.agenda=? AND m.entity_id=p.id WHERE p.id=? AND p.updated_at=?"
-  ).bind(editId,input.agenda,input.agenda,input.id,input.expectedRevision);
+    "JOIN "+mapping+" m ON "+mappingEntity+"=p.id "+(eshop?"":"AND m.agenda=? ")+"WHERE p.id=? AND p.updated_at=?"
+  ).bind(editId,input.agenda,...(eshop?[]:[input.agenda]),input.id,input.expectedRevision);
   const after=db.prepare(
     "INSERT INTO notion_unified_admin_field_edits(agenda,entity_id,notion_page_id,field_key,edit_id,baseline_version,canonical_revision,observed_at,value_json,explicit_clear) "+
     "SELECT i.agenda,CAST(p.id AS TEXT),m.notion_page_id,n.key,i.edit_id||':'||n.key,COALESCE(CAST(fs.version AS TEXT),m.content_hash),"+
     "p.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"+
-    "CASE n.type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' ELSE json_quote(n.value) END,"+
-    "CASE WHEN n.value IS NULL OR (n.type='text' AND n.value='') THEN 1 ELSE 0 END "+
+    "CASE n.type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' WHEN 'array' THEN json(n.value) ELSE json_quote(n.value) END,"+
+    "CASE WHEN n.value IS NULL OR (n.type='text' AND n.value='') OR (n.type='array' AND n.value='[]') THEN 1 ELSE 0 END "+
     "FROM notion_help_admin_edit_intent i JOIN "+input.table+" p ON p.id=i.entity_id "+
-    "JOIN notion_agenda_sync m ON m.agenda=i.agenda AND m.entity_id=p.id AND m.notion_page_id=i.notion_page_id "+
+    "JOIN "+mapping+" m ON "+mappingEntity+"=p.id AND m.notion_page_id=i.notion_page_id "+(eshop?"":"AND m.agenda=i.agenda ")+
     "JOIN json_each("+input.projection+") n JOIN json_each(i.before_json) o ON o.key=n.key "+
     "LEFT JOIN notion_unified_field_state fs ON fs.agenda=i.agenda AND fs.entity_id=CAST(p.id AS TEXT) AND fs.notion_page_id=m.notion_page_id AND fs.field_key=n.key "+
     "WHERE i.edit_id=? AND i.agenda=? AND p.updated_at=? "+
