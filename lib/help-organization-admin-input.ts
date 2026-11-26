@@ -167,3 +167,26 @@ export function organizationAdminInputFromCandidate(
     sourceUrl: organization.sourceUrl,
   };
 }
+
+/** Validate a single Notion editorial field without revalidating unrelated
+ * legacy contacts or media. Identity and publication are not accepted. */
+export function normalizeOrganizationNotionField(field: string, raw: unknown): string | null {
+  const object = { value: raw };
+  switch (field) {
+    case "Názov": return requiredString(object,"value",field,180);
+    case "Právny názov": return stringValue(object,"value",field,240);
+    case "IČO / registračné číslo": return nullableString(object,"value",field,100);
+    case "Krátky popis": return stringValue(object,"value",field,700);
+    case "Popis": return stringValue(object,"value",field,20000);
+    case "Verejný e-mail": return nullableString(object,"value",field,320);
+    case "Verejný telefón": return nullableString(object,"value",field,100);
+    case "Web": case "Facebook": case "Instagram": case "Zdroj dát":
+      return nullableUrl(object,"value",field);
+    case "Hlavný obrázok URL": {
+      const value = typeof raw === "string" && raw.startsWith("https://psipedia.sk/")
+        ? raw.slice("https://psipedia.sk".length) : raw;
+      return nullableUrl({value},"value",field,true);
+    }
+    default: throw new OrganizationAdminValidationError("Pole nie je editovateľné cez Notion.");
+  }
+}
