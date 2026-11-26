@@ -1543,7 +1543,10 @@ async function saveBreederEditorialValue(
       next.postalCode, next.street, next.houseNumber,
     ].join(" ")));
   }
-  const now = new Date().toISOString();
+  if (await directoryProfileNotionSyncLocked(database, current.id))
+    throw Error("DIRECTORY_FIELD_SYNC_LOCKED");
+  const previous = Date.parse(current.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
   const guardedCategory = current.category === "chovatelske-stanice"
     ? "category = 'chovatelske-stanice'" : "category = ?";
   const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
@@ -1838,6 +1841,26 @@ const UNIFIED_DIRECTORY_LOCATION_FIELDS = new Set<BreederEditorialField>([
   "region", "district", "city", "address", "postalCode", "street", "houseNumber", "addressFormat",
 ]);
 
+function directoryUnifiedPropertyPresent(page: NotionPage, path: BreederEditorialField): boolean {
+  const raw = property(page, BREEDER_NOTION_EDITORIAL_FIELDS[path]);
+  if (!raw) return false;
+  if (path === "seo.noindex") return typeof raw.checkbox === "boolean";
+  for (const key of ["title", "rich_text"] as const) {
+    if (Array.isArray(raw[key])) {
+      const items = raw[key] as unknown[];
+      // A capped response is not proof of a complete editable field.
+      return items.length < 25 && items.every(item => item && typeof item === "object" &&
+        typeof (item as Record<string, unknown>).plain_text === "string");
+    }
+  }
+  for (const key of ["url", "email", "phone_number"] as const)
+    if (Object.hasOwn(raw, key)) return raw[key] === null || typeof raw[key] === "string";
+  if (Object.hasOwn(raw, "select"))
+    return raw.select === null || Boolean(raw.select && typeof raw.select === "object" &&
+      typeof (raw.select as Record<string, unknown>).name === "string");
+  return false;
+}
+
 function directoryUnifiedObservation(snapshot: Record<string, unknown> | null,
   path: BreederEditorialField, present = true): FieldObservation {
   const value = snapshot && present ? breederReadPath(snapshot, path) : undefined;
@@ -1874,7 +1897,8 @@ async function syncUnifiedDirectoryEditorialFields(input: {
     const page = await fetchNotionPage(bindings, pageId);
     if (page.id !== pageId || page.archived || page.in_trash ||
         !notionDirectoryPageBelongsToSource(page, sourceId!) ||
-        propertyText(page, "Psipedia ID") !== String(id))
+        propertyText(page, "Psipedia ID") !== String(id) ||
+        propertyText(page, "Kategória") !== current.category)
       throw Error("DIRECTORY_UNIFIED_IDENTITY_MISMATCH");
     const latest = await getManagedDirectoryProfileById(id, database);
     if (!latest || latest.updatedAt !== current.updatedAt ||
@@ -1882,14 +1906,13 @@ async function syncUnifiedDirectoryEditorialFields(input: {
       throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
     const canonical = profileSnapshot(current, sourceImageUrl) as unknown as Record<string, unknown>;
     const remote = notionSnapshot(page) as unknown as Record<string, unknown>;
-    const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
     const confirmedPlace = Boolean(geo?.google_place_id && geo.google_place_source_fingerprint &&
       geo.source_fingerprint && geo.google_place_source_fingerprint === geo.source_fingerprint);
     if (path === "seo.noindex" || (UNIFIED_DIRECTORY_LOCATION_FIELDS.has(path) &&
         (confirmedPlace || current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")))
       throw Error("DIRECTORY_UNIFIED_PROTECTED_FIELD");
     return { current, page, mapping, geo, sourceImageUrl, canonical, remote,
-      notion: directoryUnifiedObservation(remote, path, Object.hasOwn(page.properties ?? {}, key)),
+      notion: directoryUnifiedObservation(remote, path, directoryUnifiedPropertyPresent(page, path)),
       psipedia: directoryUnifiedObservation(canonical, path) };
   }
 
@@ -2626,7 +2649,7 @@ async function syncMappedPage(input: {
     // prose was previously excluded from events. A missing metadata KEY
     // (not an empty value) is the only signal that this field was never
     // initialized. Do not run legacy baseline or overwrite deliberate blanks.
-    if (profile.status !== "archived" &&
+    if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED !== "true" && profile.status !== "archived" &&
         !Object.hasOwn(profile.importData ?? {}, TRAINER_SERVICES_TEXT_METADATA_KEY)) {
       const incoming = notionSnapshot(page);
       if (incoming.services.length) {
@@ -2680,7 +2703,7 @@ async function syncMappedPage(input: {
     if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
       throw new NotionDirectoryUnsafeTargetError("BREEDER_IDENTITY_MISMATCH");
     }
-    if (isDirectoryAdminWritebackEcho(
+    if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED !== "true" && isDirectoryAdminWritebackEcho(
       page.last_edited_time, input.mapping.notion_last_edited_time,
       input.breederWebhookPropertyIds !== undefined,
     )) {
@@ -3783,7 +3806,8 @@ export async function runNotionDirectorySyncSweep(input: {
       if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(page, "Kategória"))) continue;
 
       if (
-        page.last_edited_time
+        input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED !== "true"
+        && page.last_edited_time
         && mapping.notion_last_edited_time
         && page.last_edited_time === mapping.notion_last_edited_time
         && propertyText(page, "Sync hash") === mapping.content_hash
