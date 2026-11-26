@@ -1,3 +1,4 @@
+import { planDirectoryAdminReceipts } from "@/lib/notion-directory-admin-receipts";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
@@ -410,7 +411,11 @@ export async function PUT(request: Request, { params }: Props) {
     // A Notion webhook may update D1 after we read the profile but before
     // the full-form UPDATE. Never overwrite that concurrent revision silently.
     let profile = await updateManagedDirectoryProfile(
-      id, payload, user.email, before, db, { expectedUpdatedAt: before.updatedAt },
+      id, payload, user.email, before, db, {
+        expectedUpdatedAt: before.updatedAt,
+        unifiedEditFields: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true"
+          ? (editedPaths ?? []) : undefined,
+      },
     );
     if (!profile) return Response.json({
       error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
@@ -886,12 +891,20 @@ export async function PATCH(request: Request, { params }: Props) {
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       const breederBefore = await getManagedDirectoryProfileById(id, db);
-      const updated = await db.prepare(`UPDATE directory_profiles
+      const previousTime = Date.parse(typed.expectedUpdatedAt);
+      const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
+      const statement = db.prepare(`UPDATE directory_profiles
         SET name=?1,excerpt=?2,updated_at=?3,updated_by=?4
         WHERE id=?5 AND updated_at=?6 AND status IN ('draft','published')
-        RETURNING id`)
-        .bind(name, excerpt, new Date().toISOString(), user.email, id, typed.expectedUpdatedAt)
-        .first<{ id: number }>();
+        RETURNING id`).bind(name, excerpt, now, user.email, id, typed.expectedUpdatedAt);
+      const unified = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+      const receipt = unified ? planDirectoryAdminReceipts(db, {
+        id, expectedRevision: typed.expectedUpdatedAt, nextRevision: now, editor: user.email,
+        fields: ["name", "excerpt"],
+      }) : { before: [], after: [] };
+      const updated = receipt.before.length
+        ? (await db.batch<{ id: number }>([...receipt.before, statement, ...receipt.after]))[receipt.before.length]?.results?.[0]
+        : await statement.first<{ id: number }>();
       if (!updated) {
         return Response.json({ error: "Profil sa zmenil alebo je archivovaný. Obnov tabuľku." }, { status: 409 });
       }
