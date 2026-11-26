@@ -98,7 +98,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     } }; } };
     const exports = {};
     runInNewContext(js, {
-      exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
+      exports, directoryProfileNotionSyncLocked: async () => false, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
       planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
