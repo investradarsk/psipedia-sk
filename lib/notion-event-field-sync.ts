@@ -418,7 +418,18 @@ export async function syncEventAdminFields(input:{
   }
 }
 
-export async function recoverEventV2Field(database:D1Database,bindings:EventFieldSyncBindings,id:number,pageId:string,field:string) {
+export async function recoverEventV2Field(database:D1Database,bindings:EventFieldSyncBindings,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe") {
   if(!pilotEnabled(bindings)||!available(bindings)||!EVENT_NOTION_PATHS.includes(field as EventNotionField))throw Error("EVENT_V2_RECOVERY_SCOPE");
-  await reservePilotField(database,bindings,id,pageId,field as EventNotionField,"observe");
+  const path=field as EventNotionField;
+  if(EVENT_LOCATION_PATHS.has(path)&&await hasCurrentGooglePlace(database,"MANAGED_EVENT",id))throw Error("EVENT_V2_LOCATION_PROTECTED");
+  const planned=await reservePilotField(database,bindings,id,pageId,path,direction);
+  if(direction==="pull"&&planned.reservation){
+    const fresh=await observePilotField(database,bindings,id,pageId,path);
+    if(fresh.revision!==planned.revision||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("EVENT_NOTION_FIELD_CHANGED");
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    const value=planned.reservation.value;
+    if(typeof value!=="string"&&typeof value!=="boolean")throw Error("EVENT_FIELD_INVALID");
+    await saveField(database,id,path,value,planned.revision);
+    await confirmPilotField(database,bindings,id,pageId,path,planned.reservation);
+  }
 }
