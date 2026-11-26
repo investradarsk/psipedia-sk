@@ -119,6 +119,8 @@ export async function syncProfileCatalogRelation(input:{
  notionExplicitEdit?:boolean;
  /** Only a fresh explicit Admin checkbox save may establish an initial D1→Notion baseline. */
  adminChoiceSave?:boolean;
+ /** V2 disallows clearing populated SQL solely because the Notion relation is empty. */
+ unifiedFieldPolicy?:boolean;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
@@ -165,6 +167,9 @@ export async function syncProfileCatalogRelation(input:{
    if(input.notionExplicitEdit)throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
    if(!input.adminChoiceSave)throw Error("SERVICES_RELATION_UNVERIFIED_INITIAL_PUSH");
  }
+ if(input.unifiedFieldPolicy && !remote.length && local.length &&
+   (previous===null || previous.length>0) && input.notionExplicitEdit)
+   throw Error("SERVICES_RELATION_UNVERIFIED_NOTION_CLEAR");
  const plan=input.notionExplicitEdit
    ?planSignedCatalogRelationSync(local,remote,previous)
    :planCatalogRelationSync(local,remote,previous);
