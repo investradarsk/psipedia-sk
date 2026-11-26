@@ -1,3 +1,4 @@
+import { runNotionUnifiedRecoverySweep } from "../lib/notion-unified-recovery.ts";
 import { observeWorkerResponse } from "../lib/stability-diagnostics.ts";
 import { matchOptionalPublicCache, putOptionalPublicCache } from "../lib/optional-read-recovery.ts";
 import { ensureNoSniffHeader } from "../lib/http-response-security";
@@ -97,6 +98,7 @@ interface Env {
   NOTION_EVENT_SYNC_ENABLED?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
+  NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string;
   NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
   NOTION_GEMINI_22_PRIORITY_A_ENABLED?: string;
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -515,6 +517,11 @@ const worker = {
     // Independent waitUntil means Facebook publication cannot delay or cancel
     // one-record Notion imports. The hourly scan remains a safety net.
     if (controller.cron === "* * * * *") {
+      if(env.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"){
+        _ctx.waitUntil(runNotionUnifiedRecoverySweep({database:env.DB,bindings:env})
+          .then(summary=>console.info(JSON.stringify({event:"notion_unified_recovery",...summary})))
+          .catch(()=>console.error(JSON.stringify({event:"notion_unified_recovery",result:"failed"}))));
+      }
       // Owner-confirmed one-shot queue. OFF by default until part 3,
       // protected migration 0156 and explicit production activation.
       if(pushTaskEnabled(env.NOTION_MANUAL_TRANSFER_ENABLED)){
