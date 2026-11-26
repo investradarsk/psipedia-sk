@@ -1901,7 +1901,7 @@ async function syncUnifiedDirectoryEditorialFields(input: {
   profile: ManagedDirectoryProfile;
   page: NotionPage;
   fields: readonly BreederEditorialField[];
-  direction: "pull" | "push";
+  direction: "pull" | "push" | "observe";
 }): Promise<"pulled" | "pushed" | "unchanged"> {
   const { database, bindings, profile, direction } = input;
   const id = profile.id, pageId = input.page.id;
@@ -2005,7 +2005,7 @@ type UnifiedDirectoryOperationalField =
 async function syncUnifiedDirectoryOperationalFields(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings;
   profileId: number; pageId: string;
-  fields: readonly UnifiedDirectoryOperationalField[]; direction: "pull" | "push";
+  fields: readonly UnifiedDirectoryOperationalField[]; direction: "pull" | "push" | "observe";
 }): Promise<boolean> {
   const { database, bindings, profileId, pageId, direction } = input;
   const sourceId = bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
@@ -2116,7 +2116,7 @@ async function syncUnifiedDirectoryOperationalFields(input: {
  * transport. Unknown names never become a partial or empty selection. */
 async function syncUnifiedDirectoryBreederRelations(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
-  pageId: string; fields: readonly BreederRelationField[]; direction: "pull" | "push";
+  pageId: string; fields: readonly BreederRelationField[]; direction: "pull" | "push" | "observe";
 }): Promise<boolean> {
   const {database, bindings, profileId, pageId, direction} = input;
   const sourceId = bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
@@ -2796,7 +2796,7 @@ async function observeUnifiedDirectoryCategories(
 
 async function reserveUnifiedDirectoryCategories(
   database: D1Database, bindings: NotionDirectorySyncBindings, profileId: number, pageId: string,
-  direction: "pull" | "push",
+  direction: "pull" | "push" | "observe",
 ) {
   const observed = await observeUnifiedDirectoryCategories(database, bindings, profileId, pageId);
   const identity: FieldIdentity = { agenda: "directory", entityId: String(profileId), pageId, field: "additionalCategories" };
@@ -4350,4 +4350,29 @@ export async function inspectManualDirectoryProfile(input:{
       ...(confirmed?["region","district","city","address","postalCode",
         "street","houseNumber","addressFormat"]:[])],
   };
+}
+
+/** Recovery uses the exact same field-scoped observers and does not replay
+ * webhook events or bypass an Admin review lock. */
+export async function recoverDirectoryV2Field(database:D1Database,bindings:NotionDirectorySyncBindings,
+  id:number,pageId:string,field:string) {
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!notionFlagEnabled(bindings.NOTION_DIRECTORY_SYNC_ENABLED))throw Error("DIRECTORY_V2_RECOVERY_DISABLED");
+  if(field==="additionalCategories"){await reserveUnifiedDirectoryCategories(database,bindings,id,pageId,"observe");return;}
+  if(field.startsWith("meta:")){
+    await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction:"observe",fields:[{kind:"meta",field:field.slice(5)}]});return;
+  }
+  if(field.startsWith("facet:")){
+    const [,category,key]=field.split(":");
+    const profile=await getManagedDirectoryProfileById(id,database);
+    if(!profile||profile.category!==category||!key)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
+    await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction:"observe",fields:[{kind:"facet",field:key}]});return;
+  }
+  if(field==="relation:breedIds"||field==="relation:clubIds"){
+    await syncUnifiedDirectoryBreederRelations({database,bindings,profileId:id,pageId,direction:"observe",fields:[field.slice(9) as BreederRelationField]});return;
+  }
+  if(!Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS,field))throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
+  const profile=await getManagedDirectoryProfileById(id,database);
+  if(!profile)throw Error("DIRECTORY_V2_RECOVERY_MISSING");
+  const page=await fetchNotionPage(bindings,pageId);
+  await syncUnifiedDirectoryEditorialFields({database,bindings,profile,page,direction:"observe",fields:[field as BreederEditorialField]});
 }
