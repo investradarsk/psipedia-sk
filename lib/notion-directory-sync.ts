@@ -1647,6 +1647,8 @@ export async function savePilotDirectoryMetadataField(input: {
   value: string;
   expectedValue?: string;
   adminReceiptActor?: string;
+  expectedRevision?: string;
+  fromNotion?: boolean;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !isDirectoryPublicMetadataField(input.field))
@@ -1660,6 +1662,10 @@ export async function savePilotDirectoryMetadataField(input: {
   // at the sync sweep entry points above.
   if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
+  if (input.expectedRevision !== undefined && current.updatedAt !== input.expectedRevision)
+    throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+  if (input.fromNotion && await directoryProfileNotionSyncLocked(input.database, input.profileId))
+    throw Error("DIRECTORY_UNIFIED_LOCKED");
   const currentValue = readDirectoryPublicMetadataValue(current.importData, input.field);
   if (input.expectedValue !== undefined &&
       currentValue !== input.expectedValue.trim() && currentValue !== trimmed) {
@@ -1746,6 +1752,13 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
       !notionDirectoryPageBelongsToSource(page, dataSourceId) ||
       propertyText(page, "Psipedia ID") !== String(input.profileId))
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_PILOT_METADATA_TARGET_INVALID");
+  if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+    return syncUnifiedDirectoryOperationalFields({
+      database: input.database, bindings: input.bindings, profileId: input.profileId, pageId: page.id,
+      fields: PILOT_DIRECTORY_METADATA_FIELDS.filter(field => Object.hasOwn(input.changed, field))
+        .map(field => ({ kind: "meta" as const, field })), direction: "push",
+    });
+  }
   const patch: Record<string, unknown> = {};
   for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
     if (!Object.hasOwn(input.changed, field)) continue;
@@ -1851,9 +1864,13 @@ const UNIFIED_DIRECTORY_LOCATION_FIELDS = new Set<BreederEditorialField>([
 ]);
 
 function directoryUnifiedPropertyPresent(page: NotionPage, path: BreederEditorialField): boolean {
-  const raw = property(page, BREEDER_NOTION_EDITORIAL_FIELDS[path]);
+  return directoryUnifiedRawPropertyPresent(page, BREEDER_NOTION_EDITORIAL_FIELDS[path], path === "seo.noindex");
+}
+
+function directoryUnifiedRawPropertyPresent(page: NotionPage, name: string, checkbox = false): boolean {
+  const raw = property(page, name);
   if (!raw) return false;
-  if (path === "seo.noindex") return typeof raw.checkbox === "boolean";
+  if (checkbox) return typeof raw.checkbox === "boolean";
   for (const key of ["title", "rich_text"] as const) {
     if (Array.isArray(raw[key])) {
       const items = raw[key] as unknown[];
@@ -1975,6 +1992,123 @@ async function syncUnifiedDirectoryEditorialFields(input: {
   return changed ? direction === "pull" ? "pulled" : "pushed" : "unchanged";
 }
 
+type UnifiedDirectoryOperationalField =
+  | { kind: "meta"; field: string }
+  | { kind: "facet"; field: string };
+
+/** Use the same field reservation/confirmation contract for facts and filters.
+ * No historical baseline is invented for properties omitted from the old
+ * editorial hash. Identical live values establish their first safe baseline. */
+async function syncUnifiedDirectoryOperationalFields(input: {
+  database: D1Database; bindings: NotionDirectorySyncBindings;
+  profileId: number; pageId: string;
+  fields: readonly UnifiedDirectoryOperationalField[]; direction: "pull" | "push";
+}): Promise<boolean> {
+  const { database, bindings, profileId, pageId, direction } = input;
+  const sourceId = bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!sourceId) throw Error("DIRECTORY_UNIFIED_SOURCE_MISSING");
+
+  async function observe(item: UnifiedDirectoryOperationalField) {
+    if (await directoryProfileNotionSyncLocked(database, profileId) ||
+        await notionPageMustSkipInboundSync(database, pageId)) throw Error("DIRECTORY_UNIFIED_LOCKED");
+    const mapping = await loadMappingByProfile(database, profileId);
+    const profile = await getManagedDirectoryProfileById(profileId, database);
+    if (!profile || profile.reviewed || profile.status === "archived" ||
+        mapping?.notion_page_id !== pageId) throw Error("DIRECTORY_UNIFIED_MAPPING_CHANGED");
+    const page = await fetchNotionPage(bindings, pageId);
+    if (page.id !== pageId || page.archived || page.in_trash ||
+        !notionDirectoryPageBelongsToSource(page, sourceId!) ||
+        propertyText(page, "Psipedia ID") !== String(profileId) ||
+        propertyText(page, "Kategória") !== profile.category)
+      throw Error("DIRECTORY_UNIFIED_IDENTITY_MISMATCH");
+    let key: string, remote: string | null, local: string | null, fieldKey: string;
+    if (item.kind === "meta") {
+      key = item.field;
+      if (!PILOT_DIRECTORY_METADATA_FIELDS.includes(key) || !isDirectoryPublicMetadataField(key) ||
+          !directoryUnifiedRawPropertyPresent(page, key)) throw Error("DIRECTORY_UNIFIED_METADATA_SCHEMA");
+      if (DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(key) && key !== "Ordinačné hodiny" &&
+          !Array.isArray(property(page, key)?.rich_text)) throw Error("DIRECTORY_UNIFIED_METADATA_SCHEMA");
+      fieldKey = "meta:" + key;
+      remote = propertyText(page, key);
+      local = readDirectoryPublicMetadataValue(profile.importData, key);
+    } else {
+      const def = getDirectoryFilterDefinition(item.field);
+      if (!def || def.category !== profile.category) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+      key = breederFacetNotionProperties[item.field];
+      if (!key || !directoryUnifiedRawPropertyPresent(page, key) || !Object.hasOwn(property(page, key) ?? {}, "select"))
+        throw Error("DIRECTORY_UNIFIED_FILTER_SCHEMA");
+      fieldKey = "facet:" + profile.category + ":" + item.field;
+      const selected = propertyText(page, key);
+      const normalized = selected ? normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected)) : null;
+      if (normalized && normalized.status !== "known") throw Error("DIRECTORY_UNIFIED_FILTER_VALUE");
+      remote = normalized?.status === "known" ? normalized.value : null;
+      const row = await database.prepare(
+        "SELECT value_text FROM directory_profile_filter_values WHERE profile_id=? AND category=? AND filter_id=?",
+      ).bind(profileId, profile.category, item.field).first<{value_text:string}>();
+      local = row?.value_text ?? null;
+    }
+    const fresh = await getManagedDirectoryProfileById(profileId, database);
+    if (!fresh || fresh.updatedAt !== profile.updatedAt ||
+        await directoryProfileNotionSyncLocked(database, profileId)) throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+    const identity: FieldIdentity = { agenda: "directory", entityId: String(profileId), pageId, field: fieldKey };
+    return { profile, page, key, identity,
+      notion: { present: true as const, value: remote },
+      psipedia: { present: true as const, value: local } };
+  }
+
+  let changed = false;
+  const failures: string[] = [];
+  for (const field of input.fields) {
+    try {
+      const observed = await observe(field);
+      const receipt = await readUnifiedAdminEdit(database, observed.identity, observed.profile.updatedAt);
+      const reservation = await reserveUnifiedField({
+        database, identity: observed.identity, historicalBaseline: null,
+        notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction,
+      });
+      if (!reservation) continue;
+      const live = await observe(field);
+      if (live.profile.updatedAt !== observed.profile.updatedAt ||
+          live.notion.value !== observed.notion.value || live.psipedia.value !== observed.psipedia.value)
+        throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+      if (direction === "pull") {
+        if (field.kind === "meta") {
+          if (typeof live.notion.value !== "string") throw Error("DIRECTORY_UNIFIED_METADATA_VALUE");
+          await savePilotDirectoryMetadataField({ database, profileId, category: live.profile.category,
+            field: field.field, value: live.notion.value, expectedValue: live.psipedia.value ?? "",
+            expectedRevision: live.profile.updatedAt, fromNotion: true });
+        } else {
+          const previous = Date.parse(live.profile.updatedAt);
+          const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
+          const canonical = database.prepare(
+            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id",
+          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt);
+          const mirror = planDirectory0170FilterSqlMirror({ profileId,
+            category: live.profile.category as ServiceFilterCategory,
+            values: { [field.field]: live.notion.value }, updatedAt: now, actor: SYSTEM_ACTOR });
+          if (await directoryProfileNotionSyncLocked(database, profileId)) throw Error("DIRECTORY_UNIFIED_LOCKED");
+          const result = await database.batch([canonical, ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings))]);
+          if (!(result[0]?.results?.[0] as {id?:number}|undefined)?.id) throw Error("DIRECTORY_UNIFIED_FILTER_CAS");
+        }
+      } else {
+        const value = live.psipedia.value;
+        const patch = field.kind === "meta" ? richText(value ?? "") : value ? select(notionFacetLabel(value)) : { select: null };
+        const reply = await patchNotionPage(bindings, pageId, { [live.key]: patch });
+        if (reply.id !== pageId) throw Error("DIRECTORY_UNIFIED_WRITEBACK_UNVERIFIED");
+      }
+      const fresh = await observe(field);
+      await confirmUnifiedField(database, reservation, fresh.notion, fresh.psipedia);
+      changed = true;
+    } catch (error) {
+      failures.push(field.kind + ":" + field.field);
+      console.warn("DIRECTORY_UNIFIED_OPERATIONAL_FIELD_PENDING", profileId, field.field,
+        error instanceof Error ? error.message : "UNKNOWN");
+    }
+  }
+  if (failures.length) throw Error("DIRECTORY_UNIFIED_OPERATIONAL_FIELDS_PENDING: " + failures.join(","));
+  return changed;
+}
+
 async function syncBreederEvent(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -2001,14 +2135,28 @@ async function syncBreederEvent(input: {
     if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
       return "unchanged";
     if (bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
-      // Structured adapters have separate SQL owners and are not implicitly
-      // reconciled through free-text. Do not acknowledge their mixed event.
-      const result = await syncUnifiedDirectoryEditorialFields({
-        database, bindings, profile: input.profile, page, fields: paths, direction: "pull",
-      });
-      if (relationFields.length || facetFields.length || trustFields.length || pilotMetaFields.length)
-        throw Error("DIRECTORY_UNIFIED_STRUCTURED_FIELDS_PENDING");
-      return result;
+      const failures: string[] = [];
+      let updated = false;
+      try {
+        const result = await syncUnifiedDirectoryEditorialFields({
+          database, bindings, profile: input.profile, page, fields: paths, direction: "pull",
+        });
+        updated = result !== "unchanged";
+      } catch { failures.push("editorial"); }
+      try {
+        const structured: UnifiedDirectoryOperationalField[] = [
+          ...pilotMetaFields.map(field => ({ kind: "meta" as const, field })),
+          ...facetFields.map(field => ({ kind: "facet" as const, field })),
+        ];
+        updated = await syncUnifiedDirectoryOperationalFields({
+          database, bindings, profileId: input.profile.id, pageId: page.id, fields: structured, direction: "pull",
+        }) || updated;
+      } catch { failures.push("operational"); }
+      // Moderation flags and breeder identity links are protected workflows;
+      // never convert a Notion property event into an unverified overwrite.
+      if (trustFields.length || relationFields.length) failures.push("protected-relations-or-trust");
+      if (failures.length) throw Error("DIRECTORY_UNIFIED_FIELDS_PENDING: " + failures.join(","));
+      return updated ? "pulled" : "unchanged";
     }
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
     let current = input.profile;
@@ -2332,6 +2480,12 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
       propertyText(page, "Psipedia ID") !== String(input.profileId))
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_FACET_TARGET_INVALID");
 
+  if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+    return syncUnifiedDirectoryOperationalFields({
+      database: input.database, bindings: input.bindings, profileId: input.profileId, pageId: page.id,
+      fields: [...new Set(input.fields)].map(field => ({ kind: "facet" as const, field })), direction: "push",
+    });
+  }
   // One select field per PATCH, regardless of category. An unprovisioned
   // Notion property reports pending but cannot veto independent valid fields.
   const failures: string[] = [];
@@ -3861,6 +4015,13 @@ export async function runNotionDirectorySyncSweep(input: {
           return id === key || id === raw?.id;
         }));
       if (onlyTrustOrServices && (trustFields.length || relationChanged)) {
+        if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true" && trustFields.length) {
+          if (relationChanged) {
+            const relation = await syncRelation(page.id, mapping.directory_profile_id, true);
+            summary.serviceRelationSync = relation;
+          }
+          throw Error("DIRECTORY_UNIFIED_PROTECTED_TRUST_REVIEW");
+        }
         let current = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
         if (!current || current.status === "archived" ||
             current.category !== propertyText(page, "Kategória") ||
@@ -3928,6 +4089,7 @@ export async function runNotionDirectorySyncSweep(input: {
 
       if (attemptedMappedProfileIds.has(mapping.directory_profile_id)) continue;
       attemptedMappedProfileIds.add(mapping.directory_profile_id);
+      let editorialError: unknown;
       const result = await syncMappedPage({
         database: input.database,
         bindings: input.bindings,
@@ -3935,6 +4097,11 @@ export async function runNotionDirectorySyncSweep(input: {
         mapping,
         page,
         breederWebhookPropertyIds: input.changedPropertyIds,
+      }).catch(error => {
+        if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED !== "true" ||
+            error instanceof NotionDirectoryUnsafeTargetError) throw error;
+        editorialError = error;
+        return "unchanged" as const;
       });
       // A signed change to the canonical relation is independent of text fields.
       // A confirmed relation baseline permits precise deletion of an individual
@@ -3944,6 +4111,7 @@ export async function runNotionDirectorySyncSweep(input: {
         summary.serviceRelationSync = relation;
         if (relation === "skipped" && relationChanged) summary.failed++;
       }
+      if (editorialError) throw editorialError;
       // Do not dismiss the profile's existing pending alert just because a
       // different field (for example Popis instead of legacy Služby) synced.
       const canResolveEditorialAlert = !isDirectoryFieldEventCategory(propertyText(page, "Kategória"))
