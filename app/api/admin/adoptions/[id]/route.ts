@@ -8,6 +8,7 @@ import { updateAdoptionInlineName } from "@/lib/adoption-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
+function unifiedAdoptionReceiptsEnabled(){return (env as unknown as TargetedNotionSaveBindings).NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";}
 type Body = { payload?: ManagedAdoptionInput; expectedUpdatedAt?: string };
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
 async function numericId(params: Props["params"]) { const value = Number.parseInt((await params).id, 10); return Number.isSafeInteger(value) && value > 0 ? value : null; }
@@ -40,7 +41,7 @@ export async function PATCH(request: Request, { params }: Props) {
   }
   try {
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
-    const updatedId = await updateAdoptionInlineName(id, body.name, body.expectedUpdatedAt, auth.user.email);
+    const updatedId = await updateAdoptionInlineName(id, body.name, body.expectedUpdatedAt, auth.user.email,undefined,unifiedAdoptionReceiptsEnabled());
     if (!updatedId) return Response.json({ error: "Adopčný profil neexistuje." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({
       bindings: env as unknown as TargetedNotionSaveBindings,
@@ -65,7 +66,7 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Neplatný payload adopčného profilu alebo chýbajúca verzia záznamu." }, { status: 400 });
     }
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
-    const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt);
+    const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt,undefined,unifiedAdoptionReceiptsEnabled());
     if (!item) return Response.json({ error: "Adopčný profil sa nenašiel." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"adoptions",id,item.status);
