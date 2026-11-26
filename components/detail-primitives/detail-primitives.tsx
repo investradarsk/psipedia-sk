@@ -93,6 +93,17 @@ export function DetailContactsCard({
   id?: string;
 }) {
   const visible = contacts.filter((contact) => hasContent(contact.value));
+  const isSocial = (contact: DetailContact) => contact.label === "Facebook" || contact.label === "Instagram";
+  const social = visible.filter(isSocial);
+  const facts = visible.filter((contact) => !isSocial(contact)).map(({ label, value }) => ({ label, value }));
+  if (social.length) {
+    facts.push({
+      label: "Sociálne siete",
+      value: <span className={styles.socialLinks}>{social.map((contact, index) => (
+        <span key={contact.id ?? `${contact.label}-${index}`}>{contact.value}</span>
+      ))}</span>,
+    });
+  }
 
   return (
     <section className={styles.card} id={id} data-public-contact-panel>
@@ -101,7 +112,7 @@ export function DetailContactsCard({
       </PublicHeading>
       {visible.length ? (
         <DetailFactList
-          facts={visible.map((contact) => ({ label: contact.label, value: contact.value }))}
+          facts={facts}
         />
       ) : (
         <p data-public-contact-empty>{emptyMessage}</p>
