@@ -50,9 +50,12 @@ export async function reserveUnifiedField(input: {
     const observed = decideUnifiedField({ identity, baseline: null, notion: input.notion, psipedia: input.psipedia });
     if (observed.action !== "unchanged") throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
   }
+  const invalidation = !old && input.historicalBaseline ? await database.prepare(
+    "SELECT 1 AS invalidated FROM notion_unified_scope_invalidation WHERE agenda=? AND entity_id=?"
+  ).bind(identity.agenda,identity.entityId).first<{invalidated:number}>() : null;
   const baseline = old
     ? old.baseline === undefined ? null : { value: old.baseline, version: old.baselineVersion ?? String(old.version) }
-    : input.historicalBaseline;
+    : invalidation ? null : input.historicalBaseline;
   const decision = decideUnifiedField({
     identity, baseline, notion: input.notion, psipedia: input.psipedia,
     notionEdit: input.notionEdit, psipediaEdit: input.psipediaEdit,
@@ -103,4 +106,12 @@ export async function confirmUnifiedField(
     notionEdit: undefined, psipediaEdit: undefined, status: "SYNCED", reason: null,
   });
   if (version === null) throw Error("UNIFIED_FIELD_CONCURRENT_CONFIRMATION");
+}
+
+/** Recheck the actual reservation immediately before external side effects.
+ * The provider has no CAS; this reduces, but cannot eliminate, that gap. */
+export async function assertUnifiedReservationCurrent(database:D1Database,reservation:FieldReservation){
+  const state=await readUnifiedFieldState(database,reservation.identity);
+  if(!state||state.version!==reservation.version||state.status!=="PENDING")
+    throw Error("UNIFIED_FIELD_RESERVATION_INVALIDATED");
 }
