@@ -212,6 +212,8 @@ export async function getBreedControlledState(args:{
   const link=await activeLink(args.database,args.breedId);
   let row=await record(args.database,args.breedId);
   if (!row) {
+    if(args.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true")
+      throw Error("BREED_CONTROLLED_V2_BASELINE_UNAVAILABLE");
     const page=await notionRequest<NotionPage>(args.bindings,
       "/pages/"+encodeURIComponent(link.work_notion_page_id));
     await verifyPage(page,link,args.bindings);
