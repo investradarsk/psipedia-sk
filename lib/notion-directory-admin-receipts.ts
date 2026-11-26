@@ -49,7 +49,7 @@ export function planDirectoryAdminReceipts(database: D1Database, input: {
   const after = database.prepare(
     "INSERT INTO notion_unified_admin_field_edits(agenda,entity_id,notion_page_id,field_key,edit_id,baseline_version,canonical_revision,observed_at,value_json,explicit_clear) " +
     "SELECT 'directory',CAST(p.id AS TEXT),m.notion_page_id,n.key,i.edit_id||':'||n.key," +
-    "COALESCE(CAST(fs.version AS TEXT),m.content_hash),p.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')," +
+    "COALESCE(fs.baseline_version,m.content_hash),p.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')," +
     "CASE WHEN n.type IN ('array','object') THEN n.value ELSE json_quote(n.value) END," +
     "CASE WHEN n.value IS NULL OR (n.type='text' AND trim(n.value)='') OR (n.type='array' AND json_array_length(n.value)=0) THEN 1 ELSE 0 END " +
     "FROM notion_directory_admin_edit_intent i JOIN directory_profiles p ON p.id=i.entity_id " +
@@ -60,7 +60,7 @@ export function planDirectoryAdminReceipts(database: D1Database, input: {
     "WHERE i.edit_id=? AND p.updated_at=? AND p.updated_by=? " +
     "AND EXISTS(SELECT 1 FROM json_each(i.fields_json) k WHERE k.value=n.key) " +
     "AND (n.type IS NOT o.type OR n.value IS NOT o.value) " +
-    "AND COALESCE(CAST(fs.version AS TEXT),m.content_hash) IS NOT NULL " +
+    "AND COALESCE(fs.baseline_version,m.content_hash) IS NOT NULL " +
     "ON CONFLICT(agenda,entity_id,notion_page_id,field_key) DO UPDATE SET " +
     "edit_id=excluded.edit_id,baseline_version=excluded.baseline_version,canonical_revision=excluded.canonical_revision," +
     "observed_at=excluded.observed_at,value_json=excluded.value_json,explicit_clear=excluded.explicit_clear",
