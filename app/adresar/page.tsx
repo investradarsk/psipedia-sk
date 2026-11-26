@@ -9,7 +9,7 @@ import {
   listPublishedDirectoryProfiles,
   parseDirectoryFilters,
 } from "@/lib/directory-store";
-import { directoryEmptyQueryRedirect } from "@/lib/directory-query";
+import { directoryEmptyQueryRedirect, directoryPageHref } from "@/lib/directory-query";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
@@ -38,9 +38,7 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
   // Only one listing is rendered on the root; avoid unused overview/count queries.
   const result = await retryTransientPublicRead(() => listPublishedDirectoryProfiles({ filters }), { stage: "directory_listing" })
     .catch((error) => reportDirectoryPublicReadFailure("listing", error));
-  if (policy.kind === "pagination" && policy.page! > result.totalPages) {
-    redirect(result.totalPages > 1 ? `/adresar?page=${result.totalPages}` : "/adresar");
-  }
+  if (filters.page > result.page) redirect(directoryPageHref("/adresar", filters, result.page));
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Služby pre psov",
     description: directoryDescription,
