@@ -19,6 +19,7 @@ import {
   loadNotionBulkEvents,
   loadNotionBulkOrganizations,
   loadNotionBulkAdoptions,
+  loadNotionV2Adoptions,
   loadNotionBulkHelpCases,
   loadNotionBulkLostFound,
 } from "./notion-bulk-sources.ts";
@@ -1181,7 +1182,7 @@ async function syncAgenda(input: {
             : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
           const result=await syncHelpV2Fields({
             database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
-            dataSourceId:target.dataSourceId,load:loadNotionBulkAdoptions,fields,
+            dataSourceId:target.dataSourceId,load:loadNotionV2Adoptions,fields,
             direction:inbound?"pull":"push",protectedFields:new Set(["Slug","Stav"]),
             kind:field=>field==="Vek mesiace"||field==="Hmotnosť"?"number":
               field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":
