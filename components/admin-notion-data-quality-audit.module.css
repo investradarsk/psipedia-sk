@@ -7,6 +7,7 @@
 .heading p { margin-top: 0; }
 .readOnly { font-size: .85rem; font-weight: 600; background: #e8f1e9; color: #255a3e; border-radius: 999px; padding: 7px 12px; }
 .controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.workspaceTabs { margin-bottom: 12px; }
 .field { display: grid; gap: 6px; min-width: min(100%, 255px); font-weight: 600; }
 .field span { font-size: .875rem; }
 .field select { width: 100%; min-height: 44px; border: 1px solid #a8b8ae; border-radius: 9px; color: #203b2d; background: white; padding: 8px 10px; font: inherit; }
@@ -26,6 +27,10 @@
 .table { border-collapse: collapse; width: 100%; text-align: left; font-size: .91rem; }
 .table th, .table td { padding: 11px 12px; border-bottom: 1px solid rgba(53, 76, 61, .15); vertical-align: top; }
 .table th { color: #355242; background: #f1f5f2; }
+.editorLink {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .details { margin-top: 14px; }
 .details summary { cursor: pointer; font-weight: 600; padding: 10px 0; }
 .details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 410px; overflow-y: auto; background: #f5f7f6; border-radius: 9px; padding: 14px; font-size: .78rem; }
@@ -36,4 +41,17 @@
  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
  .table { font-size: .82rem; }
  .table th, .table td { padding: 9px 7px; }
+}
+
+@media (max-width: 600px) {
+  .workspaceTabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .workspaceTabs > button {
+    min-height: 48px;
+    padding-inline: 8px;
+  }
 }

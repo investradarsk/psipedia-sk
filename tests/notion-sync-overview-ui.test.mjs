@@ -74,7 +74,11 @@ test("Notion settings and audit resolve to the same four-tab workspace", async (
     assert.ok(ui.includes(label), label);
   }
   assert.match(ui, /role="tablist"/);
-  assert.match(ui, /aria-selected=\{tab===item\.value\}/);
+  assert.match(ui, /aria-selected=\{tab === item\.value\}/);
+  assert.match(ui, /tabIndex=\{focusedTab === item\.value \? 0 : -1\}/);
+  assert.match(ui, /hidden=\{tab !== value\}/);
+  assert.match(ui, /case "ArrowLeft"/);
+  assert.match(ui, /case "ArrowRight"/);
   assert.match(ui, /<AdminNotionFieldSettings \/>/);
   assert.match(ui, /<AdminNotionManualTransfer \/>/);
   assert.match(ui, /<AdminNotionDataQualityAudit \/>/);
@@ -93,6 +97,7 @@ test("Notion UI distinguishes D1, pending, review, exhausted retries and unknown
   assert.match(ui, /Trvalé zlyhanie – vyžaduje zásah/);
   assert.match(ui, /Neznámy stav neznamená nula chýb/);
   assert.match(ui, /helpEditors\[item\.agenda\] \+ item\.entityId/);
+  assert.match(ui, /href=\{issue\.editorHref\}/);
   assert.match(ui, /<AdminNotionDataQualityAudit \/>/);
   assert.match(overview, /FROM notion_help_admin_writeback_outbox/);
   assert.match(overview, /LIMIT 51/);
