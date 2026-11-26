@@ -2109,6 +2109,80 @@ async function syncUnifiedDirectoryOperationalFields(input: {
   return changed;
 }
 
+/** Linked entities have canonical numeric IDs; text is only an exact-name
+ * transport. Unknown names never become a partial or empty selection. */
+async function syncUnifiedDirectoryBreederRelations(input: {
+  database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
+  pageId: string; fields: readonly BreederRelationField[]; direction: "pull" | "push";
+}): Promise<boolean> {
+  const {database, bindings, profileId, pageId, direction} = input;
+  const sourceId = bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!sourceId) throw Error("DIRECTORY_UNIFIED_SOURCE_MISSING");
+  async function observe(field: BreederRelationField) {
+    if (await directoryProfileNotionSyncLocked(database, profileId) ||
+        await notionPageMustSkipInboundSync(database, pageId)) throw Error("DIRECTORY_UNIFIED_LOCKED");
+    const mapping = await loadMappingByProfile(database, profileId);
+    const profile = await getManagedDirectoryProfileById(profileId, database);
+    if (mapping?.notion_page_id !== pageId || !profile ||
+        !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category) ||
+        (profile.category === "chovatelske-kluby" && field !== "breedIds"))
+      throw Error("DIRECTORY_UNIFIED_RELATION_SCOPE");
+    const page = await fetchNotionPage(bindings, pageId);
+    const key = BREEDER_NOTION_RELATION_FIELDS[field];
+    if (page.id !== pageId || page.archived || page.in_trash ||
+        !notionDirectoryPageBelongsToSource(page, sourceId!) ||
+        propertyText(page, "Psipedia ID") !== String(profileId) ||
+        propertyText(page, "Kategória") !== profile.category ||
+        !directoryUnifiedRawPropertyPresent(page, key)) throw Error("DIRECTORY_UNIFIED_RELATION_SCHEMA");
+    const selected = await getBreederRelationSelection(database, profileId);
+    if (!selected) throw Error("DIRECTORY_UNIFIED_RELATION_MISSING");
+    const options = await listBreederRelationOptions(database);
+    const candidates = field === "breedIds" ? options.breeds : options.clubs;
+    const remote = resolveBreederRelationText(propertyText(page, key), candidates);
+    if (remote.status === "unmatched") throw Error("DIRECTORY_UNIFIED_RELATION_UNKNOWN_NAME");
+    const fresh = await getManagedDirectoryProfileById(profileId, database);
+    if (!fresh || fresh.updatedAt !== profile.updatedAt || await directoryProfileNotionSyncLocked(database, profileId))
+      throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+    return {profile, page, key, selected, candidates,
+      notion: {present:true as const, value:[...remote.ids].sort((a,b)=>a-b)},
+      psipedia: {present:true as const, value:[...selected[field]].sort((a,b)=>a-b)}};
+  }
+  let changed = false;
+  const failures: string[] = [];
+  for (const field of [...new Set(input.fields)]) {
+    try {
+      const observed = await observe(field);
+      const identity: FieldIdentity = {agenda:"directory",entityId:String(profileId),pageId,field:"relation:"+field};
+      const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
+      const reservation = await reserveUnifiedField({database, identity, historicalBaseline:null,
+        notion:observed.notion, psipedia:observed.psipedia, psipediaEdit:receipt,direction});
+      if (!reservation) continue;
+      const live = await observe(field);
+      if (live.profile.updatedAt !== observed.profile.updatedAt ||
+          !sameBreederRelationIds(live.notion.value, observed.notion.value) ||
+          !sameBreederRelationIds(live.psipedia.value, observed.psipedia.value))
+        throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+      if (direction === "pull") {
+        await saveBreederRelationSelection(database, profileId, {...live.selected,[field]:live.notion.value},
+          SYSTEM_ACTOR,{expectedRevision:live.profile.updatedAt,fromNotion:true});
+      } else {
+        const text = formatBreederRelationText(live.psipedia.value, live.candidates);
+        if (text === null) throw Error("DIRECTORY_UNIFIED_RELATION_UNKNOWN_ID");
+        const result = await patchNotionPage(bindings,pageId,{[live.key]:richText(text)});
+        if (result.id !== pageId) throw Error("DIRECTORY_UNIFIED_WRITEBACK_UNVERIFIED");
+      }
+      const fresh = await observe(field);
+      await confirmUnifiedField(database,reservation,fresh.notion,fresh.psipedia);
+      changed = true;
+    } catch(error) {
+      failures.push(field);
+      console.warn("DIRECTORY_UNIFIED_RELATION_PENDING",profileId,field,error instanceof Error?error.message:"UNKNOWN");
+    }
+  }
+  if (failures.length) throw Error("DIRECTORY_UNIFIED_RELATIONS_PENDING: "+failures.join(","));
+  return changed;
+}
+
 async function syncBreederEvent(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -2152,9 +2226,14 @@ async function syncBreederEvent(input: {
           database, bindings, profileId: input.profile.id, pageId: page.id, fields: structured, direction: "pull",
         }) || updated;
       } catch { failures.push("operational"); }
-      // Moderation flags and breeder identity links are protected workflows;
-      // never convert a Notion property event into an unverified overwrite.
-      if (trustFields.length || relationFields.length) failures.push("protected-relations-or-trust");
+      try {
+        updated = await syncUnifiedDirectoryBreederRelations({
+          database, bindings, profileId: input.profile.id, pageId: page.id,
+          fields: relationFields, direction: "pull",
+        }) || updated;
+      } catch { failures.push("relations"); }
+      // Moderation flags remain under the canonical Admin-owned workflow.
+      if (trustFields.length) failures.push("protected-trust");
       if (failures.length) throw Error("DIRECTORY_UNIFIED_FIELDS_PENDING: " + failures.join(","));
       return updated ? "pulled" : "unchanged";
     }
@@ -2607,6 +2686,12 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   if (page.id !== mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) return false;
   if (propertyText(page, "Psipedia ID") !== String(input.profileId)) return false;
+  if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+    return syncUnifiedDirectoryBreederRelations({
+      database: input.database, bindings: input.bindings, profileId: input.profileId,
+      pageId: page.id, fields: input.fields, direction: "push",
+    });
+  }
   const selected = await getBreederRelationSelection(input.database, input.profileId);
   if (!selected) return false;
   const options = await listBreederRelationOptions(input.database);
