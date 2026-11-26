@@ -22,7 +22,7 @@ export async function commitHelpV2AdminEdit(
   ).bind(editId,input.agenda,...(eshop?[]:[input.agenda]),input.id,input.expectedRevision);
   const after=db.prepare(
     "INSERT INTO notion_unified_admin_field_edits(agenda,entity_id,notion_page_id,field_key,edit_id,baseline_version,canonical_revision,observed_at,value_json,explicit_clear) "+
-    "SELECT i.agenda,CAST(p.id AS TEXT),m.notion_page_id,n.key,i.edit_id||':'||n.key,COALESCE(CAST(fs.version AS TEXT),m.content_hash),"+
+    "SELECT i.agenda,CAST(p.id AS TEXT),m.notion_page_id,n.key,i.edit_id||':'||n.key,COALESCE(fs.baseline_version,m.content_hash),"+
     "p.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"+
     "CASE n.type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' WHEN 'array' THEN json(n.value) ELSE json_quote(n.value) END,"+
     "CASE WHEN n.value IS NULL OR (n.type='text' AND n.value='') OR (n.type='array' AND n.value='[]') THEN 1 ELSE 0 END "+
@@ -32,7 +32,7 @@ export async function commitHelpV2AdminEdit(
     "LEFT JOIN notion_unified_field_state fs ON fs.agenda=i.agenda AND fs.entity_id=CAST(p.id AS TEXT) AND fs.notion_page_id=m.notion_page_id AND fs.field_key=n.key "+
     "WHERE i.edit_id=? AND i.agenda=? AND p.updated_at=? "+
     (input.agenda==="lost-found" ? "" : "AND p.updated_by=? ")+
-    "AND (n.value IS NOT o.value OR n.type<>o.type) AND COALESCE(CAST(fs.version AS TEXT),m.content_hash) IS NOT NULL "+
+    "AND (n.value IS NOT o.value OR n.type<>o.type) AND COALESCE(fs.baseline_version,m.content_hash) IS NOT NULL "+
     "ON CONFLICT(agenda,entity_id,notion_page_id,field_key) DO UPDATE SET edit_id=excluded.edit_id,baseline_version=excluded.baseline_version,"+
     "canonical_revision=excluded.canonical_revision,observed_at=excluded.observed_at,value_json=excluded.value_json,explicit_clear=excluded.explicit_clear"
   ).bind(editId,input.agenda,input.nextRevision,...(input.agenda==="lost-found"?[]:[input.editor]));
