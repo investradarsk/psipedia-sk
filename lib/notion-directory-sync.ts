@@ -2504,6 +2504,64 @@ function additionalCategoriesEvent(page: NotionPage, changes: readonly string[])
   return changes.some((id) => id === "Ďalšie kategórie" || id === prop?.id);
 }
 
+/** Secondary memberships are a single typed set. Keep the primary category
+ * and URL immutable; a missing/invalid multi-select is not an empty set. */
+async function observeUnifiedDirectoryCategories(
+  database: D1Database, bindings: NotionDirectorySyncBindings, profileId: number, pageId: string,
+) {
+  if (await directoryProfileNotionSyncLocked(database, profileId) ||
+      await notionPageMustSkipInboundSync(database, pageId))
+    throw Error("DIRECTORY_UNIFIED_LOCKED");
+  const mapping = await loadMappingByProfile(database, profileId);
+  const profile = await getManagedDirectoryProfileById(profileId, database);
+  const sourceId = bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!sourceId || mapping?.notion_page_id !== pageId || !profile || profile.reviewed || profile.status === "archived")
+    throw Error("DIRECTORY_UNIFIED_MAPPING_CHANGED");
+  const page = await fetchNotionPage(bindings, pageId);
+  if (page.id !== pageId || page.archived || page.in_trash ||
+      !notionDirectoryPageBelongsToSource(page, sourceId) ||
+      propertyText(page, "Psipedia ID") !== String(profileId) ||
+      propertyText(page, "Kategória") !== profile.category)
+    throw Error("DIRECTORY_UNIFIED_IDENTITY_MISMATCH");
+  const raw = property(page, "Ďalšie kategórie")?.multi_select;
+  if (!Array.isArray(raw) || raw.some(option => !option || typeof option !== "object" ||
+      !directoryCategories.some(c => c.slug === (option as {name?: unknown}).name ||
+        c.label === (option as {name?: unknown}).name)))
+    throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
+  const current = await getManagedDirectoryProfileById(profileId, database);
+  if (!current || current.updatedAt !== profile.updatedAt ||
+      await directoryProfileNotionSyncLocked(database, profileId))
+    throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+  return { mapping, profile, page,
+    notion: { present: true as const, value: normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category) },
+    psipedia: { present: true as const, value: normalizeAdditionalDirectoryCategories(profile.additionalCategories ?? [], profile.category) },
+  };
+}
+
+async function reserveUnifiedDirectoryCategories(
+  database: D1Database, bindings: NotionDirectorySyncBindings, profileId: number, pageId: string,
+  direction: "pull" | "push",
+) {
+  const observed = await observeUnifiedDirectoryCategories(database, bindings, profileId, pageId);
+  const identity: FieldIdentity = { agenda: "directory", entityId: String(profileId), pageId, field: "additionalCategories" };
+  const baseline = await readProfileFieldBaseline({
+    database, agenda: "directory", entityId: profileId, pageId, expectedHash: observed.mapping.content_hash,
+  });
+  const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
+  const reservation = await reserveUnifiedField({
+    database, identity, direction,
+    historicalBaseline: baseline ? {
+      value: normalizeAdditionalDirectoryCategories(baseline.additionalCategories ?? [], observed.profile.category),
+      version: observed.mapping.content_hash,
+    } : null,
+    notion: observed.notion, psipedia: observed.psipedia,
+    psipediaEdit: receipt && Array.isArray(receipt.value) ? {
+      ...receipt, value: normalizeAdditionalDirectoryCategories(receipt.value, observed.profile.category),
+    } : undefined,
+  });
+  return { ...observed, reservation };
+}
+
 async function applyNotionAdditionalCategories(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings;
   dataSourceId: string; page: NotionPage; mapping: DirectoryNotionMapping;
@@ -2519,12 +2577,23 @@ async function applyNotionAdditionalCategories(input: {
       propertyText(page, "Kategória") !== profile.category ||
       !Object.hasOwn(page.properties ?? {}, "Ďalšie kategórie"))
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_CATEGORIES_IDENTITY_CONFLICT");
-  const desired = normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category);
+  const unified = input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+  const planned = unified ? await reserveUnifiedDirectoryCategories(
+    input.database, input.bindings, profile.id, page.id, "pull",
+  ) : null;
+  if (planned && !planned.reservation) return false;
+  if (planned && planned.profile.updatedAt !== profile.updatedAt)
+    throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+  const desired = planned ? planned.notion.value :
+    normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category);
   // A signed Notion category edit confirms SQL membership even when it is
   // equal to a legacy JSON value. An explicit [] must remain authoritative.
   if (JSON.stringify(profile.additionalCategories ?? []) === JSON.stringify(desired))
     return false;
-  const now = new Date().toISOString();
+  if (await directoryProfileNotionSyncLocked(input.database, profile.id))
+    throw Error("DIRECTORY_UNIFIED_LOCKED");
+  const previous = Date.parse(profile.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
   // The current D1 SQL category relation is authoritative. Notion only
   // triggers an explicit SQL edit; no JSON copy or confirmation flag.
   const canonical = input.database.prepare(`
@@ -2547,6 +2616,10 @@ async function applyNotionAdditionalCategories(input: {
   const current = await getManagedDirectoryProfileById(profile.id, input.database);
   if (!current || JSON.stringify(current.additionalCategories ?? []) !== JSON.stringify(desired))
     throw Error("DIRECTORY_CATEGORIES_SAVE_UNCONFIRMED");
+  if (planned?.reservation) {
+    const fresh = await observeUnifiedDirectoryCategories(input.database, input.bindings, profile.id, page.id);
+    await confirmUnifiedField(input.database, planned.reservation, fresh.notion, fresh.psipedia);
+  }
   return true;
 }
 
@@ -2568,8 +2641,18 @@ export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
       propertyText(page, "Kategória") !== profile.category ||
       !Object.hasOwn(page.properties ?? {}, "Ďalšie kategórie"))
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_CATEGORIES_NOTION_IDENTITY_CONFLICT");
-  const desired = normalizeAdditionalDirectoryCategories(profile.additionalCategories ?? [], profile.category);
-  if (JSON.stringify(notionSnapshot(page).additionalCategories ?? []) === JSON.stringify(desired)) return false;
+  const unified = input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+  const planned = unified ? await reserveUnifiedDirectoryCategories(
+    input.database, input.bindings, profile.id, page.id, "push",
+  ) : null;
+  if (planned && !planned.reservation) return false;
+  if (planned && planned.profile.updatedAt !== profile.updatedAt)
+    throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+  const desired = planned ? planned.psipedia.value :
+    normalizeAdditionalDirectoryCategories(profile.additionalCategories ?? [], profile.category);
+  if (JSON.stringify(notionSnapshot(planned?.page ?? page).additionalCategories ?? []) === JSON.stringify(desired)) return false;
+  if (await directoryProfileNotionSyncLocked(input.database, profile.id))
+    throw Error("DIRECTORY_UNIFIED_LOCKED");
   const payload = { "Ďalšie kategórie": { multi_select: desired.map((slug) => ({
     name: directoryCategories.find((entry) => entry.slug === slug)?.label ?? slug,
   })) } };
@@ -2578,6 +2661,10 @@ export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
     JSON.stringify(notionSnapshot(candidate).additionalCategories ?? []) === JSON.stringify(desired);
   if (!matches(echo) && !matches(await fetchNotionPage(input.bindings, page.id)))
     throw Error("DIRECTORY_CATEGORIES_NOTION_ECHO_MISMATCH");
+  if (planned?.reservation) {
+    const fresh = await observeUnifiedDirectoryCategories(input.database, input.bindings, profile.id, page.id);
+    await confirmUnifiedField(input.database, planned.reservation, fresh.notion, fresh.psipedia);
+  }
   // Do not alter the shared editorial hash or clear another field's conflict.
   return true;
 }
