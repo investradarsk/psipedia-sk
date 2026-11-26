@@ -168,7 +168,7 @@ export async function syncProfileCatalogRelation(input:{
    if(!input.adminChoiceSave)throw Error("SERVICES_RELATION_UNVERIFIED_INITIAL_PUSH");
  }
  if(input.unifiedFieldPolicy && !remote.length && local.length &&
-   (previous===null || previous.length>0) && input.notionExplicitEdit)
+   (previous===null || previous.length>0))
    throw Error("SERVICES_RELATION_UNVERIFIED_NOTION_CLEAR");
  const plan=input.notionExplicitEdit
    ?planSignedCatalogRelationSync(local,remote,previous)
