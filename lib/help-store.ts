@@ -1,3 +1,6 @@
+import { commitHelpCaseV2AdminEdit, HELP_CASE_V2_FIELDS, HELP_CASE_V2_SEO, isHelpCaseV2Field, isHelpCaseV2SeoField, helpCaseV2Kind, helpCaseV2Value } from "./notion-help-case-v2-contract.ts";
+import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
+import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
 import { applyHelpLifecycle, activeHelpSql } from "./help-lifecycle";
 import {
   HELP_ADMIN_DOMAIN_SQL,
@@ -767,20 +770,22 @@ export async function updateManagedHelpCase(
   payload: ManagedHelpCaseInput,
   editorEmail: string,
   existingItem?: HelpCase,
+  unifiedExpectedRevision?: string,
 ) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
   const existing = existingItem ?? (await getManagedHelpCaseById(id));
   if (!existing) return null;
+  if (unifiedExpectedRevision !== undefined && existing.updatedAt !== unifiedExpectedRevision) throw Error("HELP_CASE_V2_STALE");
   if (existing.category === "utulky")
     throw new Error("Legacy shelter záznam sa po canonical cutover už neupravuje.");
   const input = normalizeInput(payload, {
     allowLegacyUrgent: existing.category === "urgentne-pripady",
   });
-  const now = new Date().toISOString();
+  const now = unifiedExpectedRevision === undefined ? new Date().toISOString() : nextHelpV2Revision(unifiedExpectedRevision);
   const publishedAt =
     input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
-  const row = await database
+  const statement = database
     .prepare(
       `
     UPDATE help_cases SET
@@ -788,7 +793,7 @@ export async function updateManagedHelpCase(
       dog_name = ?, breed = ?, age_note = ?, city = ?, region = ?, location_note = ?, reported_date = ?,
       deadline_date = ?, action_label = ?, action_url = ?, contact_note = ?, goal_amount = ?, raised_amount = ?,
       image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *
+    WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL}${unifiedExpectedRevision === undefined ? "" : " AND updated_at=?"} RETURNING *
   `,
     )
     .bind(
@@ -832,8 +837,11 @@ export async function updateManagedHelpCase(
       publishedAt,
       editorEmail,
       id,
-    )
-    .first<HelpCaseRow>();
+      ...(unifiedExpectedRevision === undefined ? [] : [unifiedExpectedRevision]),
+    );
+  const row = unifiedExpectedRevision === undefined ? await statement.first<HelpCaseRow>() :
+    (await commitHelpCaseV2AdminEdit(database,statement,{id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:editorEmail})).results?.[0] as HelpCaseRow | undefined;
+  if (unifiedExpectedRevision !== undefined && !row) throw Error("HELP_CASE_V2_STALE");
   return row ? rowToHelpCase(row) : null;
 }
 
@@ -853,4 +861,85 @@ export function isHelpCaseConflict(error: unknown) {
     message.includes("UNIQUE constraint failed") ||
     message.includes("help_cases.category, help_cases.slug")
   );
+}
+
+/** Field-only Notion import; do not recreate a generic Help row or edit
+ * dedicated adoption/organization/Lost-Found domains. Public editorial
+ * contact text is existing canonical content, not a private contact store. */
+export async function updateHelpCaseV2NotionField(input:{
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+}) {
+  const {database,id,pageId,field,value,revision}=input;
+  if(!isHelpCaseV2Field(field)&&!isHelpCaseV2SeoField(field))throw Error("HELP_CASE_V2_PROTECTED");
+  const row=await database.prepare("SELECT * FROM help_cases WHERE id=? AND updated_at=? AND "+HELP_ADMIN_DOMAIN_SQL)
+    .bind(id,revision).first<HelpCaseRow>();
+  if(!row||!isHelpAdminCreateCategory(row.category)&&row.category!=="urgentne-pripady")throw Error("HELP_CASE_V2_DOMAIN_OR_REVISION");
+  const kind=helpCaseV2Kind(field);
+  if(kind==="number"?value!==null&&(typeof value!=="number"||!Number.isFinite(value)):
+    kind==="checkbox"?typeof value!=="boolean":typeof value!=="string")throw Error("HELP_CASE_V2_VALUE_TYPE");
+  const assignments:string[]=[];
+  const args:unknown[]=[];
+  if(isHelpCaseV2Field(field)){
+    const [column,key]=HELP_CASE_V2_FIELDS[field];
+    let desired:unknown=value;
+    if(field==="Názov" && (typeof value!=="string"||!value.trim()||value.length>180))throw Error("HELP_CASE_V2_TITLE_INVALID");
+    if(field==="Cieľ"||field==="Vyzbierané"){
+      desired=normalizeAmount(value as number|null,field);
+      const goal=field==="Cieľ"?desired as number|null:row.goal_amount;
+      const raised=field==="Vyzbierané"?desired as number|null:row.raised_amount;
+      if(row.category==="zbierky"&&row.status==="published"&&(!row.verified||(goal!==null&&goal<=0)))
+        throw Error("HELP_CASE_V2_FUNDRAISER_VERIFICATION");
+      if(goal!==null&&raised!==null&&raised>goal*10)throw Error("HELP_CASE_V2_AMOUNT_RANGE");
+    }
+    if(field==="Dátum hlásenia"||field==="Deadline"){
+      desired=normalizeDate(value as string,field);
+      if(desired&&new Date(String(desired)+"T12:00:00Z").toISOString().slice(0,10)!==desired)
+        throw Error("HELP_CASE_V2_DATE_INVALID");
+    }
+    if(field==="CTA URL")desired=normalizeUrl(value as string);
+    if(field==="Kraj"&&value&&!(slovakRegions as readonly string[]).includes(value as string))throw Error("HELP_CASE_V2_REGION_INVALID");
+    if(field==="Obrázok"){
+      let image=(value as string).trim();
+      if(image.startsWith("https://psipedia.sk/"))image=image.slice("https://psipedia.sk".length);
+      if(image&&!image.startsWith("/media/")&&!image.startsWith("/images/")&&!/^https:\/\//i.test(image))
+        throw Error("HELP_CASE_V2_IMAGE_INVALID");
+      desired=image||null;
+      assignments.push("image_key=NULL","thumbnail_display_json=NULL","detail_display_json=NULL");
+    }
+    if(field==="Urgentné")desired=value?1:0;
+    if(field==="CTA text"&&!value)desired=defaultHelpActionLabel(row.category as HelpCategorySlug);
+    if(helpCaseV2Value(field,desired)!==value)throw Error("HELP_CASE_V2_NORMALIZATION_REVIEW");
+    // Do not infer closure or reopen a collection through a text edit. The
+    // same lifecycle projection must agree before any narrow write.
+    const lifecycle=applyHelpLifecycle({
+      category:row.category,excerpt:field==="Perex"?String(desired):row.excerpt,
+      actionLabel:field==="CTA text"?String(desired):row.action_label,
+      resolved:Boolean(row.resolved),urgent:field==="Urgentné"?Boolean(desired):Boolean(row.urgent),
+    });
+    if(lifecycle.resolved!==Boolean(row.resolved)||
+      lifecycle.urgent!==(field==="Urgentné"?Boolean(desired):Boolean(row.urgent))||
+      lifecycle.actionLabel!==(field==="CTA text"?String(desired):row.action_label))
+      throw Error("HELP_CASE_V2_LIFECYCLE_REVIEW");
+    assignments.push(column+"=?");args.push(desired);
+  }else{
+    const key=HELP_CASE_V2_SEO[field];
+    let seo:Record<string,unknown>;
+    try{seo=JSON.parse(row.seo_json||"{}");}catch{throw Error("HELP_CASE_V2_SEO_INVALID");}
+    if(!seo||typeof seo!=="object"||Array.isArray(seo))throw Error("HELP_CASE_V2_SEO_INVALID");
+    const cleaned=cleanEditableSeo({[key]:value} as EditableSeo);
+    const desired=(cleaned as Record<string,unknown>)[key];
+    if(helpCaseV2Value(field,desired)!==value)throw Error("HELP_CASE_V2_NORMALIZATION_REVIEW");
+    // Preserve every unrelated SEO key, including noindex and focusKeyword.
+    assignments.push("seo_json=?");args.push(JSON.stringify({...seo,[key]:desired}));
+  }
+  assignments.push("updated_at=?","updated_by=?");
+  args.push(nextHelpV2Revision(revision),"notion-events-help-sync@psipedia.sk");
+  const result=await database.prepare("UPDATE help_cases SET "+assignments.join(",")+
+    " WHERE id=? AND updated_at=? AND "+HELP_ADMIN_DOMAIN_SQL+
+    " AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='HELP_CASE' AND entity_id=help_cases.id)"+
+    " AND NOT "+partnerReviewOwnerSql("HELP_CASE","help_cases.id")+
+    " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='help' AND record_id=help_cases.id)"+
+    " AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=help_cases.id AND notion_page_id=?)")
+    .bind(...args,id,revision,pageId).run();
+  if(result.meta.changes!==1)throw Error("HELP_CASE_V2_WRITE_CONFLICT");
 }
