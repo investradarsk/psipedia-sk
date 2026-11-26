@@ -1,3 +1,6 @@
+import { syncHelpV2Fields } from "./notion-help-v2-field-transport.ts";
+import { isAdoptionV2Field } from "./notion-adoption-v2-contract.ts";
+import { updateAdoptionV2NotionField } from "./adoption-admin-write.ts";
 import { syncOrganizationV2Fields } from "./notion-organization-field-v2.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
@@ -1171,6 +1174,29 @@ async function syncAgenda(input: {
         if (pageIdentity.psipediaId !== source.id)
           throw new Error("HELP_FIELD_EVENT_IDENTITY_MISMATCH");
         const permitted = new Set(agendaEditableFields[agenda]);
+        if (agenda === "adoptions" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound=input.changedPropertyIds!==undefined;
+          const fields=inbound
+            ? changedNotionHelpFields(agenda,page.properties,input.changedPropertyIds??[])
+            : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
+          const result=await syncHelpV2Fields({
+            database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
+            dataSourceId:target.dataSourceId,load:loadNotionBulkAdoptions,fields,
+            direction:inbound?"pull":"push",protectedFields:new Set(["Slug","Stav"]),
+            kind:field=>field==="Vek mesiace"||field==="Hmotnosť"?"number":
+              field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":
+              isAdoptionV2Field(field)||field==="Slug"||field==="Stav"?"text":undefined,
+            pull:(field,value,revision)=>updateAdoptionV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            }),
+            encode:values=>encodeProperties(values,schema),
+          });
+          if(result.failed.length)throw Error("ADOPTION_V2_FIELDS_PENDING: "+result.failed.join(","));
+          if(result.pulled)summary.pulledFromNotion++;
+          else if(result.pushed)summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
         if (agenda === "organizations" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
           const inbound = input.changedPropertyIds !== undefined;
           const fields = inbound
