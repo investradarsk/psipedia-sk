@@ -25,11 +25,19 @@ export async function enqueueNotionWebhook(
     ? event.data.updated_properties.filter((id): id is string =>
         typeof id === "string" && id.length <= 128).slice(0, 100)
     : [];
-  // D1 COMMIT must succeed BEFORE returning HTTP 200. No provider data is stored.
+  // Versioned envelope retains signed event provenance without a new schema.
+  // Old queued arrays remain readable; never attach this time to a later GET value.
+  const envelope = { version: 2, properties: changed,
+    id: event.id && UUID.test(event.id) ? event.id : undefined,
+    timestamp: typeof event.timestamp === "string" && event.timestamp.length <= 64 &&
+      Number.isFinite(Date.parse(event.timestamp)) ? event.timestamp : undefined,
+    subscriptionId: event.subscription_id && UUID.test(event.subscription_id) ? event.subscription_id : undefined,
+  };
+  // D1 COMMIT must succeed BEFORE returning HTTP 200. No property values are stored.
   await database.prepare(
     "INSERT OR IGNORE INTO notion_webhook_inbox " +
     "(event_key,page_id,event_type,changed_properties_json) VALUES (?,?,?,?)",
-  ).bind(key, pageId.toLowerCase(), event.type, JSON.stringify(changed)).run();
+  ).bind(key, pageId.toLowerCase(), event.type, JSON.stringify(envelope)).run();
 }
 
 export async function runNotionWebhookInboxSweep(input: {
@@ -58,8 +66,14 @@ export async function runNotionWebhookInboxSweep(input: {
     totals.claimed += 1;
     let outcome: NotionWebhookInboxResult | "failed" = "failed";
     try {
-      const changed = JSON.parse(row.changed_properties_json) as unknown;
+      const stored = JSON.parse(row.changed_properties_json) as unknown;
+      const envelope = stored && typeof stored === "object" && !Array.isArray(stored)
+        ? stored as { version?: number; properties?: unknown; id?: string; timestamp?: string; subscriptionId?: string } : null;
+      const changed = Array.isArray(stored) ? stored : envelope?.version === 2 ? envelope.properties : [];
       const event: NotionWebhookEvent = {
+        id: envelope?.version === 2 ? envelope.id : UUID.test(row.event_key) ? row.event_key : undefined,
+        timestamp: envelope?.version === 2 ? envelope.timestamp : undefined,
+        subscription_id: envelope?.version === 2 ? envelope.subscriptionId : undefined,
         type: row.event_type,
         entity: { id: row.page_id, type: "page" },
         data: { updated_properties: Array.isArray(changed) ? changed : [] },

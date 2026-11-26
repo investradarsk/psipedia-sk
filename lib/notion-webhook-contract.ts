@@ -4,6 +4,8 @@ const { verifyWebhookSignature } = notionSdk;
 /** Official Notion SDK raw-body HMAC, event scope and metadata echo detection. */
 export type NotionWebhookEvent = {
   id?: string;
+  /** Provider event time; not evidence of the exact value of any property. */
+  timestamp?: string;
   type?: string;
   subscription_id?: string;
   entity?: { id?: string; type?: string; entity_type?: string };

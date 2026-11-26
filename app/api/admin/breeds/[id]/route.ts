@@ -74,6 +74,8 @@ export async function PUT(request: Request, { params }: RouteProps) {
             const result = await saveBreedNotionField({
               database:(env as unknown as {DB:D1Database}).DB,
               breedId:id,field,value,actor:user.email,
+              recordAdminReceipt: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string })
+                .NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true",
             });
             breed=result.breed;
           } else {

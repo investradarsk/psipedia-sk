@@ -1,3 +1,5 @@
+import { commitEshopV2AdminEdit, type EshopV2Field } from "./notion-eshop-v2-contract.ts";
+import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { env } from "cloudflare:workers";
 import type { EshopRatingField, EshopRatingInput } from "@/lib/eshop-rating-domain";
 
@@ -258,11 +260,14 @@ export async function updateManagedEshop(
   input: ManagedEshopUpdateInput,
   actor: string,
   database?: D1Database,
+  unifiedExpectedRevision?: string,
 ): Promise<ManagedEshop | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   const db = getEshopDatabase(database);
   const current = await getManagedEshopById(id, db);
   if (!current) return null;
+  if (unifiedExpectedRevision!==undefined && current.updatedAt!==unifiedExpectedRevision)
+    throw new EshopRatingError("E-shop sa medzičasom zmenil. Obnov stránku.",409,"ESHOP_CONFLICT");
 
   const name = normalizedText(input.name, "Názov", 160);
   const slug = safeSlug(input.slug);
@@ -273,20 +278,24 @@ export async function updateManagedEshop(
   const logoKey = typeof input.logoKey === "string" && input.logoKey.trim() ? input.logoKey.trim().slice(0, 500) : null;
   const focusTags = normalizeEshopFocusTags(input.focusTags);
   const status = input.status === "published" || input.status === "archived" ? input.status : "draft";
-  const now = new Date().toISOString();
+  const now = unifiedExpectedRevision===undefined?new Date().toISOString():nextHelpV2Revision(unifiedExpectedRevision);
   const publishedAt = status === "published" ? (current.publishedAt ?? now) : current.publishedAt;
 
   try {
-    await db.prepare(`
+    const statement=db.prepare(`
       UPDATE managed_eshops
       SET name=?2,slug=?3,website_url=?4,description=?5,source_url=?6,
           logo_url=?7,logo_key=?8,focus_tags_json=?9,status=?10,updated_at=?11,
           published_at=?12,updated_by=?13
-      WHERE id=?1
+      WHERE id=?1${unifiedExpectedRevision===undefined?"":" AND updated_at=?14"}
     `).bind(
       id,name,slug,websiteUrl,description,sourceUrl,
       logoUrl,logoKey,JSON.stringify(focusTags),status,now,publishedAt,actor,
-    ).run();
+      ...(unifiedExpectedRevision===undefined?[]:[unifiedExpectedRevision]),
+    );
+    if(unifiedExpectedRevision!==undefined)await commitEshopV2AdminEdit(db,statement,{
+      id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:actor,
+    });else await statement.run();
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) {
       throw new EshopRatingError("E-shop s rovnakou adresou profilu už existuje.", 409, "ESHOP_SLUG_CONFLICT");
@@ -308,6 +317,7 @@ export async function updateManagedEshopInline(
   input: { name: string; websiteUrl: string; expectedUpdatedAt: string },
   actor: string,
   database?: D1Database,
+  recordUnifiedReceipt=false,
 ): Promise<ManagedEshop> {
   if (!Number.isSafeInteger(id) || id <= 0) {
     throw new EshopRatingError("Neplatné ID e-shopu.", 400, "INVALID_ESHOP");
@@ -324,12 +334,13 @@ export async function updateManagedEshopInline(
     throw new EshopRatingError("Chýba platná verzia e-shopu.", 400, "INVALID_VERSION");
   }
   const db = getEshopDatabase(database);
-  const now = new Date().toISOString();
-  const result = await db.prepare(`
+  const now = recordUnifiedReceipt?nextHelpV2Revision(input.expectedUpdatedAt):new Date().toISOString();
+  const statement = db.prepare(`
     UPDATE managed_eshops
     SET name=?,website_url=?,updated_at=?,updated_by=?
     WHERE id=? AND updated_at=?
-  `).bind(name, websiteUrl, now, actor, id, input.expectedUpdatedAt).run();
+  `).bind(name, websiteUrl, now, actor, id, input.expectedUpdatedAt);
+  const result=recordUnifiedReceipt?await commitEshopV2AdminEdit(db,statement,{id,expectedRevision:input.expectedUpdatedAt,nextRevision:now,editor:actor}):await statement.run();
   if (!result.meta.changes) {
     throw new EshopRatingError("E-shop sa medzičasom zmenil. Obnov stránku.", 409, "ESHOP_CONFLICT");
   }
@@ -378,4 +389,38 @@ export async function createManagedEshop(
     }
     throw error;
   }
+}
+
+/** Validated field-only write, never a full-profile or ratings mutation. */
+export async function updateEshopV2NotionField(input:{
+  database:D1Database;id:number;pageId:string;revision:string;field:EshopV2Field;value:unknown;
+  logo?:{imageUrl:string|null;imageKey:string|null};
+}) {
+  const {database,id,pageId,revision,field,value}=input;
+  let assignments:string, args:unknown[];
+  switch(field){
+    case "name": assignments="name=?";args=[normalizedText(value,"Názov",160)];break;
+    case "websiteUrl": assignments="website_url=?";args=[normalizedUrl(value,"Web e-shopu")];break;
+    case "description": assignments="description=?";args=[normalizedOptionalText(value,"Popis",3000)];break;
+    case "sourceUrl": assignments="source_url=?";args=[normalizedUrl(value,"Zdroj")];break;
+    case "focusTags": {
+      const tags=normalizeEshopFocusTags(value);
+      if(JSON.stringify(tags)!==JSON.stringify(value))throw Error("ESHOP_V2_TAGS_NORMALIZATION_REVIEW");
+      assignments="focus_tags_json=?";args=[JSON.stringify(tags)];break;
+    }
+    case "logoUrl": {
+      if(!input.logo)throw Error("ESHOP_V2_LOGO_PREPARATION_REQUIRED");
+      const logo=normalizedOptionalUrl(input.logo.imageUrl,"Logo");
+      if((logo?.startsWith("/")?"https://psipedia.sk"+logo:logo??"")!==value)throw Error("ESHOP_V2_LOGO_NORMALIZATION_REVIEW");
+      assignments="logo_url=?,logo_key=?";args=[logo,input.logo.imageKey];break;
+    }
+    default:throw Error("ESHOP_V2_PROTECTED_FIELD");
+  }
+  if(field!=="focusTags"&&field!=="logoUrl"&&(typeof args[0]!=="string"||args[0].replace(/\r\n?/g,"\n").trim()!==value))
+    throw Error("ESHOP_V2_NORMALIZATION_REVIEW");
+  const result=await database.prepare("UPDATE managed_eshops SET "+assignments+",updated_at=?,updated_by=? "+
+    "WHERE id=? AND updated_at=? AND status<>'archived' "+
+    "AND EXISTS(SELECT 1 FROM eshop_notion_sync WHERE eshop_id=managed_eshops.id AND notion_page_id=?)")
+    .bind(...args,nextHelpV2Revision(revision),"notion-eshop-sync@psipedia.sk",id,revision,pageId).run();
+  if(result.meta.changes!==1)throw Error("ESHOP_V2_WRITE_CONFLICT");
 }

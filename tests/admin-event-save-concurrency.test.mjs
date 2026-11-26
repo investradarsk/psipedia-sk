@@ -17,7 +17,7 @@ function fullUpdateSource() {
 
 /** Exercise the actual UPDATE template, including its version predicate. */
 function fullUpdateSql() {
-  const match = fullUpdateSource().match(/const row = await database\.prepare\(`([\s\S]*?)`\)\.bind\(/);
+  const match = fullUpdateSource().match(/const statement = database\.prepare\(`([\s\S]*?)`\)\.bind\(/);
   assert.ok(match, "canonical full-update SQL exists");
   // The source template interpolations are only the pre-existing, fixed
   // contact columns and optional private notes. No user input is evaluated.

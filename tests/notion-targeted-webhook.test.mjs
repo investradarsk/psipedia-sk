@@ -443,7 +443,7 @@ test("durable Notion receipts deduplicate by event ID and store no values", asyn
   assert.ok(statements.every(s => s.sql.includes("INSERT OR IGNORE")));
   assert.equal(statements[0].args[0], statements[1].args[0]);
   assert.equal(statements[0].args[0], event.id);
-  assert.deepEqual(JSON.parse(statements[0].args[3]), ["Phone", "abc123"]);
+  assert.deepEqual(JSON.parse(statements[0].args[3]), {version:2,properties:["Phone","abc123"],id:event.id});
   assert.equal(JSON.stringify(statements).includes("0900"), false);
 });
 

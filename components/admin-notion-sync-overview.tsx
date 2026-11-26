@@ -5,6 +5,7 @@ import styles from "./admin-notion-data-quality-audit.module.css";
 import Link from "next/link";
 import { AdminNotionDataQualityAudit } from "./admin-notion-data-quality-audit";
 import { AdminNotionFieldSettings } from "./admin-notion-field-settings";
+import type { UnifiedDiagnostics } from "@/lib/notion-unified-diagnostics";
 import { AdminNotionManualTransfer } from "./admin-notion-manual-transfer";
 
 type DeliveryCase = {
@@ -81,6 +82,7 @@ type OverviewResponse = {
   preflight: NotionPreflightRow[];
   checkedAt: string;
   rows: OverviewRow[];
+  unified?: UnifiedDiagnostics;
 };
 
 const stateLabels: Record<OverviewRow["status"], string> = {
@@ -230,6 +232,7 @@ export function AdminNotionSyncOverview({ view = "status" }: { view?: "status" |
       </div>
       {error ? <p role="alert" className="admin-message admin-message--error">{error}</p> : null}
       {loading && !snapshot ? <p role="status">Načítavam evidenciu prepojení…</p> : null}
+      {snapshot?.unified ? <UnifiedJournalView journal={snapshot.unified} view={view} /> : null}
       {snapshot && view === "status" ? (
         <>
           <p className={styles.progress}>Uložené v D1 ≠ doručené do Notionu. Čaká na Notion = otvorený outbox; Synchronizované = len potvrdený konkrétny prenos. Konflikt a trvalé zlyhanie vyžadujú osobitnú kontrolu. Samotné mapovanie ani úspešný beh automatizácie nezaručujú aktuálnu zhodu.</p>
@@ -324,6 +327,40 @@ export function AdminNotionSyncOverview({ view = "status" }: { view?: "status" |
       ) : null}
     </section>
   );
+}
+
+const unifiedLabels: Record<string,string> = {
+  directory:"Adresár",breeds:"Plemená",events:"Podujatia",organizations:"Organizácie",
+  adoptions:"Adopcie","lost-found":"Stratené a nájdené","help-cases":"Ostatná pomoc psom",eshops:"E-shopy",
+};
+const unifiedReasonLabels: Record<string,string> = {
+  BASELINE_UNAVAILABLE:"Chýba potvrdená východisková hodnota",
+  MISSING_FIELD:"Chýba alebo je neplatné pole",
+  UNVERIFIED_NOTION_CLEAR:"Prázdne pole v Notione – ochrana SQL",
+  UNVERIFIED_ADMIN_CLEAR:"Chýba potvrdenie vymazania v Admine",
+  RECOVERY_DIVERGED:"Nepotvrdený prenos – hodnoty sa líšia",
+  SCOPE_INVALIDATED:"Zmena mapovania alebo zámku – nové overenie",
+  RECOVERY_DIRECTION_REQUIRED:"Čaká na bezpečný prenos",
+  OPPOSITE_DIRECTION_REQUIRED:"Zmena vyžaduje opačný smer prenosu",
+  AWAITING_CONFIRMATION:"Čaká na potvrdenie",
+};
+function UnifiedJournalView({journal,view}:{journal:UnifiedDiagnostics;view:"status"|"issues"}){
+  return <div className={styles.details}>
+    <h3>Synchronizácia V2 – jednotlivé polia</h3>
+    <p>{journal.enabled?"Režim V2 zapnutý":"Režim V2 vypnutý"} · {journal.schemaReady?"SQL evidencia dostupná":"SQL evidencia nedostupná alebo neúplná"}</p>
+    {!journal.schemaReady?<p>Počty nie sú overené. Neznamená to, že neexistujú konflikty.</p>:<>
+      <p className={styles.progress}>Evidencia z D1, nie živé porovnanie s Notionom. Potvrdené polia neznamenajú kompletné overenie celého profilu.</p>
+      {!!journal.manualFences&&<p role="status">Aktívne alebo prerušené manuálne prenosy: {journal.manualFences}. Automatická synchronizácia týchto profilov je blokovaná.</p>}
+      {view==="status"?<div className={styles.tableScroll}><table className={styles.table}>
+        <thead><tr><th>Agenda</th><th>Profily v evidencii</th><th>Potvrdené polia</th><th>Čakajú</th><th>Na kontrolu</th><th>Posledná evidencia</th></tr></thead>
+        <tbody>{journal.rows.map(row=><tr key={row.agenda}><td>{unifiedLabels[row.agenda]}</td><td>{row.profiles}</td><td>{row.synced}</td><td>{row.pending}</td><td>{row.review}</td><td>{formatDate(row.lastRecordedAt)}</td></tr>)}</tbody>
+      </table></div>:journal.issues.length?<div className={styles.tableScroll}><table className={styles.table}>
+        <thead><tr><th>Agenda</th><th>Profil</th><th>Pole</th><th>Stav</th><th>Dôvod</th><th>Posledná evidencia</th><th>Ďalšia kontrola</th></tr></thead>
+        <tbody>{journal.issues.map((issue,index)=><tr key={issue.agenda+":"+issue.entityId+":"+issue.field+":"+index}><td>{unifiedLabels[issue.agenda]}</td><td>#{issue.entityId}</td><td>{issue.field}</td><td>{issue.status==="PENDING"?"Čaká":"Na kontrolu"}</td><td>{unifiedReasonLabels[issue.reason]??issue.reason}</td><td>{formatDate(issue.updatedAt)}</td><td>{formatDate(issue.retryAfter)}</td></tr>)}</tbody>
+      </table></div>:<p>V dostupnej evidencii nie sú otvorené polia.</p>}
+      {view==="issues"&&journal.truncated?<p>Zobrazených najviac 50 polí. Ďalšie zostávajú v evidencii.</p>:null}
+    </>}
+  </div>;
 }
 
 export type NotionWorkspaceTab = "status" | "issues" | "fields" | "transfer";

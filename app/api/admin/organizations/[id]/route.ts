@@ -15,6 +15,9 @@ import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
+function unifiedOrganizationReceiptsEnabled() {
+  return (env as unknown as {NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string}).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+}
 type UploadBindings = { BUCKET?: R2Bucket; CF_VERSION_METADATA?: { id?: string } };
 
 async function numericId(params: Props["params"]) {
@@ -46,7 +49,8 @@ export async function PUT(request: Request, { params }: Props) {
     const before = await getOrganizationPublicationAdminById(id);
     if (!before) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
-    const item = await updateOrganizationFromAdmin(id, body.payload, user.email, expectedUpdatedAt);
+    const item = await updateOrganizationFromAdmin(id, body.payload, user.email, expectedUpdatedAt,
+      undefined, new Date(), unifiedOrganizationReceiptsEnabled());
     if (!item) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
 
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id, beforeHelpSnapshot });
@@ -118,6 +122,7 @@ export async function PATCH(request: Request, { params }: Props) {
       }
       const item = await updateOrganizationInlineSummaryFromAdmin(
         id, { name, shortDescription }, auth.user.email, expectedUpdatedAt,
+        undefined, unifiedOrganizationReceiptsEnabled(),
       );
       if (!item) return Response.json({ error: "Organizácia už neexistuje." }, { status: 404 });
       const notionFieldSync = await syncSavedNotionRecord({
@@ -134,7 +139,8 @@ export async function PATCH(request: Request, { params }: Props) {
       return Response.json({ error: "Nepodporovaná akcia." }, { status: 400 });
     }
     const payload = organizationInputWithShelterInlineChanges(before, body.changes);
-    const item = await updateShelterInlineFieldsFromAdmin(id, payload, auth.user.email, expectedUpdatedAt);
+    const item = await updateShelterInlineFieldsFromAdmin(id, payload, auth.user.email, expectedUpdatedAt,
+      undefined, new Date(), unifiedOrganizationReceiptsEnabled());
     if (!item) return Response.json({ error: "Útulok už neexistuje." }, { status: 404 });
 
     const notionFieldSync = await syncSavedNotionRecord({

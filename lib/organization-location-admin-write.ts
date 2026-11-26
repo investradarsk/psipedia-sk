@@ -1,3 +1,4 @@
+import { commitOrganizationLocationAdminEdit } from "./notion-organization-admin-receipts.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import {
@@ -70,6 +71,7 @@ export async function createOrganizationLocationFromAdmin(
   organizationId: number,
   payload: unknown,
   database?: AdoptionD1Database,
+  unifiedEditor?: string,
 ) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
   const db = requireOrganizationLocationD1(database);
@@ -77,7 +79,8 @@ export async function createOrganizationLocationFromAdmin(
   if (!organization) return null;
   const input = normalizeOrganizationLocationAdminInput(payload);
 
-  const insertResult = await insertStatement(db, organizationId, input).run() as RunResult;
+  const statement=insertStatement(db,organizationId,input);
+  const insertResult = (unifiedEditor ? await commitOrganizationLocationAdminEdit(db,statement,organizationId,unifiedEditor) : await statement.run()) as RunResult;
   if (resultChanges(insertResult) < 1) {
     throw new OrganizationLocationMutationConflictError(
       "Organizácia už má adresu. Uprav existujúcu adresu namiesto pridania ďalšej.",
@@ -111,6 +114,7 @@ export async function updateOrganizationLocationFromAdmin(
   locationId: number,
   payload: unknown,
   database?: AdoptionD1Database,
+  unifiedEditor?: string,
 ) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
   if (!Number.isSafeInteger(locationId) || locationId <= 0) return null;
@@ -121,9 +125,9 @@ export async function updateOrganizationLocationFromAdmin(
   if (!existing) return null;
   const input = normalizeOrganizationLocationAdminInput(payload);
 
-  let result: RunResult;
+  let statement: ReturnType<AdoptionD1Database["prepare"]>;
   if (input.isPrimary) {
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE organization_locations
       SET
         role = CASE WHEN id = ? THEN ? ELSE role END,
@@ -152,9 +156,9 @@ export async function updateOrganizationLocationFromAdmin(
       locationId,
       organizationId,
       locationId, organizationId,
-    ).run() as RunResult;
+    );
   } else {
-    result = await db.prepare(updateTargetSql()).bind(
+    statement = db.prepare(updateTargetSql()).bind(
       input.role,
       input.label,
       input.address,
@@ -165,8 +169,9 @@ export async function updateOrganizationLocationFromAdmin(
       input.sortOrder,
       locationId,
       organizationId,
-    ).run() as RunResult;
+    );
   }
+  const result=(unifiedEditor ? await commitOrganizationLocationAdminEdit(db,statement,organizationId,unifiedEditor) : await statement.run()) as RunResult;
 
   if (resultChanges(result) < 1) return null;
   await reconcileGeoAfterSourceMutation({
@@ -258,6 +263,7 @@ export async function deleteOrganizationLocationFromAdmin(
   organizationId: number,
   locationId: number,
   database?: AdoptionD1Database,
+  unifiedEditor?: string,
 ) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return false;
   if (!Number.isSafeInteger(locationId) || locationId <= 0) return false;
@@ -267,9 +273,10 @@ export async function deleteOrganizationLocationFromAdmin(
   const existing = await getOrganizationLocationAdmin(organizationId, locationId, db);
   if (!existing) return false;
 
-  const result = await db.prepare(`
+  const statement = db.prepare(`
     DELETE FROM organization_locations
     WHERE id = ? AND organization_id = ?
-  `).bind(locationId, organizationId).run() as RunResult;
+  `).bind(locationId, organizationId);
+  const result=(unifiedEditor ? await commitOrganizationLocationAdminEdit(db,statement,organizationId,unifiedEditor) : await statement.run()) as RunResult;
   return resultChanges(result) >= 1;
 }

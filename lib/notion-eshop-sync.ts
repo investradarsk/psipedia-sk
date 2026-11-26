@@ -1,3 +1,8 @@
+import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
+import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
+import { notionPageIsTombstoned } from "./admin-record-lifecycle";
+import { updateEshopV2NotionField } from "./eshop-ratings.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { sameNotionProperty } from "./notion-selective-property-patch.ts";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
@@ -33,6 +38,7 @@ import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./noti
 
 export type NotionEshopSyncBindings = NotionSyncBindings & {
   NOTION_ESHOP_SYNC_ENABLED?: string;
+  NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string;
   NOTION_ESHOPS_DATA_SOURCE_ID?: string;
 };
 
@@ -172,14 +178,7 @@ function notionSnapshot(page: NotionPage): EditableSnapshot {
 
 
 /** Only Notion property edits reported by a signed webhook can pull these fields. */
-const ESHOP_EVENT_FIELDS = {
-  name: "Názov",
-  websiteUrl: "Web",
-  description: "Popis",
-  sourceUrl: "Zdroj",
-  focusTags: "Zameranie",
-  logoUrl: "Logo URL",
-} as const;
+const ESHOP_EVENT_FIELDS = ESHOP_V2_FIELDS;
 export type EshopEventField = keyof typeof ESHOP_EVENT_FIELDS;
 export type EshopAdminField = EshopEventField | "slug" | "status" | "logoKey";
 
@@ -650,6 +649,127 @@ async function saveEshopEditorialField(
   return updated;
 }
 
+type EshopV2Scope = {
+  database:D1Database; bindings:NotionEshopSyncBindings; dataSourceId:string; mapping:EshopNotionMapping;
+};
+const equalV2=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
+
+/** Each observation revalidates ownership and the canonical revision. No
+ * record timestamp is interpreted as an authenticated editorial receipt. */
+async function observeEshopV2(input:EshopV2Scope,field:EshopAdminField,allowUrlChange=false){
+  const {database,bindings,mapping,dataSourceId}=input;
+  const before=await getManagedEshopById(mapping.eshop_id,database);
+  const currentMapping=await loadMappingByShop(database,mapping.eshop_id);
+  if(!before||currentMapping?.notion_page_id!==mapping.notion_page_id||
+    currentMapping.content_hash!==mapping.content_hash||await notionPageIsTombstoned(database,mapping.notion_page_id))
+    throw Error("ESHOP_V2_MAPPING_CHANGED");
+  const page=await fetchPage(bindings,mapping.notion_page_id);
+  if(page.id!==mapping.notion_page_id||!notionPageBelongsToDataSource(page,dataSourceId)||
+    notionRichTextProperty(page,"Psipedia ID")!==String(before.id)||
+    (!allowUrlChange&&notionUrlProperty(page,"URL Psipedia")!==SITE_URL+"/recenzie/eshopy/"+before.slug))
+    throw Error("ESHOP_V2_IDENTITY_CHANGED");
+  const after=await getManagedEshopById(before.id,database);
+  const latestMapping=await loadMappingByShop(database,before.id);
+  if(!after||after.updatedAt!==before.updatedAt||after.status!==before.status||
+    latestMapping?.notion_page_id!==page.id||latestMapping.content_hash!==mapping.content_hash||
+    await notionPageIsTombstoned(database,page.id))
+    throw Error("ESHOP_V2_REVISION_CHANGED");
+  const canonical=profileSnapshot(after);
+  // Invalid JSON is not an observed empty array.
+  let present=true;
+  if(field==="focusTags"){
+    const raw=await database.prepare("SELECT focus_tags_json FROM managed_eshops WHERE id=? AND updated_at=?")
+      .bind(after.id,after.updatedAt).first<{focus_tags_json:string}>();
+    try{present=Boolean(raw)&&equalV2(JSON.parse(raw!.focus_tags_json),canonical.focusTags);}catch{present=false;}
+  }
+  const notion=field==="slug"||field==="status"||field==="logoKey"?{present:false as const}:observeEshopV2Property(page.properties,field);
+  const psipedia=present?{present:true as const,value:field==="logoKey"?after.logoKey:canonical[field]}:{present:false as const};
+  return {shop:after,page,canonical,notion,psipedia};
+}
+
+async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminField[],direction:"pull"|"push"){
+  const unique=[...new Set(fields)];
+  if(unique.includes("slug"))unique.splice(0,0,...unique.splice(unique.indexOf("slug"),1));
+  let changed=0;
+  const failed:string[]=[];
+  for(const field of unique){
+    try{
+      const structural=field==="slug"||field==="status"||field==="logoKey";
+      if(structural&&direction==="pull")throw Error("ESHOP_V2_PROTECTED_FIELD");
+      // Logo key is dependent metadata, not an independent editable field.
+      // A URL write exports the corresponding key together; never export a
+      // changed key while a divergent URL is unresolved.
+      const first=await observeEshopV2(input,field,field==="slug");
+      if(first.shop.status==="archived"&&!structural)throw Error("ESHOP_V2_ARCHIVED");
+      const identity={agenda:"eshops" as const,entityId:String(first.shop.id),pageId:first.page.id,field};
+      const stored=structural?null:await readProfileFieldBaseline({
+        database:input.database,agenda:"eshops",entityId:first.shop.id,pageId:first.page.id,expectedHash:input.mapping.content_hash,
+      });
+      // A whole-record hash is usable only when it proves the exact snapshot.
+      const baseline=stored??(!structural&&await snapshotHash(first.canonical)===input.mapping.content_hash?first.canonical:null);
+      const reservation=structural?null:await reserveUnifiedField({
+        database:input.database,identity,notion:first.notion,psipedia:first.psipedia,direction,
+        historicalBaseline:baseline&&Object.hasOwn(baseline,field)?{value:baseline[field as keyof EditableSnapshot],version:input.mapping.content_hash}:null,
+        psipediaEdit:await readUnifiedAdminEdit(input.database,identity,first.shop.updatedAt),
+      });
+      if(!structural&&!reservation)continue;
+      const value=reservation?reservation.value:first.psipedia.present?first.psipedia.value:undefined;
+      const fresh=await observeEshopV2(input,field,field==="slug");
+      if(fresh.shop.updatedAt!==first.shop.updatedAt||fresh.page.last_edited_time!==first.page.last_edited_time||
+        !equalV2(first.notion,fresh.notion)||!equalV2(first.psipedia,fresh.psipedia))
+        throw Error("ESHOP_V2_SOURCE_CHANGED");
+      if(direction==="pull"){
+        if(structural)throw Error("ESHOP_V2_PROTECTED_FIELD");
+        let logo:{imageUrl:string|null;imageKey:string|null}|undefined;
+        if(field==="logoUrl"){
+          // External fetch may transform the URL into a new R2 identity.
+          // That is not equality proof; defer the alias-aware media workflow.
+          const own=typeof value==="string"?localizeOwnAsset(value):null;
+          if(!own||!own.startsWith("/media/eshops/")||!input.bindings.BUCKET)
+            throw Error("ESHOP_V2_LOGO_REQUIRES_MEDIA_REVIEW");
+          const key=own.slice("/media/".length);
+          if(!await input.bindings.BUCKET.head(key))throw Error("ESHOP_V2_LOGO_MISSING");
+          logo={imageUrl:own,imageKey:key};
+          // Recheck after the R2 read. Old assets are not deleted here.
+          const current=await observeEshopV2(input,field);
+          if(current.shop.updatedAt!==fresh.shop.updatedAt||current.page.last_edited_time!==fresh.page.last_edited_time||
+            !equalV2(current.notion,fresh.notion))throw Error("ESHOP_V2_SOURCE_CHANGED");
+        }
+        if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
+        await updateEshopV2NotionField({database:input.database,id:first.shop.id,pageId:first.page.id,
+          revision:first.shop.updatedAt,field,value,logo});
+      }else{
+        const all=notionProperties(fresh.shop,"",new Date().toISOString()) as Record<string,unknown>;
+        const names=field==="slug"?["Slug","URL Psipedia"]:field==="status"?["Psipedia stav"]:
+          field==="logoKey"?["Logo key"]:field==="logoUrl"?["Logo URL","Logo Psipedia","Logo key"]:[ESHOP_V2_FIELDS[field]];
+        if(field==="logoKey"){
+          const remoteLogo=observeEshopV2Property(fresh.page.properties,"logoUrl");
+          if(!remoteLogo.present||remoteLogo.value!==fresh.canonical.logoUrl)throw Error("ESHOP_V2_LOGO_KEY_REVIEW");
+        }
+        const required=names[0];
+        if(!Object.hasOwn(fresh.page.properties??{},required))throw Error("ESHOP_V2_SCHEMA_MISSING");
+        const desired=Object.fromEntries(names.filter(name=>Object.hasOwn(fresh.page.properties??{},name)).map(name=>[name,all[name]]));
+        if(field==="slug"&&!Object.hasOwn(desired,"URL Psipedia"))throw Error("ESHOP_V2_SCHEMA_MISSING");
+        const patch=selectiveNotionProperties(fresh.page.properties??{},desired);
+        if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
+        if(patch)await patchPage(input.bindings,first.page.id,patch);
+        const confirmed=await observeEshopV2(input,field);
+        if(confirmed.shop.updatedAt!==fresh.shop.updatedAt||
+          Object.entries(desired).some(([name,v])=>!sameNotionProperty(confirmed.page.properties?.[name],v)))
+          throw Error("ESHOP_V2_ECHO_MISMATCH");
+      }
+      const verified=await observeEshopV2(input,field);
+      if(reservation)await confirmUnifiedField(input.database,reservation,verified.notion,verified.psipedia);
+      changed++;
+    }catch(error){
+      failed.push(field);
+      console.warn("ESHOP_V2_FIELD_PENDING",input.mapping.eshop_id,field,error instanceof Error?error.message:"UNKNOWN");
+    }
+  }
+  if(failed.length)throw Error("ESHOP_V2_FIELDS_PENDING: "+failed.join(","));
+  return changed?(direction==="pull"?"pulled" as const:"pushed" as const):"unchanged" as const;
+}
+
 async function syncMapped(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
@@ -675,9 +795,18 @@ async function syncMapped(input: {
     throw new Error("ESHOP_FIELD_EVENT_IDENTITY_MISMATCH");
   if (claimedId !== String(shop.id)) {
     // Never overwrite a page explicitly claimed by a different D1 entity.
-    if (claimedId) throw new Error("ESHOP_IDENTITY_CONFLICT");
+    if (claimedId || (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"&&!input.manualDirection)) throw new Error("ESHOP_IDENTITY_CONFLICT");
     await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
     return "pushed" as const;
+  }
+
+  if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"&&!input.manualDirection){
+    if(input.webhookChangedPropertyIds!==undefined)
+      return syncEshopV2Fields(input,eshopNotionEditedFields(page,input.webhookChangedPropertyIds),"pull");
+    if(input.adminChangedFields!==undefined)
+      return syncEshopV2Fields(input,input.adminChangedFields,"push");
+    // No unsigned legacy bulk editorial overwrite in V2. Catch-up is step 10.
+    return mirrorEshopSystemFields(input);
   }
 
   // Explicit field events replace record-wide reconciliation for mapped shops.
@@ -833,6 +962,8 @@ async function syncMapped(input: {
     protectedFields: new Set(["slug", "status"]),
     canonicalFieldsWin: true,
     authorities: await readNotionFieldAuthorities(input.database,"eshops"),
+    // Match Directory: never let historical source priority undo a verified edit.
+    changedSideWins: true,
   });
   if (resolution.kind === "CONFLICT") {
     throw new Error("ESHOP_FIELD_REVIEW_REQUIRED (" +
@@ -1071,7 +1202,10 @@ export async function runNotionEshopSyncSweep(input: {
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
-      await markPageError(input.bindings, page.id, error);
+      if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true") {
+        // Never PATCH error metadata onto an unverified or moved page.
+        console.warn("ESHOP_V2_SYNC_PENDING",page.id,error instanceof Error?error.message:"UNKNOWN");
+      } else await markPageError(input.bindings, page.id, error);
     }
   }
 
@@ -1122,4 +1256,19 @@ export async function inspectManualEshopProfile(input:{
   return {notion:notionSnapshot(page) as unknown as Record<string,unknown>,
     admin:profileSnapshot(shop) as unknown as Record<string,unknown>,
     excluded:["slug","status","logoUrl"]};
+}
+
+export async function recoverEshopV2Field(database:D1Database,bindings:NotionEshopSyncBindings,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe"){
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!configured(bindings)||!Object.hasOwn(ESHOP_V2_FIELDS,field))throw Error("ESHOP_V2_RECOVERY_SCOPE");
+  const mapping=await loadMappingByShop(database,id);
+  if(!mapping||mapping.notion_page_id!==pageId)throw Error("ESHOP_V2_RECOVERY_MAPPING");
+  const scope={database,bindings,dataSourceId:bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim(),mapping};
+  if(direction==="pull"){await syncEshopV2Fields(scope,[field as EshopEventField],"pull");return;}
+  const observed=await observeEshopV2(scope,field as EshopEventField);
+  if(observed.shop.status==="archived")throw Error("ESHOP_V2_ARCHIVED");
+  const historical=await readProfileFieldBaseline({database,agenda:"eshops",entityId:id,pageId,expectedHash:mapping.content_hash});
+  const identity={agenda:"eshops" as const,entityId:String(id),pageId,field};
+  await reserveUnifiedField({database,identity,notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
+    historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:mapping.content_hash}:null,
+    psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.shop.updatedAt)});
 }

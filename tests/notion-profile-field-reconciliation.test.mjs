@@ -755,3 +755,568 @@ test("unverified identity and publication differences never auto-push under cano
   assert.deepEqual(result.psipediaFields, []);
   assert.deepEqual(result.merged, psipedia);
 });
+
+test("V2 shared profile adapters enable verified changed-side precedence", async () => {
+  for (const path of [
+    "../lib/notion-directory-sync.ts",
+    "../lib/notion-events-help-sync.ts",
+    "../lib/notion-eshop-sync.ts",
+  ]) {
+    const code = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(code, /reconcileProfileFields\(\{[\s\S]*?changedSideWins: true,[\s\S]*?\}\)/, path);
+  }
+});
+
+test("V2 shared policy preserves independent edits and never trusts obsolete authority", () => {
+  const baseline = { title: "Old title", description: "Old text", status: "published" };
+  for (const mode of ["safe", "notion", "admin", "latest"]) {
+    const result = reconcileProfileFields({
+      baseline,
+      notion: { ...baseline, description: "New Notion text", status: "draft" },
+      psipedia: { ...baseline, title: "New Admin title" },
+      protectedFields: new Set(["status"]),
+      canonicalFieldsWin: true,
+      changedSideWins: true,
+      authorities: { title: mode, description: mode, status: mode },
+    });
+    assert.equal(result.kind, "MERGE");
+    assert.deepEqual(result.merged, {
+      title: "New Admin title",
+      description: "New Notion text",
+      status: "published",
+    });
+  }
+});
+
+
+test("V2 field engine applies identical rules to all eight agendas", async () => {
+  const { decideUnifiedField, UNIFIED_SYNC_AGENDAS } = await import("../lib/notion-unified-field-sync.ts");
+  assert.equal(UNIFIED_SYNC_AGENDAS.length, 8);
+  const present = (value) => ({ present: true, value });
+  for (const agenda of UNIFIED_SYNC_AGENDAS) {
+    const identity = { agenda, entityId: "42", pageId: "page-42", field: "description" };
+    const base = { identity, baseline: { value: "old", version: "v1" } };
+    const decide = (notion, psipedia, extra = {}) =>
+      decideUnifiedField({ ...base, notion: present(notion), psipedia: present(psipedia), ...extra });
+    assert.equal(decide("new", "old").action, "pull");
+    assert.equal(decide("old", "new").action, "push");
+    assert.equal(decide("same", "same", { baseline: null }).action, "unchanged");
+    assert.equal(decide("new", "newer").reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("", "old").reason, "UNVERIFIED_NOTION_CLEAR");
+    assert.equal(decide("old", "").reason, "UNVERIFIED_ADMIN_CLEAR");
+    assert.equal(decide("old", "new", { locked: true }).reason, "LOCKED");
+    assert.equal(decide("old", "new", { protected: true }).reason, "PROTECTED_FIELD");
+    assert.equal(decide("old", "new", { baseline: null }).reason, "BASELINE_UNAVAILABLE");
+    assert.equal(decide("old", "new", { notion: { present: false } }).reason, "MISSING_FIELD");
+    const notionEdit = { identity, source: "notion", baselineVersion: "v1", editId: "n1",
+      value: "new", observedAt: "2026-11-25T09:00:00.000Z" };
+    const psipediaEdit = { identity, source: "psipedia", baselineVersion: "v1", editId: "p1",
+      value: "newer", observedAt: "2026-11-25T10:00:00.000Z" };
+    assert.equal(decide("new", "newer", { notionEdit, psipediaEdit }).action, "push");
+    assert.equal(decide("new", "newer", {
+      notionEdit: { ...notionEdit, observedAt: "2026-11-25T11:00:00.000Z" }, psipediaEdit,
+    }).action, "pull");
+    assert.equal(decide("new", "newer", {
+      notionEdit: { ...notionEdit, identity: { ...identity, pageId: "other" } }, psipediaEdit,
+    }).reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("new", "newer", {
+      notionEdit, psipediaEdit: { ...psipediaEdit, baselineVersion: "stale" },
+    }).reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("new", "newer", {
+      notionEdit: { ...notionEdit, value: "different" }, psipediaEdit,
+    }).reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("old", "", {
+      psipediaEdit: { ...psipediaEdit, value: "", explicitClear: true },
+    }).action, "push");
+  }
+});
+
+test("V2 field state proposal preserves independent scoped observations with CAS", async () => {
+  const { readUnifiedFieldState, writeUnifiedFieldState } = await import("../lib/notion-unified-field-state.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    const adapter = { prepare(sql) { return { bind(...args) {
+      return { async first() { return db.prepare(sql).get(...args) ?? null; } };
+    } }; } };
+    const id = { agenda: "events", entityId: "1", pageId: "page", field: "title" };
+    const pending = { baseline: "old", notion: "old", psipedia: "new",
+      notionEdit: undefined, psipediaEdit: undefined, status: "PENDING", reason: null };
+    assert.equal(await writeUnifiedFieldState(adapter, id, null, pending), 1);
+    assert.equal(await writeUnifiedFieldState(adapter, id, null, pending), null);
+    assert.equal(await readUnifiedFieldState(adapter, { ...id, field: "description" }), null);
+    assert.equal((await readUnifiedFieldState(adapter, id)).status, "PENDING");
+    assert.equal(await writeUnifiedFieldState(adapter, id, 1, {
+      ...pending, baseline: "new", notion: "new", status: "SYNCED",
+    }), 2);
+    assert.equal(await writeUnifiedFieldState(adapter, id, 1, pending), null);
+    assert.equal((await readUnifiedFieldState(adapter, id)).baseline, "new");
+  } finally { db.close(); }
+});
+
+test("V2 Admin receipt trigger binds only actual committed selected changes", async () => {
+  const { commitEventAdminEdit, readUnifiedAdminEdit } = await import("../lib/notion-unified-admin-edits.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    const columns = "title event_type start_date start_time end_date end_time venue city region address organizer excerpt description practical_info contact_phone contact_email admission_fee website_url registration_url image_url image_alt internal_notes seo_json updated_at updated_by".split(" ");
+    db.exec("CREATE TABLE managed_events(id INTEGER PRIMARY KEY," + columns.map(c => c + " TEXT").join(",") + ");");
+    db.exec("CREATE TABLE event_notion_sync(event_id INTEGER PRIMARY KEY, notion_page_id TEXT, content_hash TEXT);");
+    for (const file of ["notion-unified-field-state", "notion-unified-admin-edits"]) {
+      db.exec(await readFile(new URL("../docs/proposals/" + file + "-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    }
+    db.exec("INSERT INTO managed_events(id,title,description,updated_at,updated_by,seo_json) VALUES(1,'old','keep','r1','admin','{}'); INSERT INTO event_notion_sync VALUES(1,'page','hash');");
+    const adapter = {
+      prepare(sql) { return { bind(...args) {
+        return { sql, args, async first() { return db.prepare(sql).get(...args) ?? null; } };
+      } }; },
+      async batch(statements) {
+        db.exec("BEGIN");
+        try {
+          const results = statements.map(({sql,args}) => {
+            const stmt = db.prepare(sql);
+            if (sql.includes("RETURNING")) return { success: true, results: stmt.all(...args) };
+            stmt.run(...args);
+            return { success: true, results: [] };
+          });
+          db.exec("COMMIT");
+          return results;
+        } catch (e) { db.exec("ROLLBACK"); throw e; }
+      },
+    };
+    const update = (expected, next, title) => adapter.prepare("UPDATE managed_events SET title=?,updated_at=?,updated_by='admin' WHERE id=1 AND updated_at=? RETURNING *").bind(title,next,expected);
+    const info = { id: 1, expectedRevision: "r1", nextRevision: "r2", editor: "admin", fields: ["title","description"] };
+    assert.equal(await commitEventAdminEdit(adapter, update("stale","r2","bad"), {...info, expectedRevision:"stale"}), null);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_unified_admin_field_edits").get().n, 0);
+    assert.equal((await commitEventAdminEdit(adapter, update("r1","r2","new"), info)).title,"new");
+    const identity = { agenda:"events",entityId:"1",pageId:"page",field:"title" };
+    const receipt = await readUnifiedAdminEdit(adapter,identity,"r2");
+    assert.equal(receipt.value,"new");
+    assert.equal(receipt.baselineVersion,"hash");
+    assert.match(receipt.observedAt,/Z$/);
+    assert.equal(await readUnifiedAdminEdit(adapter,{...identity,field:"description"},"r2"),undefined);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_event_admin_edit_intent").get().n,0);
+    db.exec("UPDATE managed_events SET title='remote',updated_at='r3',updated_by='notion' WHERE id=1");
+    assert.equal(await readUnifiedAdminEdit(adapter,identity,"r3"),undefined);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_unified_admin_field_edits").get().n,1);
+  } finally { db.close(); }
+});
+
+test("V2 pending recovery verifies convergence without replaying uncertain writes", async () => {
+  const { readUnifiedFieldState, writeUnifiedFieldState } = await import("../lib/notion-unified-field-state.ts");
+  const { reserveUnifiedField } = await import("../lib/notion-unified-field-transfer.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    const adapter = { prepare(sql) { return { bind(...args) {
+      return { async first() { return db.prepare(sql).get(...args) ?? null; } };
+    } }; } };
+    const identity = {agenda:"events",entityId:"1",pageId:"p",field:"title"};
+    const pending = {baseline:"old",notion:"old",psipedia:"new",notionEdit:undefined,psipediaEdit:undefined,status:"PENDING",reason:null};
+    const present = value => ({present:true,value});
+    const reserve = (n,p) => reserveUnifiedField({database:adapter,identity,historicalBaseline:null,notion:present(n),psipedia:present(p),direction:"push"});
+    await writeUnifiedFieldState(adapter,identity,null,pending);
+    await assert.rejects(reserve("old","new"),/PENDING_RECOVERY/);
+    db.exec("UPDATE notion_unified_field_state SET updated_at='2000-01-01T00:00:00.000Z'");
+    await assert.rejects(reserve("old","new"),/RECOVERY_DIVERGED/);
+    assert.equal((await readUnifiedFieldState(adapter,identity)).status,"REVIEW");
+    await assert.rejects(reserve("old","new"),/RECOVERY_DIVERGED/);
+    assert.equal(await reserve("new","new"),null);
+    assert.equal((await readUnifiedFieldState(adapter,identity)).baseline,"new");
+  } finally { db.close(); }
+});
+
+test("V2 Directory receipts record only committed scalar and relational SQL changes", async () => {
+  const { planDirectoryAdminReceipts, directoryFacetReceiptField,
+    directoryMetadataReceiptField, directoryBreederRelationReceiptField } =
+    await import("../lib/notion-directory-admin-receipts.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    const columns = "name excerpt description region district city address postal_code street house_number address_format price_note website_url public_phone public_email facebook_url instagram_url category updated_at updated_by".split(" ");
+    db.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY," + columns.map(c => c + " TEXT").join(",") + ");");
+    db.exec("CREATE TABLE directory_profile_seo(profile_id INTEGER PRIMARY KEY,title TEXT,description TEXT,focus_keyword TEXT,canonical_url TEXT,og_title TEXT,og_description TEXT,og_image_url TEXT);");
+    db.exec(`
+      CREATE TABLE directory_profile_qualifications(profile_id INTEGER,item_order INTEGER,qualification_text TEXT);
+      CREATE TABLE directory_profile_service_texts(profile_id INTEGER,item_order INTEGER,service_text TEXT);
+      CREATE TABLE directory_profile_extra_fields(profile_id INTEGER,field_key TEXT,value_kind TEXT,text_value TEXT);
+      CREATE TABLE directory_profile_additional_categories(profile_id INTEGER,category TEXT);
+      CREATE TABLE directory_profile_filter_values(profile_id INTEGER,category TEXT,filter_id TEXT,value_text TEXT);
+      CREATE TABLE directory_profile_opening_hours(profile_id INTEGER,day_of_week INTEGER,hours_text TEXT);
+      CREATE TABLE directory_profile_public_facts(profile_id INTEGER,field_key TEXT,value_text TEXT);
+      CREATE TABLE breed_directory_relations(profile_id INTEGER,breed_id INTEGER);
+      CREATE TABLE directory_breeder_club_relations(station_profile_id INTEGER,club_profile_id INTEGER);
+      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER PRIMARY KEY,notion_page_id TEXT,content_hash TEXT);
+      CREATE TABLE managed_events(id INTEGER PRIMARY KEY,updated_at TEXT,updated_by TEXT);
+      CREATE TABLE event_notion_sync(event_id INTEGER PRIMARY KEY,notion_page_id TEXT,content_hash TEXT);
+    `);
+    // SQLite validates event trigger column references only when executing that
+    // trigger; this test uses only the Directory proposal tables.
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    const proposal = await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8");
+    db.exec(proposal.slice(proposal.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"), proposal.indexOf("-- Trigger sees actual")));
+    db.exec(proposal.slice(proposal.indexOf("-- Directory captures SQL")));
+    db.exec(`INSERT INTO directory_profiles(id,name,description,category,updated_at,updated_by) VALUES(1,'Old','Keep','chovatelske-stanice','r1','admin');
+      INSERT INTO directory_notion_sync VALUES(1,'page','hash');
+      INSERT INTO directory_profile_qualifications VALUES(1,0,'old certificate');
+      INSERT INTO directory_profile_service_texts VALUES(1,0,'old service');
+      INSERT INTO directory_profile_additional_categories VALUES(1,'treneri');
+      INSERT INTO directory_profile_filter_values VALUES(1,'chovatelske-stanice','filter','yes');
+      INSERT INTO directory_profile_public_facts VALUES(1,'Organizácia','old');
+      INSERT INTO breed_directory_relations VALUES(1,5);`);
+    const adapter = { prepare(sql) { return { bind(...args) { return {sql,args}; } }; } };
+    const run = statement => db.prepare(statement.sql).run(...statement.args);
+    const plan = (expectedRevision,nextRevision) => planDirectoryAdminReceipts(adapter, {
+      id:1, expectedRevision,nextRevision,editor:"admin",
+      fields:["name","description","qualifications","services","additionalCategories"],
+      structured:[directoryFacetReceiptField("chovatelske-stanice","filter"),
+        directoryMetadataReceiptField("Organizácia","fact"),
+        directoryBreederRelationReceiptField("breedIds")],
+    });
+    let edit = plan("stale","r2");
+    db.exec("BEGIN");
+    edit.before.forEach(run);
+    db.exec("UPDATE directory_profiles SET updated_at='r2' WHERE id=1 AND updated_at='stale'");
+    edit.after.forEach(run);
+    db.exec("COMMIT");
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    edit=plan("r1","r2");
+    db.exec("BEGIN");
+    edit.before.forEach(run);
+    db.exec(`UPDATE directory_profiles SET name='New',updated_at='r2' WHERE id=1 AND updated_at='r1';
+      DELETE FROM directory_profile_qualifications WHERE profile_id=1;
+      UPDATE directory_profile_service_texts SET service_text='new service' WHERE profile_id=1;
+      DELETE FROM directory_profile_additional_categories WHERE profile_id=1;
+      DELETE FROM directory_profile_filter_values WHERE profile_id=1;
+      UPDATE directory_profile_public_facts SET value_text='new' WHERE profile_id=1;
+      UPDATE breed_directory_relations SET breed_id=6 WHERE profile_id=1;`);
+    edit.after.forEach(run);
+    db.exec("COMMIT");
+    const receipts = Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts.name,["New",0]);
+    assert.equal(receipts.description,undefined);
+    assert.deepEqual(receipts.qualifications,[[],1]);
+    assert.deepEqual(receipts.services,[["new service"],0]);
+    assert.deepEqual(receipts.additionalCategories,[[],1]);
+    assert.deepEqual(receipts["facet:chovatelske-stanice:filter"],[null,1]);
+    assert.deepEqual(receipts["meta:Organizácia"],["new",0]);
+    assert.deepEqual(receipts["relation:breedIds"],[[6],0]);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_directory_admin_edit_intent").get().n,0);
+  } finally { db.close(); }
+});
+
+test("V2 Directory structured sets retain populated values when Notion is blank", async () => {
+  const { decideUnifiedField } = await import("../lib/notion-unified-field-sync.ts");
+  for (const field of ["additionalCategories","qualifications","services","relation:breedIds"]) {
+    const identity = {agenda:"directory",entityId:"1",pageId:"page",field};
+    const baseline = {value:["previous"],version:"v1"};
+    const observe = value => ({present:true,value});
+    assert.equal(decideUnifiedField({identity,baseline,notion:observe([]),psipedia:observe(["previous"])}).reason,"UNVERIFIED_NOTION_CLEAR");
+    assert.equal(decideUnifiedField({identity,baseline,notion:observe(["previous"]),psipedia:observe(["new"])}).action,"push");
+    assert.equal(decideUnifiedField({identity,baseline,notion:observe(["new"]),psipedia:observe(["previous"])}).action,"pull");
+  }
+});
+
+test("Breed V2 workcopy never treats absent cells or moderation as editorial edits", async () => {
+  const {breedWorkcopyObservation,isUnifiedBreedEditorialField}=await import("../lib/notion-breed-unified-policy.ts");
+  assert.deepEqual(breedWorkcopyObservation("",false),{present:false});
+  assert.deepEqual(breedWorkcopyObservation(undefined,true),{present:false});
+  assert.deepEqual(breedWorkcopyObservation([],true),{present:true,value:[]});
+  assert.equal(isUnifiedBreedEditorialField("intro"),true);
+  assert.equal(isUnifiedBreedEditorialField("controlled.heightMinCm"),true);
+  for(const field of ["id","slug","status","seo.noindex","editorialComplete","relatedBreedIds"])
+    assert.equal(isUnifiedBreedEditorialField(field),false);
+  const {decideUnifiedField}=await import("../lib/notion-unified-field-sync.ts");
+  const identity={agenda:"breeds",entityId:"1",pageId:"p",field:"intro"};
+  const present=value=>({present:true,value});
+  assert.equal(decideUnifiedField({identity,baseline:null,notion:present("remote"),psipedia:present("SQL")}).reason,"BASELINE_UNAVAILABLE");
+  assert.equal(decideUnifiedField({identity,baseline:{value:"old",version:"1"},notion:present(""),psipedia:present("old")}).reason,"UNVERIFIED_NOTION_CLEAR");
+});
+
+test("V2 organization receipts include actual scalar and canonical location edits only", async () => {
+  const {commitOrganizationAdminEdit,commitOrganizationLocationAdminEdit,ORGANIZATION_V2_COLUMNS}=await import("../lib/notion-organization-admin-receipts.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(ORGANIZATION_V2_COLUMNS),"city","district","region","status","archived_at","updated_at","updated_by"])];
+    db.exec("CREATE TABLE help_organizations(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" TEXT").join(",")+");");
+    db.exec("CREATE TABLE organization_locations(id INTEGER PRIMARY KEY,organization_id INTEGER,role TEXT,city TEXT,district TEXT,region TEXT,is_primary INTEGER,sort_order INTEGER); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const proposal=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(proposal.slice(proposal.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),proposal.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.exec("INSERT INTO help_organizations(id,name,description,public_email,city,status,updated_at,updated_by) VALUES(1,'Old','Keep','contact@example.com','Old town','PUBLISHED','2026-11-25T08:00:00.000Z','admin'); INSERT INTO notion_agenda_sync VALUES('organizations',1,'page','hash'); INSERT INTO organization_locations VALUES(1,1,'SITE','Town','','',1,0);");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const statement=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:statement.all(...args)};
+          const result=statement.run(...args);
+          return {success:true,meta:{changes:Number(result.changes),last_row_id:Number(result.lastInsertRowid)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const before="2026-11-25T08:00:00.000Z",next="2026-11-25T08:00:01.000Z";
+    const mutation=adapter.prepare("UPDATE help_organizations SET name=?,public_email=NULL,updated_at=?,updated_by='admin' WHERE id=1 AND updated_at=?");
+    await assert.rejects(commitOrganizationAdminEdit(adapter,mutation.bind("Wrong",next,"stale"),{id:1,expectedRevision:"stale",nextRevision:next,editor:"admin"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitOrganizationAdminEdit(adapter,mutation.bind("New",next,before),{id:1,expectedRevision:before,nextRevision:next,editor:"admin"});
+    const receipts=()=>Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts()["Názov"],["New",0]);
+    assert.deepEqual(receipts()["Verejný e-mail"],["",1]);
+    assert.equal(receipts()["Popis"],undefined);
+    await commitOrganizationLocationAdminEdit(adapter,adapter.prepare("UPDATE organization_locations SET city=? WHERE id=1").bind("New town"),1,"admin");
+    assert.deepEqual(receipts()["Mesto"],["New town",0]);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    assert.notEqual(db.prepare("SELECT updated_at FROM help_organizations WHERE id=1").get().updated_at,next);
+  } finally {db.close()}
+});
+
+test("V2 adoption Admin receipts preserve typed zero, false and explicit clears", async () => {
+  const {ADOPTION_V2_FIELDS,commitAdoptionV2AdminEdit,adoptionV2Value}=await import("../lib/notion-adoption-v2-contract.ts");
+  const {decideUnifiedField}=await import("../lib/notion-unified-field-sync.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(ADOPTION_V2_FIELDS).map(([column])=>column),"updated_at","updated_by"])];
+    db.exec("CREATE TABLE adoption_dogs(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" "+(["approximate_age_months","weight","breed_mix"].includes(c)?"NUMERIC":"TEXT")).join(",")+"); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.exec("INSERT INTO adoption_dogs(id,name,description,breed_mix,approximate_age_months,contact_phone,updated_at,updated_by) VALUES(1,'Dog','Keep',1,3,'123','r1','admin'); INSERT INTO notion_agenda_sync VALUES('adoptions',1,'page','hash');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE adoption_dogs SET breed_mix=0,approximate_age_months=0,contact_phone=NULL,updated_at='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    await assert.rejects(commitAdoptionV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitAdoptionV2AdminEdit(adapter,mutation.bind("r1"),input);
+    const receipts=Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts["Kríženec"],[false,0]);
+    assert.deepEqual(receipts["Vek mesiace"],[0,0]);
+    assert.deepEqual(receipts["Kontaktný telefón"],["",1]);
+    assert.equal(receipts["Popis"],undefined);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    assert.equal(adoptionV2Value("Hmotnosť",null),null);
+    assert.equal(adoptionV2Value("Vek mesiace",0),0);
+    assert.equal(adoptionV2Value("Kríženec",0),false);
+    const identity={agenda:"adoptions",entityId:"1",pageId:"page",field:"Kontaktný telefón"};
+    const present=value=>({present:true,value});
+    assert.equal(decideUnifiedField({identity,baseline:{value:"123",version:"hash"},notion:present(""),psipedia:present("123")}).reason,"UNVERIFIED_NOTION_CLEAR");
+  }finally{db.close()}
+});
+
+test("V2 Lost/Found receipts exclude private contacts and roll back companion failures", async () => {
+  const {LOST_FOUND_V2_FIELDS,LOST_FOUND_V2_PROTECTED,isLostFoundV2Field,lostFoundV2Kind,lostFoundV2Value,commitLostFoundV2AdminEdit}=await import("../lib/notion-lost-found-v2-contract.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(LOST_FOUND_V2_FIELDS).map(([column])=>column),"updated_at"])];
+    db.exec("CREATE TABLE lost_found_dog_reports(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" TEXT").join(",")+"); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT); CREATE TABLE lost_found_dog_private_details(report_id INTEGER PRIMARY KEY,encrypted_contact TEXT NOT NULL);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.exec("INSERT INTO lost_found_dog_reports(id,dog_name,short_description,description,last_seen_date_time,updated_at) VALUES(1,'Dog','Old','Keep','2026-11-22T08:00:00.000Z','r1'); INSERT INTO notion_agenda_sync VALUES('lost-found',1,'page','hash'); INSERT INTO lost_found_dog_private_details VALUES(1,'ciphertext');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE lost_found_dog_reports SET short_description='',last_seen_date_time='2026-11-22T09:00:00+01:00',updated_at='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    const privateWrite=adapter.prepare("UPDATE lost_found_dog_private_details SET encrypted_contact=? WHERE report_id=1");
+    await assert.rejects(commitLostFoundV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale",companionStatements:[privateWrite.bind("wrong")]}));
+    await assert.rejects(commitLostFoundV2AdminEdit(adapter,mutation.bind("r1"),{...input,companionStatements:[privateWrite.bind(null)]}));
+    assert.equal(db.prepare("SELECT updated_at FROM lost_found_dog_reports WHERE id=1").get().updated_at,"r1");
+    assert.equal(db.prepare("SELECT encrypted_contact FROM lost_found_dog_private_details WHERE report_id=1").get().encrypted_contact,"ciphertext");
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitLostFoundV2AdminEdit(adapter,mutation.bind("r1"),{...input,companionStatements:[privateWrite.bind("new-ciphertext")]});
+    const receipts=db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all();
+    assert.equal(receipts.length,1);
+    assert.equal(receipts[0].field_key,"Krátky popis");
+    assert.equal(JSON.parse(receipts[0].value_json),"");
+    assert.equal(receipts[0].explicit_clear,1);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    for(const field of ["Latitude","Longitude","Miesto","Verejný kontakt","Verejný e-mail","Verejný telefón","Psipedia stav","Typ","Slug","Zdroj"]){
+      assert.equal(isLostFoundV2Field(field),false);
+      assert.equal(LOST_FOUND_V2_PROTECTED.has(field),true);
+    }
+    assert.equal(lostFoundV2Kind("Naposledy videný"),"instant");
+    assert.equal(lostFoundV2Value("Naposledy videný","2026-11-22T09:00:00+01:00"),"2026-11-22T08:00:00.000Z");
+  }finally{db.close()}
+});
+
+test("V2 generic Help receipts preserve typed amounts, SEO siblings and protected lifecycle", async () => {
+  const {HELP_CASE_V2_FIELDS,HELP_CASE_V2_PROTECTED,helpCaseV2Kind,helpCaseV2Value,isHelpCaseV2Field,isHelpCaseV2SeoField,commitHelpCaseV2AdminEdit}=await import("../lib/notion-help-case-v2-contract.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(HELP_CASE_V2_FIELDS).map(([column])=>column),"updated_at","updated_by","seo_json","status","category","resolved","verified"])];
+    db.exec("CREATE TABLE help_cases(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" "+(["goal_amount","raised_amount","urgent","resolved","verified"].includes(c)?"NUMERIC":"TEXT")).join(",")+"); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.prepare("INSERT INTO help_cases(id,title,excerpt,goal_amount,raised_amount,urgent,seo_json,status,category,resolved,verified,updated_at,updated_by) VALUES(1,'Collection','Keep',100,20,1,?,'published','zbierky',0,1,'r1','admin')").run(JSON.stringify({title:"Old",description:"Keep",noindex:true,focusKeyword:"Preserve"}));
+    db.exec("INSERT INTO notion_agenda_sync VALUES('help-cases',1,'page','hash');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE help_cases SET raised_amount=0,urgent=0,seo_json=json_set(seo_json,'$.title','New'),'updated_at'='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    await assert.rejects(commitHelpCaseV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitHelpCaseV2AdminEdit(adapter,mutation.bind("r1"),input);
+    const receipts=Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts["Vyzbierané"],[0,0]);
+    assert.deepEqual(receipts["Urgentné"],[false,0]);
+    assert.deepEqual(receipts["SEO title"],["New",0]);
+    assert.equal(receipts["SEO popis"],undefined);
+    assert.equal(receipts["Noindex"],undefined);
+    assert.equal(JSON.parse(db.prepare("SELECT seo_json FROM help_cases WHERE id=1").get().seo_json).focusKeyword,"Preserve");
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    for(const field of ["Slug","Kategória","Psipedia stav","Vyriešené","Noindex"]){
+      assert.equal(HELP_CASE_V2_PROTECTED.has(field),true);
+      assert.equal(isHelpCaseV2Field(field)||isHelpCaseV2SeoField(field),false);
+    }
+    assert.equal(helpCaseV2Kind("Cieľ"),"number");
+    assert.equal(helpCaseV2Value("Cieľ",null),null);
+    assert.equal(helpCaseV2Value("Vyzbierané",0),0);
+    assert.equal(helpCaseV2Value("Urgentné",0),false);
+  }finally{db.close()}
+});
+
+test("V2 Eshop evidence preserves array values and only canonical editable fields", async () => {
+  const {commitEshopV2AdminEdit,observeEshopV2Property}=await import("../lib/notion-eshop-v2-contract.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE managed_eshops(id INTEGER PRIMARY KEY,name TEXT,website_url TEXT,description TEXT,source_url TEXT,focus_tags_json TEXT,logo_url TEXT,updated_at TEXT,updated_by TEXT,status TEXT,slug TEXT); CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.prepare("INSERT INTO managed_eshops VALUES(1,'Shop','https://example.sk/','Keep','',?,'/media/eshops/logo.png','r1','admin','published','shop')").run(JSON.stringify(["Krmivo","Hračky"]));
+    db.exec("INSERT INTO eshop_notion_sync VALUES(1,'page','hash');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE managed_eshops SET focus_tags_json='[]',description='',status='draft',updated_at='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    await assert.rejects(commitEshopV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitEshopV2AdminEdit(adapter,mutation.bind("r1"),input);
+    const receipts=Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts.focusTags,[[],1]);
+    assert.deepEqual(receipts.description,["",1]);
+    assert.equal(receipts.status,undefined);
+    assert.equal(receipts.logoUrl,undefined);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    assert.deepEqual(observeEshopV2Property({Zameranie:{type:"multi_select",multi_select:[]}},"focusTags"),{present:true,value:[]});
+    assert.deepEqual(observeEshopV2Property({Zameranie:{type:"rich_text",rich_text:[]}},"focusTags"),{present:false});
+    assert.deepEqual(observeEshopV2Property({Zameranie:{type:"multi_select",multi_select:[{name:"Krmivo"},{name:"krmivo"}]}},"focusTags"),{present:false});
+    assert.deepEqual(observeEshopV2Property({Popis:{type:"rich_text",rich_text:[{plain_text:"Line 1\r\nLine 2"}]}},"description"),{present:true,value:"Line 1\nLine 2"});
+  }finally{db.close()}
+});
+
+test("V2 observation preserves confirmed baseline generation across review and retry; invalidation blocks historical fallback", async () => {
+  const {readUnifiedFieldState,writeUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const {reserveUnifiedField,confirmUnifiedField,assertUnifiedReservationCurrent}=await import("../lib/notion-unified-field-transfer.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const adapter={prepare(sql){const wrap=args=>({bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])}};
+    const identity={agenda:"eshops",entityId:"1",pageId:"page",field:"description"};
+    const p=value=>({present:true,value});
+    const reserve=(n,a,direction,receipt)=>reserveUnifiedField({database:adapter,identity,historicalBaseline:{value:"old",version:"hash"},notion:p(n),psipedia:p(a),direction,psipediaEdit:receipt});
+    await reserve("old","old","observe");
+    const first=await readUnifiedFieldState(adapter,identity);
+    const receipt={identity,source:"psipedia",baselineVersion:first.baselineVersion,editId:"a",observedAt:"2026-11-26T09:00:00.000Z",value:"",explicitClear:true};
+    assert.equal(await reserve("old","","observe",receipt),null);
+    const review=await readUnifiedFieldState(adapter,identity);
+    assert.equal(review.baselineVersion,first.baselineVersion);
+    assert.equal(review.reason,"RECOVERY_DIRECTION_REQUIRED");
+    assert.ok(review.version>first.version);
+    const reservation=await reserve("old","","push",receipt);
+    assert.ok(reservation);
+    await assertUnifiedReservationCurrent(adapter,reservation);
+    await confirmUnifiedField(adapter,reservation,p(""),p(""));
+    const synced=await readUnifiedFieldState(adapter,identity);
+    assert.equal(synced.status,"SYNCED");
+    assert.notEqual(synced.baselineVersion,first.baselineVersion);
+    db.exec("DELETE FROM notion_unified_field_state; INSERT INTO notion_unified_scope_invalidation VALUES('eshops','1','now');");
+    await reserve("old","new","observe");
+    assert.equal((await readUnifiedFieldState(adapter,identity)).reason,"BASELINE_UNAVAILABLE");
+    const state=await readUnifiedFieldState(adapter,identity);
+    await writeUnifiedFieldState(adapter,identity,state.version,{...state,status:"REVIEW",reason:"SCOPE_INVALIDATED",baselineVersion:undefined,baseline:undefined});
+    await assert.rejects(assertUnifiedReservationCurrent(adapter,reservation),/INVALIDATED/);
+  }finally{db.close()}
+});
+
+test("V2 manual transfer fence blocks both insertion and update of automatic field reservations", async () => {
+  const {acquireUnifiedManualFence,releaseUnifiedManualFence}=await import("../lib/notion-unified-manual-fence.ts");
+  const {writeUnifiedFieldState,readUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{const x=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}};});db.exec("COMMIT");return results;}
+        catch(error){db.exec("ROLLBACK");throw error;}
+      }
+    };
+    const id={agenda:"directory",entityId:"42",pageId:"page",field:"description"};
+    const snapshot={baselineVersion:"old-version",baseline:"old",notion:"old",psipedia:"old",notionEdit:undefined,psipediaEdit:undefined,status:"SYNCED",reason:null};
+    await writeUnifiedFieldState(adapter,id,null,{...snapshot,status:"PENDING"});
+    await assert.rejects(acquireUnifiedManualFence(adapter,{scope:"directory:veterinari",profile_id:42}),/SCOPE_BUSY/);
+    await writeUnifiedFieldState(adapter,id,1,snapshot);
+    const fence=await acquireUnifiedManualFence(adapter,{scope:"directory:veterinari",profile_id:42});
+    const state=await readUnifiedFieldState(adapter,id);
+    assert.equal(state.reason,"SCOPE_INVALIDATED");
+    assert.equal(state.baseline,undefined);
+    assert.equal(await writeUnifiedFieldState(adapter,id,state.version,snapshot),null);
+    assert.equal(await writeUnifiedFieldState(adapter,{...id,field:"name"},null,snapshot),null);
+    assert.equal(await writeUnifiedFieldState(adapter,{...id,entityId:"43"},null,snapshot),1);
+    await releaseUnifiedManualFence(adapter,fence);
+    const after=await readUnifiedFieldState(adapter,id);
+    assert.ok(after.version>state.version);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_manual_fence").get().n,0);
+    assert.equal(await writeUnifiedFieldState(adapter,id,after.version,snapshot),after.version+1);
+  }finally{db.close()}
+});

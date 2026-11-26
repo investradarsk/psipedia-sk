@@ -1,7 +1,11 @@
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import type { DogEvent } from "./events.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
-import { getManagedEventById, updateManagedEvent } from "./event-store.ts";
+import { getManagedEventById, updateManagedEvent, nextManagedEventUpdatedAt } from "./event-store.ts";
+import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
+import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
+import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { loadNotionBulkEvents } from "./notion-bulk-sources.ts";
 import { hasCurrentGooglePlace } from "./notion-events-help-adapters.ts";
 import { notionRequest } from "./notion-sync-shared.ts";
@@ -18,6 +22,8 @@ export type EventFieldSyncBindings = {
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
+  /** Pilot only. Do not enable before the reviewed field-state migration and recovery. */
+  NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string;
 };
 type Page=NotionOwnedPage & {properties?:Record<string,unknown>;last_edited_time?:string};
 type SyncStatus="disabled"|"unlinked"|"synced"|"pending";
@@ -70,6 +76,69 @@ function valueFromPage(raw:unknown,field:EventNotionField):string|boolean|null{
   const value=eventReadNotionProperty(raw);
   if(field==="seo.noindex")return typeof value==="boolean"?value:null;
   return typeof value==="string"?value:null;
+}
+function pilotEnabled(bindings: EventFieldSyncBindings) {
+  return bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+}
+function eventObservation(value: unknown, present: boolean, field: EventNotionField): FieldObservation {
+  if (!present || value === undefined) return { present: false };
+  if (field === "seo.noindex") return typeof value === "boolean"
+    ? { present: true, value } : { present: false };
+  if (value === null) return { present: true, value: "" };
+  return typeof value === "string" ? { present: true, value: value.trim() } : { present: false };
+}
+async function observePilotField(db: D1Database, bindings: EventFieldSyncBindings,
+  id: number, pageId: string, field: EventNotionField) {
+  const before = await getManagedEventById(id);
+  if (!before) throw Error("EVENT_CANONICAL_MISSING");
+  if (await isAdminNotionSyncLocked(db, "events", id)) throw Error("EVENT_SYNC_LOCKED");
+  await confirmMapping(db, pageId, id);
+  const source = await loadSource(db, id);
+  const page = await notionRequest<Page>(bindings, "/pages/" + encodeURIComponent(pageId));
+  if (page.id !== pageId) throw Error("EVENT_NOTION_PAGE_MISMATCH");
+  verifyIdentity(page, source, bindings);
+  const after = await getManagedEventById(id);
+  if (!after || before.updatedAt !== after.updatedAt) throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
+  const name = EVENT_NOTION_FIELDS[field];
+  return {
+    page, revision: before.updatedAt,
+    notion: eventObservation(valueFromPage(page.properties?.[name], field),
+      Object.hasOwn(page.properties ?? {}, name), field),
+    psipedia: eventObservation(source.properties[name], Object.hasOwn(source.properties, name), field),
+  };
+}
+async function reservePilotField(db: D1Database, bindings: EventFieldSyncBindings,
+  id: number, pageId: string, field: EventNotionField, direction: "pull" | "push" | "observe") {
+  const observation = await observePilotField(db, bindings, id, pageId, field);
+  const mapping = await db.prepare(
+    "SELECT content_hash FROM event_notion_sync WHERE event_id=? AND notion_page_id=? LIMIT 1",
+  ).bind(id, pageId).first<{content_hash:string}>();
+  if (!mapping) throw Error("EVENT_NOTION_MAPPING_INVALID");
+  const snapshot = await readProfileFieldBaseline({
+    database: db, agenda: "events", entityId: id, pageId, expectedHash: mapping.content_hash,
+  });
+  const name = EVENT_NOTION_FIELDS[field];
+  const historical = eventObservation(snapshot?.[name], !!snapshot && Object.hasOwn(snapshot, name), field);
+  const identity: FieldIdentity = { agenda: "events", entityId: String(id), pageId, field };
+  const receipt = await readUnifiedAdminEdit(db, identity, observation.revision);
+  const rawReceipt = receipt?.value;
+  const normalizedReceipt = receipt && eventObservation(
+    field === "seo.noindex" && (rawReceipt === 0 || rawReceipt === 1) ? rawReceipt === 1 : rawReceipt,
+    true, field,
+  );
+  const psipediaEdit = receipt && normalizedReceipt?.present
+    ? { ...receipt, value: normalizedReceipt.value } : undefined;
+  const reservation = await reserveUnifiedField({
+    database: db, identity, psipediaEdit,
+    historicalBaseline: historical.present ? { value: historical.value, version: mapping.content_hash } : null,
+    notion: observation.notion, psipedia: observation.psipedia, direction,
+  });
+  return { ...observation, reservation };
+}
+async function confirmPilotField(db: D1Database, bindings: EventFieldSyncBindings,
+  id: number, pageId: string, field: EventNotionField, reservation: FieldReservation) {
+  const fresh = await observePilotField(db, bindings, id, pageId, field);
+  await confirmUnifiedField(db, reservation, fresh.notion, fresh.psipedia);
 }
 function encodeValue(value:unknown,raw:unknown):Record<string,unknown>{
   if(!raw || typeof raw!=="object")throw Error("EVENT_NOTION_PROPERTY_MISSING");
@@ -136,9 +205,11 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(["startTime","endTime"].includes(path) &&
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw Error("TIME_INVALID");
 }
-async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean){
+async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean,expectedRevision?:string){
   const live=await getManagedEventById(id);
   if(!live)throw Error("EVENT_CANONICAL_MISSING");
+  if(expectedRevision!==undefined && live.updatedAt!==expectedRevision)throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
+  if(await isAdminNotionSyncLocked(db,"events",id))throw Error("EVENT_SYNC_LOCKED");
   validate(path,value,live);
   if (path === "imageUrl") {
     // A blank Notion URL is not proof that the owner deleted an Admin-uploaded file.
@@ -174,7 +245,7 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
   const current=eventGetPath(live as unknown as Record<string,unknown>,path);
   const comparable=(v:unknown)=>v==null?"":v;
   if(comparable(current)===value)return false;
-  const now=new Date().toISOString();
+  const now=nextManagedEventUpdatedAt(live.updatedAt);
   // SQL identifiers and JSON paths are from compile-time allowlists;
   // content is always parameter-bound. Revision guard prevents lost updates.
   const assignment=scalar?scalar+"=?":"seo_json=json_set(COALESCE(seo_json,'{}'),?,?)";
@@ -245,7 +316,14 @@ export async function syncEventNotionFields(input:{
       // A confirmed Place deliberately owns its location; skipping is not a sync error.
       if(EVENT_LOCATION_PATHS.has(path) &&
          await hasCurrentGooglePlace(input.database,"MANAGED_EVENT",id)) continue;
-      if(await saveField(input.database,id,path,value??""))saved++;
+      if (pilotEnabled(input.bindings)) {
+        const planned = await reservePilotField(input.database, input.bindings, id, input.page.id, path, "pull");
+        if (!planned.reservation) continue;
+        const chosen = planned.reservation.value;
+        if (typeof chosen !== "string" && typeof chosen !== "boolean") throw Error("EVENT_FIELD_INVALID");
+        if (await saveField(input.database,id,path,chosen,planned.revision)) saved++;
+        await confirmPilotField(input.database,input.bindings,id,input.page.id,path,planned.reservation);
+      } else if (await saveField(input.database,id,path,value??"")) saved++;
     }catch(e){
       const reason=e instanceof Error?e.message:"UNKNOWN";
       errors.push(property+" ("+reason+")");
@@ -278,7 +356,7 @@ export async function syncEventAdminFields(input:{
     verifyIdentity(page,source,input.bindings);
     await confirmMapping(input.database,page.id,input.eventId);
     const selected=new Set<EventNotionField>(input.changedFields);
-    for(const path of [...EVENT_CONTACT_BACKFILL_PATHS,"seo.focusKeyword" as EventNotionField,"imageUrl" as EventNotionField]){
+    if (!pilotEnabled(input.bindings)) for(const path of [...EVENT_CONTACT_BACKFILL_PATHS,"seo.focusKeyword" as EventNotionField,"imageUrl" as EventNotionField]){
       const name=EVENT_NOTION_FIELDS[path];
       const before=valueFromPage(page.properties?.[name],path);
       const canonical=source.properties[name];
@@ -292,20 +370,39 @@ export async function syncEventAdminFields(input:{
       if(await isAdminNotionSyncLocked(input.database,"events",input.eventId))return "disabled";
       const name=EVENT_NOTION_FIELDS[path];
       try{
-        const original=latest.properties?.[name];
+        const planned = pilotEnabled(input.bindings)
+          ? await reservePilotField(input.database,input.bindings,input.eventId,page.id,path,"push") : null;
+        if (planned && !planned.reservation) continue;
+        const original=(planned?.page ?? latest).properties?.[name];
         if(!original)throw Error("NOTION_FIELD_MISSING");
-        const value=source.properties[name];
+        const value=planned?.reservation ? planned.reservation.value : source.properties[name];
+        if (planned) {
+          const live = await getManagedEventById(input.eventId);
+          if (!live || live.updatedAt !== planned.revision) throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
+          if (await isAdminNotionSyncLocked(input.database,"events",input.eventId)) throw Error("EVENT_SYNC_LOCKED");
+          await confirmMapping(input.database,page.id,input.eventId);
+        }
         // Only explicitly edited Admin fields may clear an existing Notion value.
         // All unedited and missing fields remain unchanged.
         if(value===undefined)continue;
         const encoded=encodeValue(value,original);
-        if(sameNotionProperty(original,encoded))continue;
+        if(sameNotionProperty(original,encoded)){
+          if(planned?.reservation)await confirmPilotField(input.database,input.bindings,input.eventId,page.id,path,planned.reservation);
+          continue;
+        }
+        if(planned?.reservation){
+          const fresh=await observePilotField(input.database,input.bindings,input.eventId,page.id,path);
+          if(fresh.revision!==planned.revision||fresh.page.last_edited_time!==planned.page.last_edited_time||
+            JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("EVENT_NOTION_FIELD_CHANGED");
+          await assertUnifiedReservationCurrent(input.database,planned.reservation);
+        }
         // Each PATCH is isolated: a rejected URL must not undo other writes.
         const reply=await patchNotion(input.bindings,page.id,{[name]:encoded});
         if(reply.id!==page.id || !reply.properties?.[name] ||
            !sameNotionProperty(reply.properties[name],encoded))
           throw Error("EVENT_NOTION_WRITEBACK_UNVERIFIED:"+name);
         latest=reply;
+        if (planned?.reservation) await confirmPilotField(input.database,input.bindings,input.eventId,page.id,path,planned.reservation);
         written++;
       }catch(e){
         errors.push(name+" ("+(e instanceof Error?e.message:"UNKNOWN")+")");
@@ -318,5 +415,21 @@ export async function syncEventAdminFields(input:{
     console.error("EVENT_ADMIN_FIELD_SYNC_FAILED",input.eventId,
       e instanceof Error?e.message:"UNKNOWN");
     return "pending";
+  }
+}
+
+export async function recoverEventV2Field(database:D1Database,bindings:EventFieldSyncBindings,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe") {
+  if(!pilotEnabled(bindings)||!available(bindings)||!EVENT_NOTION_PATHS.includes(field as EventNotionField))throw Error("EVENT_V2_RECOVERY_SCOPE");
+  const path=field as EventNotionField;
+  if(EVENT_LOCATION_PATHS.has(path)&&await hasCurrentGooglePlace(database,"MANAGED_EVENT",id))throw Error("EVENT_V2_LOCATION_PROTECTED");
+  const planned=await reservePilotField(database,bindings,id,pageId,path,direction);
+  if(direction==="pull"&&planned.reservation){
+    const fresh=await observePilotField(database,bindings,id,pageId,path);
+    if(fresh.revision!==planned.revision||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("EVENT_NOTION_FIELD_CHANGED");
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    const value=planned.reservation.value;
+    if(typeof value!=="string"&&typeof value!=="boolean")throw Error("EVENT_FIELD_INVALID");
+    await saveField(database,id,path,value,planned.revision);
+    await confirmPilotField(database,bindings,id,pageId,path,planned.reservation);
   }
 }
