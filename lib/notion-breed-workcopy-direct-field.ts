@@ -1,3 +1,4 @@
+import { breedAdminFieldReceipt } from "./notion-breed-admin-receipts.ts";
 import { getManagedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { normalizeBreedSearchText } from "@/lib/breed-fci";
 import { env } from "cloudflare:workers";
@@ -39,6 +40,7 @@ export async function saveBreedNotionField(input:{
   database:D1Database;breedId:number;field:string;value:unknown;
   actor?:string;
   expectedRevision?:string;
+  recordAdminReceipt?:boolean;
 }):Promise<{updated:boolean;breed:ManagedBreed}> {
   if (!Number.isSafeInteger(input.breedId) || input.breedId<1)
     throw Error("BREED_EVENT_PSI_ID_INVALID");
@@ -91,6 +93,9 @@ export async function saveBreedNotionField(input:{
         breedSqlV2CasGuard(input.database),
         ...breedSqlV2DirectFieldStatements(input.database,input.breedId,
           input.field,input.value),
+        ...(input.recordAdminReceipt ? breedAdminFieldReceipt(input.database, {
+          breedId: input.breedId, field: input.field, value: input.value, revision: next,
+        }) : []),
       ];
       const result=await input.database.batch(statements);
       if(result[0]?.results?.length!==1)continue;
