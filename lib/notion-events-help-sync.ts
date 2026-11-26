@@ -1,3 +1,5 @@
+import { LOST_FOUND_V2_PROTECTED, lostFoundV2Kind } from "./notion-lost-found-v2-contract.ts";
+import { updateLostFoundV2NotionField } from "./lost-found-dog-store.ts";
 import { syncHelpV2Fields } from "./notion-help-v2-field-transport.ts";
 import { isAdoptionV2Field } from "./notion-adoption-v2-contract.ts";
 import { updateAdoptionV2NotionField } from "./adoption-admin-write.ts";
@@ -1175,6 +1177,27 @@ async function syncAgenda(input: {
         if (pageIdentity.psipediaId !== source.id)
           throw new Error("HELP_FIELD_EVENT_IDENTITY_MISMATCH");
         const permitted = new Set(agendaEditableFields[agenda]);
+        if (agenda === "lost-found" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound=input.changedPropertyIds!==undefined;
+          const fields=inbound
+            ? changedNotionHelpFields(agenda,page.properties,input.changedPropertyIds??[]).filter(field=>!LOST_FOUND_V2_PROTECTED.has(field))
+            : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
+          const result=await syncHelpV2Fields({
+            database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
+            dataSourceId:target.dataSourceId,load:loadNotionBulkLostFound,fields,
+            direction:inbound?"pull":"push",protectedFields:LOST_FOUND_V2_PROTECTED,
+            kind:lostFoundV2Kind,
+            pull:(field,value,revision)=>updateLostFoundV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            }),
+            encode:values=>encodeProperties(values,schema),
+          });
+          if(result.failed.length)throw Error("LOST_FOUND_V2_FIELDS_PENDING: "+result.failed.join(","));
+          if(result.pulled)summary.pulledFromNotion++;
+          else if(result.pushed)summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
         if (agenda === "adoptions" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
           const inbound=input.changedPropertyIds!==undefined;
           const fields=inbound
