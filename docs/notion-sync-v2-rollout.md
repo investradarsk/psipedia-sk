@@ -12,3 +12,6 @@
 - Keep NOTION_UNIFIED_FIELD_SYNC_ENABLED unset/false until owner explicitly approves. Existing cron seeds at most one rotating new field per minute across all eight agendas; initial equality is not full-profile parity. Inspect diagnostics and progress, existing locks, manual transfer and provider errors.
 - No atomic provider-side PATCH CAS; unproven concurrent edits must remain REVIEW. Partner/review unlock transitions, relation renames and external logo aliases remain explicit end-to-end checks.
 - Coordinate/pause editorial writers for controlled pilot, test both directions in all eight agendas, check explicit clears and locks. Rollback by disabling V2; keep legacy adapters until parity verified. Do not remove legacy or enable V2 in this PR.
+
+### D1 parser compatibility
+Migration 0181 parenthesizes CASE expressions and avoids a semicolon in its header comment for the Wrangler statement splitter. This is a syntax-only change to the SQL already manually applied; no production trigger replacement or repeat application is required for this formatting change. Verify the clean D1 CI on the new SHA.

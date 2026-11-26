@@ -1,5 +1,5 @@
 -- Numbered additive V2 migration; apply in order after owner approval.
--- Invalidate proofs on mapping identity and review-lock transitions; ordinary hash updates are not remaps.
+-- Invalidate proofs on mapping identity and review-lock transitions. Ordinary hash updates are not remaps.
 CREATE TRIGGER IF NOT EXISTS unified_scope_directory_notion_sync_insert
 AFTER INSERT ON directory_notion_sync
 BEGIN
@@ -270,15 +270,15 @@ AFTER INSERT ON admin_entity_reviews
 WHEN NEW.entity_type IN ('EVENT','ORGANIZATION','ADOPTION','LOST_FOUND','HELP_CASE')
 BEGIN
   INSERT INTO notion_unified_scope_invalidation(agenda,entity_id,invalidated_at)
-    VALUES (CASE NEW.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END,CAST(NEW.entity_id AS TEXT),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    VALUES ((CASE NEW.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END),CAST(NEW.entity_id AS TEXT),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     ON CONFLICT(agenda,entity_id) DO UPDATE SET invalidated_at=excluded.invalidated_at;
   UPDATE notion_unified_field_state
     SET baseline_version=NULL,baseline_json=NULL,notion_json=NULL,psipedia_json=NULL,
         notion_edit_json=NULL,psipedia_edit_json=NULL,status='REVIEW',reason='SCOPE_INVALIDATED',
         version=version+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),recovery_after=NULL
-    WHERE agenda=CASE NEW.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END AND entity_id=CAST(NEW.entity_id AS TEXT);
+    WHERE agenda = (CASE NEW.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END) AND entity_id=CAST(NEW.entity_id AS TEXT);
   DELETE FROM notion_unified_admin_field_edits
-    WHERE agenda=CASE NEW.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END AND entity_id=CAST(NEW.entity_id AS TEXT);
+    WHERE agenda = (CASE NEW.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END) AND entity_id=CAST(NEW.entity_id AS TEXT);
 END;
 CREATE TRIGGER IF NOT EXISTS unified_scope_directory_review_insert
 AFTER INSERT ON directory_profile_review_state
@@ -299,15 +299,15 @@ AFTER DELETE ON admin_entity_reviews
 WHEN OLD.entity_type IN ('EVENT','ORGANIZATION','ADOPTION','LOST_FOUND','HELP_CASE')
 BEGIN
   INSERT INTO notion_unified_scope_invalidation(agenda,entity_id,invalidated_at)
-    VALUES (CASE OLD.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END,CAST(OLD.entity_id AS TEXT),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    VALUES ((CASE OLD.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END),CAST(OLD.entity_id AS TEXT),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     ON CONFLICT(agenda,entity_id) DO UPDATE SET invalidated_at=excluded.invalidated_at;
   UPDATE notion_unified_field_state
     SET baseline_version=NULL,baseline_json=NULL,notion_json=NULL,psipedia_json=NULL,
         notion_edit_json=NULL,psipedia_edit_json=NULL,status='REVIEW',reason='SCOPE_INVALIDATED',
         version=version+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),recovery_after=NULL
-    WHERE agenda=CASE OLD.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END AND entity_id=CAST(OLD.entity_id AS TEXT);
+    WHERE agenda = (CASE OLD.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END) AND entity_id=CAST(OLD.entity_id AS TEXT);
   DELETE FROM notion_unified_admin_field_edits
-    WHERE agenda=CASE OLD.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END AND entity_id=CAST(OLD.entity_id AS TEXT);
+    WHERE agenda = (CASE OLD.entity_type WHEN 'EVENT' THEN 'events' WHEN 'ORGANIZATION' THEN 'organizations' WHEN 'ADOPTION' THEN 'adoptions' WHEN 'LOST_FOUND' THEN 'lost-found' WHEN 'HELP_CASE' THEN 'help-cases' END) AND entity_id=CAST(OLD.entity_id AS TEXT);
 END;
 CREATE TRIGGER IF NOT EXISTS unified_scope_directory_review_delete
 AFTER DELETE ON directory_profile_review_state
