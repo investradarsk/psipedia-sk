@@ -184,7 +184,10 @@ export async function retryOneHelpNotionWriteback(input: {
       await finish(database,row,"REVIEW","NOTION_IDENTITY_CHANGED");
       return "review";
     }
-    if (Object.entries(fields).some(([name,field])=>{
+    // V2 resolves each organization's remote observation against its verified
+    // field baseline, not the record-wide legacy before/after precheck.
+    const unifiedOrganization=agenda==="organizations" && bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";
+    if (!unifiedOrganization && Object.entries(fields).some(([name,field])=>{
       const remote=pageProperty(page,name);
       return !same(agenda,name,remote,field.before) && !same(agenda,name,remote,field.after) &&
         !(agenda === "lost-found" && canonicalLostFoundChangeCanBackfill(name,remote,field.after));
