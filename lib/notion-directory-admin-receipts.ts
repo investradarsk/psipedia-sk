@@ -18,16 +18,17 @@ const projection = "json_object(" + [
   ...Object.entries(scalarFields).map(([key, column]) => "'" + key + "',COALESCE(p." + column + ",'')"),
   ...Object.entries(seoFields).map(([key, column]) => "'seo." + key + "',COALESCE(s." + column + ",'')"),
   "'qualifications',json((SELECT json_group_array(qualification_text) FROM (SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=p.id ORDER BY item_order)))",
+  "'additionalCategories',json((SELECT json_group_array(category) FROM (SELECT category FROM directory_profile_additional_categories WHERE profile_id=p.id ORDER BY category)))",
 ].join(",") + ")";
 const supported = new Set<string>([
-  ...Object.keys(scalarFields), ...Object.keys(seoFields).map(k => "seo." + k), "qualifications",
+  ...Object.keys(scalarFields), ...Object.keys(seoFields).map(k => "seo." + k), "qualifications", "additionalCategories",
 ]);
 
 export function planDirectoryAdminReceipts(database: D1Database, input: {
   id: number; expectedRevision: string; nextRevision: string; editor: string;
-  fields: readonly BreederEditorialField[];
+  fields: readonly (BreederEditorialField | "additionalCategories")[];
 }): { before: D1PreparedStatement[]; after: D1PreparedStatement[] } {
-  const fields = [...new Set(input.fields)].filter(field => supported.has(field) && BREEDER_EDITORIAL_PATHS.includes(field));
+  const fields = [...new Set(input.fields)].filter(field => supported.has(field) && (field === "additionalCategories" || BREEDER_EDITORIAL_PATHS.includes(field)));
   if (!fields.length) return { before: [], after: [] };
   const editId = crypto.randomUUID();
   const before = database.prepare(
