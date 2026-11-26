@@ -146,7 +146,7 @@ export async function HelpOverview({
                 panelLabel="Vyhľadávanie Pomoci psom"
                 eyebrow="ČO POTREBUJEŠ VYRIEŠIŤ?"
                 title="Nájdi pomoc pre psa"
-                placeholder="Hľadať psa, organizáciu alebo mesto…"
+                placeholder="Pes, organizácia alebo mesto"
                 buttonLabel="Hľadať"
                 allowEmpty
                 hidden={[{ name: "sekcia", value: "pomoc-psom" }]}
