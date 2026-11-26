@@ -1,3 +1,4 @@
+import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
 import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
@@ -1645,6 +1646,7 @@ export async function savePilotDirectoryMetadataField(input: {
   field: string;
   value: string;
   expectedValue?: string;
+  adminReceiptActor?: string;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !isDirectoryPublicMetadataField(input.field))
@@ -1677,22 +1679,24 @@ export async function savePilotDirectoryMetadataField(input: {
       : rows.results.length === 0;
     if (matches) return current;
   }
-  const now = new Date().toISOString();
+  const previousTime = Date.parse(current.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
+  const actor = input.adminReceiptActor ?? SYSTEM_ACTOR;
   // Explicit field-level D1 SQL write: the compatibility JSON must not be
   // recreated by an Admin or Notion metadata edit after legacy retirement.
   const canonical = input.database.prepare(
     "UPDATE directory_profiles SET updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id"
-  ).bind(now, SYSTEM_ACTOR,
+  ).bind(now, actor,
     input.profileId, input.category, current.updatedAt);
   const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
   const isHours = input.field === "Ordinačné hodiny";
   const mirrorIdentity = {kind:"id" as const,profileId:input.profileId,
-    updatedAt:now,actor:SYSTEM_ACTOR};
+    updatedAt:now,actor};
   const factMirror = approved ? planDirectory0170FactSqlMirror({
     profileId: input.profileId, category: input.category as ServiceFilterCategory,
-    field: input.field, value: trimmed, updatedAt: now, actor: SYSTEM_ACTOR,
+    field: input.field, value: trimmed, updatedAt: now, actor,
   }) : [];
   const hoursMirror = isHours ? planDirectory0173EditorialSqlMirror({
     identity: mirrorIdentity, openingHoursText: trimmed,
@@ -1703,13 +1707,18 @@ export async function savePilotDirectoryMetadataField(input: {
   const guard = factMirror.length ? [] : [input.database.prepare(
     "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok"
   )];
+  const receipt = input.adminReceiptActor ? planDirectoryAdminReceipts(input.database, {
+    id: input.profileId, expectedRevision: current.updatedAt, nextRevision: now,
+    editor: actor, fields: [], structured: [directoryMetadataReceiptField(input.field, isHours ? "hours" : approved ? "fact" : "extra")],
+  }) : { before: [], after: [] };
   const response = await input.database.batch([
-    canonical, ...guard,
+    ...receipt.before, canonical, ...guard,
     ...factMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
     ...hoursMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
     ...extraMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+    ...receipt.after,
   ]);
-  if (!(response[0]?.results?.[0] as { id?: number } | undefined)?.id)
+  if (!(response[receipt.before.length]?.results?.[0] as { id?: number } | undefined)?.id)
     throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
