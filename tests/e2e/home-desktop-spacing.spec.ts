@@ -69,12 +69,13 @@ for (const width of [1280, 1440, 1920]) {
     await events.scrollIntoViewIfNeeded();
     const image = ad.locator("img");
     const link = ad.locator("a");
-    const reservedSize = await link.evaluate((element) => {
-      const { width, height } = element.getBoundingClientRect();
-      return { width, height };
-    });
+    const reservedSize = await link
+      .evaluate((element) => {
+        const { width, height } = element.getBoundingClientRect();
+        return { width, height };
+      })
+      .finally(artwork.resolve);
     expect(reservedSize.height).toBeGreaterThan(0);
-    artwork.resolve();
     await ad.scrollIntoViewIfNeeded();
     await expect(ad).toBeVisible();
     await expect(events).toBeVisible();
