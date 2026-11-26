@@ -28,7 +28,7 @@ test("bulk preview remains strictly read-only until explicit owner confirmation"
 });
 
 test("pending profiles avoid unnecessary D1 field queries, with clear user-facing state",()=>{
-  assert.match(queue,/const eligible=\(rows\.results\?\?\[\]\)\.filter\(row=>row\.status!=="PENDING"\|\|row\.attempts>0\)/);
+  assert.match(queue,/const eligible=page\.filter\(row=>row\.status!=="PENDING"\|\|row\.attempts>0\)/);
   assert.match(ui,/Prenos čaká vo fronte/);
   assert.match(ui,/Čaká na kontrolu/);
   assert.match(ui,/najviac 10 profilov za minútu/);
@@ -36,11 +36,20 @@ test("pending profiles avoid unnecessary D1 field queries, with clear user-facin
 });
 
 test("manual transfer status polling uses one bounded field query rather than an N+1 loop",()=>{
-  assert.match(queue,/const eligible=\(rows\.results\?\?\[\]\)\.filter/);
+  assert.match(queue,/const eligible=page\.filter/);
   assert.match(queue,/ROW_NUMBER\(\) OVER \(PARTITION BY item_id ORDER BY field_key\)/);
   assert.match(queue,/WHERE rank<=150 ORDER BY item_id,field_key/);
   assert.match(queue,/\.bind\(\.\.\.eligible\.map\(row=>row\.id\)\)\.all/);
   assert.doesNotMatch(queue,/for\(const row of rows\.results\?\?\[\]\)\{[\s\S]*?FROM notion_manual_transfer_field_results WHERE item_id=\?/);
+});
+
+test("manual transfer checks for one extra row and never exposes it on the current page", () => {
+  assert.match(queue, /LIMIT \? OFFSET \?/);
+  assert.match(queue, /\.bind\(runId,pageSize \+ 1,offset\)/);
+  assert.match(queue, /\.slice\(0, pageSize\)/);
+  assert.match(queue, /const items=page\.map/);
+  assert.match(queue, /hasMore:\(rows\.results\?\.length\?\?0\)>pageSize/);
+  assert.match(ui, /"0 výsledkov"/);
 });
 
 test("unchanged profiles complete without a redundant Notion readback",()=>{

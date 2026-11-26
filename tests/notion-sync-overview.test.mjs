@@ -2,6 +2,37 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { NOTION_SYNC_OVERVIEW_AREAS, readNotionSyncOverview, notionDeliveryState } from "../lib/notion-sync-overview.ts";
+import { readUnifiedDiagnostics } from "../lib/notion-unified-diagnostics.ts";
+
+test("unified journal links each agenda to its editor and omits invalid IDs", async () => {
+  const editors = {
+    directory: "adresar",
+    breeds: "plemena",
+    events: "podujatia",
+    organizations: "organizacie",
+    adoptions: "adopcie",
+    "lost-found": "stratene-najdene",
+    "help-cases": "pomoc",
+    eshops: "recenzie/eshopy",
+  };
+  const issue = { status: "REVIEW", field_key: "Popis" };
+  const results = [
+    ...Object.keys(editors).map((agenda) => ({ ...issue, agenda, entity_id: "1873" })),
+    ...["0", "9007199254740992", "../1873"].map((entity_id) => ({
+      ...issue, agenda: "directory", entity_id,
+    })),
+  ];
+  const journal = await readUnifiedDiagnostics({
+    prepare: () => ({ all: async () => ({ success: true, results: Array(5) }) }),
+    batch: async () => [[], results, [{ n: 0 }]].map((results) => ({ success: true, results })),
+  }, true);
+
+  assert.equal(journal.schemaReady, true);
+  assert.deepEqual(
+    journal.issues.map(({ editorHref }) => editorHref),
+    [...Object.values(editors).map((path) => `/admin/${path}/1873`), null, null, null],
+  );
+});
 
 function mockDb(names, values = {}, failures = []) {
   const statements = [];

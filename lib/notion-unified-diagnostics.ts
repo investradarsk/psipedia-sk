@@ -1,7 +1,8 @@
 import { UNIFIED_SYNC_AGENDAS, type UnifiedSyncAgenda } from "./notion-unified-field-sync.ts";
+import { manualMappingEditorHref } from "./notion-manual-transfer-mapping.ts";
 
 type Counts = { synced: number; pending: number; review: number; profiles: number; lastRecordedAt: string | null };
-type Issue = { agenda: UnifiedSyncAgenda; entityId: string; field: string; status: "PENDING" | "REVIEW"; reason: string; updatedAt: string; retryAfter: string | null };
+type Issue = { agenda: UnifiedSyncAgenda; entityId: string; editorHref: string | null; field: string; status: "PENDING" | "REVIEW"; reason: string; updatedAt: string; retryAfter: string | null };
 export type UnifiedDiagnostics = {
   enabled: boolean;
   schemaReady: boolean;
@@ -15,8 +16,8 @@ export type UnifiedDiagnostics = {
 const safeCode = (value: unknown) => typeof value === "string" && /^[A-Z][A-Z0-9_]{1,100}$/.test(value) ? value : "UNCLASSIFIED";
 const safeField = (value: unknown) => typeof value === "string" && value.length <= 160 && !/[\r\n<>]/.test(value) ? value : "UNKNOWN_FIELD";
 
-/** SQL journal evidence only. No remote GET, token, raw values, URLs, or
- * Notion page IDs. Unknown/missing schema must not look like zero conflicts. */
+/** SQL journal evidence and local editor paths. No remote GET, token, raw
+ * values, or Notion page IDs. Unknown schema must not look like zero conflicts. */
 export async function readUnifiedDiagnostics(database: D1Database, enabled: boolean): Promise<UnifiedDiagnostics> {
   const result: UnifiedDiagnostics = {
     enabled, schemaReady: false, readOnly: true, rows: [], issues: [], truncated: false,
@@ -46,12 +47,19 @@ export async function readUnifiedDiagnostics(database: D1Database, enabled: bool
     const raw = issues.results as Array<{agenda: UnifiedSyncAgenda; entity_id: string; field_key: string; status: Issue["status"]; reason: string | null; updated_at: string; recovery_after: string | null}>;
     return {...result, schemaReady: true, rows, truncated: raw.length > 50,
       manualFences: Number((fences.results[0] as {n: number})?.n ?? 0),
-      issues: raw.slice(0,50).map(row => ({
-        agenda: row.agenda, entityId: /^\d+$/.test(row.entity_id) ? row.entity_id : "",
-        field: safeField(row.field_key), status: row.status,
-        reason: row.status === "PENDING" && !row.reason ? "AWAITING_CONFIRMATION" : safeCode(row.reason),
-        updatedAt: row.updated_at, retryAfter: row.recovery_after,
-      })),
+      issues: raw.slice(0, 50).map(row => {
+        const entityId = /^\d+$/.test(row.entity_id) ? row.entity_id : "";
+        return {
+          agenda: row.agenda,
+          entityId,
+          editorHref: manualMappingEditorHref(row.agenda, Number(entityId)),
+          field: safeField(row.field_key),
+          status: row.status,
+          reason: row.status === "PENDING" && !row.reason ? "AWAITING_CONFIRMATION" : safeCode(row.reason),
+          updatedAt: row.updated_at,
+          retryAfter: row.recovery_after,
+        };
+      }),
     };
   } catch { return result; }
 }

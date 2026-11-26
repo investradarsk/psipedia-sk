@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import styles from "./admin-notion-data-quality-audit.module.css";
 import Link from "next/link";
 import { AdminNotionDataQualityAudit } from "./admin-notion-data-quality-audit";
@@ -356,7 +356,28 @@ function UnifiedJournalView({journal,view}:{journal:UnifiedDiagnostics;view:"sta
         <tbody>{journal.rows.map(row=><tr key={row.agenda}><td>{unifiedLabels[row.agenda]}</td><td>{row.profiles}</td><td>{row.synced}</td><td>{row.pending}</td><td>{row.review}</td><td>{formatDate(row.lastRecordedAt)}</td></tr>)}</tbody>
       </table></div>:journal.issues.length?<div className={styles.tableScroll}><table className={styles.table}>
         <thead><tr><th>Agenda</th><th>Profil</th><th>Pole</th><th>Stav</th><th>Dôvod</th><th>Posledná evidencia</th><th>Ďalšia kontrola</th></tr></thead>
-        <tbody>{journal.issues.map((issue,index)=><tr key={issue.agenda+":"+issue.entityId+":"+issue.field+":"+index}><td>{unifiedLabels[issue.agenda]}</td><td>#{issue.entityId}</td><td>{issue.field}</td><td>{issue.status==="PENDING"?"Čaká":"Na kontrolu"}</td><td>{unifiedReasonLabels[issue.reason]??issue.reason}</td><td>{formatDate(issue.updatedAt)}</td><td>{formatDate(issue.retryAfter)}</td></tr>)}</tbody>
+        <tbody>{journal.issues.map((issue, index) => (
+          <tr key={issue.agenda + ":" + issue.entityId + ":" + issue.field + ":" + index}>
+            <td>{unifiedLabels[issue.agenda]}</td>
+            <td>
+              {issue.editorHref ? (
+                <Link
+                  href={issue.editorHref}
+                  prefetch={false}
+                  className={styles.editorLink}
+                  aria-label={`Otvoriť editor: ${unifiedLabels[issue.agenda]} #${issue.entityId}`}
+                >
+                  #{issue.entityId}
+                </Link>
+              ) : issue.entityId ? `#${issue.entityId}` : "Neznáme ID"}
+            </td>
+            <td>{issue.field}</td>
+            <td>{issue.status === "PENDING" ? "Čaká" : "Na kontrolu"}</td>
+            <td>{unifiedReasonLabels[issue.reason] ?? issue.reason}</td>
+            <td>{formatDate(issue.updatedAt)}</td>
+            <td>{formatDate(issue.retryAfter)}</td>
+          </tr>
+        ))}</tbody>
       </table></div>:<p>V dostupnej evidencii nie sú otvorené polia.</p>}
       {view==="issues"&&journal.truncated?<p>Zobrazených najviac 50 polí. Ďalšie zostávajú v evidencii.</p>:null}
     </>}
@@ -371,27 +392,81 @@ const workspaceTabs: {value:NotionWorkspaceTab;label:string}[] = [
   {value:"transfer",label:"Manuálny prenos"},
 ];
 
-export function AdminNotionWorkspace({initialTab="status"}:{initialTab?:NotionWorkspaceTab}) {
-  const [tab,setTab] = useState<NotionWorkspaceTab>(initialTab);
-  const [ready,setReady] = useState(false);
+export function AdminNotionWorkspace({ initialTab = "status" }: { initialTab?: NotionWorkspaceTab }) {
+  const [tab, setTab] = useState<NotionWorkspaceTab>(initialTab);
+  const [focusedTab, setFocusedTab] = useState(initialTab);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     // Enable interactive controls only after client hydration has committed.
     const frame = window.requestAnimationFrame(() => setReady(true));
     return () => window.cancelAnimationFrame(frame);
   }, []);
-  return <div data-admin-content-module="notion-workspace">
-    <nav role="tablist" aria-label="Pracovisko Notion" className={styles.controls}>
-      {workspaceTabs.map(item => <button key={item.value} type="button" role="tab"
-        id={"notion-tab-"+item.value} aria-controls={"notion-panel-"+item.value}
-        aria-selected={tab===item.value} tabIndex={0} disabled={!ready}
-        className={tab===item.value?"admin-primary-action":styles.secondary}
-        onClick={()=>setTab(item.value)}>{item.label}</button>)}
-    </nav>
-    <div id={"notion-panel-"+tab} role="tabpanel" aria-labelledby={"notion-tab-"+tab}>
-      {tab==="status" ? <AdminNotionSyncOverview /> : null}
-      {tab==="issues" ? <><AdminNotionSyncOverview view="issues" /><AdminNotionDataQualityAudit /></> : null}
-      {tab==="fields" ? <AdminNotionFieldSettings /> : null}
-      {tab==="transfer" ? <AdminNotionManualTransfer /> : null}
+
+  function moveTabFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const count = workspaceTabs.length;
+    let next: number;
+    switch (event.key) {
+      case "ArrowRight": next = (index + 1) % count; break;
+      case "ArrowLeft": next = (index + count - 1) % count; break;
+      case "Home": next = 0; break;
+      case "End": next = count - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  }
+
+  return (
+    <div data-admin-content-module="notion-workspace">
+      <div
+        role="tablist"
+        aria-label="Pracovisko Notion"
+        className={`${styles.controls} ${styles.workspaceTabs}`}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setFocusedTab(tab);
+        }}
+      >
+        {workspaceTabs.map((item, index) => (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            id={"notion-tab-" + item.value}
+            aria-controls={"notion-panel-" + item.value}
+            aria-selected={tab === item.value}
+            tabIndex={focusedTab === item.value ? 0 : -1}
+            disabled={!ready}
+            className={tab === item.value ? "admin-primary-action" : styles.secondary}
+            onFocus={() => setFocusedTab(item.value)}
+            onKeyDown={(event) => moveTabFocus(event, index)}
+            onClick={() => {
+              setFocusedTab(item.value);
+              setTab(item.value);
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      {workspaceTabs.map(({ value }) => (
+        <div
+          key={value}
+          id={"notion-panel-" + value}
+          role="tabpanel"
+          aria-labelledby={"notion-tab-" + value}
+          hidden={tab !== value}
+          tabIndex={0}
+        >
+          {tab === value && (
+            <>
+              {value === "status" ? <AdminNotionSyncOverview /> : null}
+              {value === "issues" ? <><AdminNotionSyncOverview view="issues" /><AdminNotionDataQualityAudit /></> : null}
+              {value === "fields" ? <AdminNotionFieldSettings /> : null}
+              {value === "transfer" ? <AdminNotionManualTransfer /> : null}
+            </>
+          )}
+        </div>
+      ))}
     </div>
-  </div>;
+  );
 }
