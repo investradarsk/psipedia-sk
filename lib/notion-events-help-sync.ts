@@ -1,3 +1,4 @@
+import { syncOrganizationV2Fields } from "./notion-organization-field-v2.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
@@ -98,6 +99,7 @@ import {
 
 export type NotionEventsHelpSyncBindings = NotionSyncBindings & {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
+  NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
   NOTION_GEMINI_22_PRIORITY_A_ENABLED?: string;
@@ -1169,6 +1171,23 @@ async function syncAgenda(input: {
         if (pageIdentity.psipediaId !== source.id)
           throw new Error("HELP_FIELD_EVENT_IDENTITY_MISMATCH");
         const permitted = new Set(agendaEditableFields[agenda]);
+        if (agenda === "organizations" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound = input.changedPropertyIds !== undefined;
+          const fields = inbound
+            ? changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds ?? [])
+            : [...new Set(input.adminChangedFields ?? [])].filter(name => permitted.has(name));
+          const result = await syncOrganizationV2Fields({
+            database: input.database, bindings: input.bindings, entityId,
+            pageId: page.id, dataSourceId: target.dataSourceId,
+            fields, direction: inbound ? "pull" : "push",
+            encode: values => encodeProperties(values, schema),
+          });
+          if (result.failed.length) throw Error("ORGANIZATION_V2_FIELDS_PENDING: " + result.failed.join(","));
+          if (result.pulled) summary.pulledFromNotion++;
+          else if (result.pushed) summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
         if (input.changedPropertyIds !== undefined) {
           const fields = changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds);
           let live = sourceSnapshot;
