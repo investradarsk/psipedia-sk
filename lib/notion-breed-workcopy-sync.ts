@@ -508,3 +508,7 @@ export async function recoverBreedV2Field(database:D1Database,bindings:BreedWork
   if(!BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField)&&field!=="fciNumber")throw Error("BREED_V2_RECOVERY_SCOPE");
   await reserveBreedField(database,bindings,link,field,"observe");
 }
+
+export function breedV2RecoveryFields():string[]{
+  return [...new Set([...BREED_NOTION_EDITABLE_FIELDS.filter(isUnifiedBreedEditorialField),"fciNumber"])].sort();
+}
