@@ -127,9 +127,10 @@ async function observeControlledV2(database:D1Database,bindings:ControlledBreedB
   const page=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(link.work_notion_page_id));
   await verifyPage(page,active,bindings);
   const remote=readBreedControlledNotionPage(page,[key]);
+  const remoteValues=remote.values as Record<string,unknown>;
   const shadow=parseBreedControlledValues(row.values_json);
   const route=planBreedSqlV2FieldWrite("controlled."+key,shadow[key]);
-  if(!route || route.kind==="relations")throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
+  if(!route || !("column" in route))throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
   const raw=await database.prepare("SELECT "+route.column+" AS value FROM "+route.table+
     " WHERE "+(route.table==="managed_breeds"?"id":"breed_id")+"=?").bind(link.breed_id).first<{value:unknown}>();
   const actual=raw && route.format==="json-array" && typeof raw.value==="string"
@@ -143,7 +144,7 @@ async function observeControlledV2(database:D1Database,bindings:ControlledBreedB
   if(!raw || !eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
   return {page,row,revision:after.updatedAt,
     notion:remote.errors.length || !Object.hasOwn(remote.values,key)
-      ? {present:false as const} : {present:true as const,value:remote.values[key]},
+      ? {present:false as const} : {present:true as const,value:remoteValues[key]},
     psipedia:{present:true as const,value:actual},
   };
 }
