@@ -90,6 +90,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
             async first() {
               calls.push(["sql-first", sql]);
               if (sql.includes("SELECT notion_page_id, article_id, content_hash")) return { ...mapping };
+              if (sql.includes("SELECT article_id, content_hash, last_synced_at")) return { ...mapping };
               if (sql.includes("SELECT status, updated_at FROM managed_articles"))
                 return { status: article.status, updated_at: article.updatedAt };
               if (sql.includes("SELECT * FROM article_notion_editorial_outbox")) return journal.deleted ? null : { ...journal };
@@ -97,6 +98,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
             },
             async run() {
               calls.push(["sql-run", sql]);
+              if (sql.trimStart().startsWith("INSERT INTO article_notion_sync")) return { meta: { changes: 1 } };
               if (sql.startsWith("UPDATE article_notion_editorial_outbox SET lease_owner = ?")) {
                 if (journal.deleted || (journal.lease_owner && journal.lease_until > args[5])) {
                   return { meta: { changes: 0 } };
@@ -130,6 +132,10 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
               throw Error("Unexpected DML: " + sql);
             },
           };
+        },
+        async first() {
+          if (sql.includes("sqlite_master")) return null;
+          throw Error("Unexpected SELECT: " + sql);
         },
       };
     },
@@ -213,7 +219,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
     set unsafeRemoteChange(v) { unsafeRemoteChange = v; },
     planner, fetchMock };
 }
-async function loadWriter(h) {
+async function loadWriter(h, overrides = {}, exportName = "writeBackDraftArticleContentToNotion") {
   const source = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -287,13 +293,66 @@ async function loadWriter(h) {
     exports, module: { exports },
     require(name) {
       if (!(name in dependencies)) throw Error("Unexpected import: " + name);
-      return dependencies[name];
+      return { ...dependencies[name], ...overrides[name] };
     },
     fetch: h.fetchMock, Response, Request, Headers, URL, URLSearchParams,
     TextEncoder, crypto, Date, JSON, console,
   }, { timeout: 1500 });
-  return exports.writeBackDraftArticleContentToNotion;
+  return exports[exportName];
 }
+
+test("targeted Notion updates synchronize Perex separately from Meta description", async () => {
+  const h = setup();
+  const pageId = h.notion.id;
+  h.notion.parent = { type: "data_source_id", data_source_id: "synthetic-articles" };
+  h.notion.properties.Stav.select.name = "Publikované";
+  h.notion.properties.Perex = { id: "opaque-perex", rich_text: rich("Samostatný redakčný perex článku.") };
+  h.notion.properties["Meta description"].id = "opaque-seo";
+  const local = {
+    ...h.article, status: "published", category: "Výživa", portalSection: "starostlivost",
+    portalSubpage: "vyziva", relatedBreedIds: [160],
+    excerpt: "Pôvodný perex uložený v Admine.", image: "/original.webp", imageKey: "original.webp",
+  };
+  let stored = { ...local };
+  const sweep = await loadWriter(h, {
+    "./notion-article-seo-properties": {
+      articleSeoFromNotion: (page) => ({
+        metaDescription: page.properties["Meta description"].rich_text[0].plain_text,
+      }),
+      articleSeoSignedChangedFields: (_page, ids) =>
+        new Set(ids.includes("opaque-seo") ? ["metaDescription"] : []),
+    },
+    "@/lib/article-store": {
+      getManagedArticleById: async () => stored,
+      updateManagedArticle: async (id, data) => {
+        assert.equal(id, local.id);
+        stored = { ...stored, ...data, seo: { description: data.metaDescription } };
+        return stored;
+      },
+    },
+    "@/lib/article-promo": { preserveArticlePromoBlocks: (_old, incoming) => incoming },
+  }, "runNotionArticleSyncSweep");
+  const send = (property, eventType = "page.properties_updated") => sweep({
+    database: h.db, bindings: { ...h.bindings, NOTION_ARTICLES_DATA_SOURCE_ID: "synthetic-articles" },
+    targetPageId: pageId, eventType, changedPropertyIds: [property],
+  });
+  assert.equal((await send("opaque-perex")).updated, 1);
+  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+  assert.equal(stored.seo.description, local.seo.description);
+  h.notion.properties["Meta description"].rich_text = rich("Samostatný upravený opis pre SEO.");
+  assert.equal((await send("opaque-seo")).updated, 1);
+  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+  assert.equal(stored.seo.description, "Samostatný upravený opis pre SEO.");
+  h.blocks[0].paragraph.rich_text = rich("Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
+  assert.equal((await send("", "page.content_updated")).updated, 1);
+  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+  assert.equal(stored.intro, "Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
+  h.notion.properties.Perex.rich_text = rich("");
+  assert.equal((await send("opaque-perex")).failed, 1);
+  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+  assert.equal(stored.imageKey, local.imageKey);
+  assert.deepEqual(stored.relatedBreedIds, [160]);
+});
 test("disabled content writeback performs zero database or Notion I/O", async () => {
   const h = setup({ enabled: false });
   const writer = await loadWriter(h);

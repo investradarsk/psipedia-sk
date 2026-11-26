@@ -62,6 +62,22 @@ test("no-op is idempotent: text and SEO round-trip unchanged", () => {
   assert.deepEqual(result.properties, {});
 });
 
+test("an explicitly selected draft Perex writeback leaves SEO and Notion blocks alone", () => {
+  const old = "Pôvodný redakčný perex článku.";
+  const perex = "Upravený redakčný perex článku.";
+  const properties = { ...page(), Perex: { rich_text: rich(old) } };
+  const plan = (fields) => buildNotionEditorialPlan({
+    article: article(), remoteBlocks: originalBlocks(), pageProperties: properties,
+    siteUrl: "https://psipedia.sk", seoFields: [], ...fields,
+  });
+  assert.deepEqual(plan({}).properties, {});
+  const change = plan({ perex });
+  assert.deepEqual(Object.keys(change.properties), ["Perex"]);
+  assert.equal(change.propertyBefore.Perex, old);
+  assert.equal(change.propertyAfter.Perex, perex);
+  assert.equal(change.blocks.length, 0);
+});
+
 test("Admin heading and paragraph edits preserve slot ordering and original Notion block identities", () => {
   const a = article();
   a.blocks[0].text = "Upravený nadpis";

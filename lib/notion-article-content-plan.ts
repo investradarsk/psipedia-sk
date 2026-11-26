@@ -191,6 +191,7 @@ export function buildNotionEditorialPlan(args: {
   remoteBlocks: RemoteArticleBlock[];
   pageProperties: Record<string, unknown>;
   siteUrl: string;
+  perex?: string;
   /** The article SEO field-delta writer owns these properties on normal saves. */
   seoFields?: readonly ArticleNotionSeoKey[];
 }): NotionEditorialPlan {
@@ -246,6 +247,7 @@ export function buildNotionEditorialPlan(args: {
     ["Alt text obrázka", "rich_text", article.imageAlt ?? ""],
     ["Zdroj obrázka", "url", article.imageCreditUrl ?? ""],
   ];
+  if (args.perex !== undefined) fields.push(["Perex", "rich_text", args.perex]);
   const permitSeo = (key: ArticleNotionSeoKey) =>
     args.seoFields === undefined || args.seoFields.includes(key);
   if (permitSeo("seoTitle")) fields.push([SEO.seoTitle.name, SEO.seoTitle.type, article.seoTitle]);

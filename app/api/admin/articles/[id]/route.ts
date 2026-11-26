@@ -272,7 +272,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
           notionEditorialWriteback?.status !== "blocked") {
         try {
           report("draft", await writeBackDraftArticleContentToNotion({
-            database: bindings.DB, bindings, article,
+            database: bindings.DB, bindings, article, previousExcerpt: before.excerpt,
           }));
         } catch (error) {
           reportError("draft", error, "notion_article_editorial_writeback_failed");
@@ -387,6 +387,9 @@ export async function PATCH(request: Request, { params }: RouteProps) {
             }
             receipt = notionStepReceipt(await writeBackDraftArticleContentToNotion({
               database: bindings.DB, bindings, article,
+              previousExcerpt: before?.id === article.id && before.slug === article.slug &&
+                typeof before.updatedAt === "string" && before.updatedAt !== article.updatedAt &&
+                typeof before.excerpt === "string" ? before.excerpt : undefined,
             }));
           }
         } catch (error) {
@@ -423,7 +426,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
           const bindings = env as unknown as ArticleRouteBindings;
           if (bindings.DB) {
             const result = await writeBackDraftArticleContentToNotion({
-              database: bindings.DB, bindings, article,
+              database: bindings.DB, bindings, article, previousExcerpt: before.excerpt,
             });
             notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
           }

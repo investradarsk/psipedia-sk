@@ -1914,6 +1914,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   database: D1Database;
   bindings: NotionSyncBindings;
   article: ManagedArticle;
+  previousExcerpt?: string;
 }): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" };
@@ -2024,9 +2025,19 @@ export async function writeBackDraftArticleContentToNotion(args: {
     }
     const selected = selectNotionArticleBodyBlocks(remoteBlocks,
       hasCompletePublicPhotoCredit(current.imageCredit, current.imageCreditUrl));
+    const writeExcerpt = args.previousExcerpt !== undefined &&
+      args.previousExcerpt !== article.excerpt && article.excerpt.length >= 20 &&
+      Object.hasOwn(page.properties ?? {}, "Perex");
+    if (writeExcerpt) {
+      const remote = notionEditorialPropertyText(page.properties?.Perex, "rich_text");
+      if (remote !== args.previousExcerpt && remote !== article.excerpt) {
+        throw new Error("NOTION_EDITORIAL_PEREX_CONFLICT");
+      }
+    }
     plan = buildNotionEditorialPlan({
       article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
+      perex: writeExcerpt ? article.excerpt : undefined,
       seoFields: [], // SEO-only changed-field writer handles all eight properties.
     });
     plan.pageGuard = pageGuard(page);
@@ -2194,6 +2205,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     article: editorProjection, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
     seoFields: [],
+    perex: plan.propertyAfter.Perex,
   });
   if (verified.blocks.length || Object.keys(verified.properties).length) {
     throw new Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
@@ -2326,13 +2338,13 @@ function articleSignedNotionFields(
   page: NotionPage, changedPropertyIds?: readonly string[], eventType?: string,
 ): ReadonlySet<ArticleAuthorityKey> | null {
   if (eventType === "page.content_updated")
-    return new Set<ArticleAuthorityKey>(["intro", "blocks", "excerpt"]);
+    return new Set<ArticleAuthorityKey>(["intro", "blocks"]);
   if (eventType !== "page.properties_updated" || !changedPropertyIds?.length)
     return null;
   const ids = new Set(changedPropertyIds);
   const changed = new Set<ArticleAuthorityKey>();
   const direct = {
-    title: "Názov", socialCaption: "Popis na sociálne siete",
+    title: "Názov", excerpt: "Perex", socialCaption: "Popis na sociálne siete",
     imageCredit: "Kredit fotografie", relatedBreedIds: "Prepojené plemená",
     category: "Kategória",
   } as const;
@@ -2344,7 +2356,6 @@ function articleSignedNotionFields(
   }
   for (const field of articleSeoSignedChangedFields(page, changedPropertyIds))
     changed.add(field);
-  if (changed.has("metaDescription")) changed.add("excerpt");
   return changed;
 }
 
@@ -2576,10 +2587,23 @@ async function syncOneNotionPage(
     ? existing.relatedBreedIds : relatedBreedIdsFromNotion;
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
+  // Keep the legacy source projection used in stored receipts. For D1 writes,
+  // use the separate Perex cell on import or after a scoped property edit.
+  // A sweep or unrelated edit cannot replace an existing canonical excerpt.
+  const perex = richTextProperty(page, "Perex").trim();
+  if (signedFields?.has("excerpt") && perex.length < 20) {
+    throw new Error("Perex v Notione musí mať aspoň 20 znakov.");
+  }
+  const inboundPayload = {
+    ...sourcePayload,
+    excerpt: signedFields?.has("excerpt") || !existing
+      ? (perex.length >= 20 ? perex : sourcePayload.excerpt)
+      : existing.excerpt,
+  };
   const authorityPayload = existing && mapping && signedFields === null
-    ? applyArticleAuthority(sourcePayload,existing,articleModes) : sourcePayload;
+    ? applyArticleAuthority(inboundPayload,existing,articleModes) : inboundPayload;
   const basePayload = existing && mapping && signedFields !== null
-    ? articleApplySignedFields(sourcePayload, existing, signedFields)
+    ? articleApplySignedFields(inboundPayload, existing, signedFields)
     : existing && mapping
       ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
       : authorityPayload;
@@ -2668,7 +2692,7 @@ async function syncOneNotionPage(
       if (mapping && existing.updatedBy !== SYNC_ACTOR
         && (!Number.isFinite(Date.parse(mapping.last_synced_at))
           || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)
-        && !signedFields && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
+        && !signedFields && !articleAuthorityCoversDifferences(inboundPayload,existing,articleModes)) {
         throw new Error("ARTICLE_ADMIN_REVISION_NOT_SYNCED");
       }
       const publishedPayload: ManagedArticleInput = {
@@ -2712,7 +2736,7 @@ async function syncOneNotionPage(
     }
     // Drafts retain the existing Admin-authority conflict contract.
     if (mapping && existing.updatedBy !== SYNC_ACTOR && !signedFields
-      && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
+      && !articleAuthorityCoversDifferences(inboundPayload,existing,articleModes)) {
       throw new Error("Prepojený koncept bol upravený v administrácii. Automatický sync ho neprepíše; zmeny treba zosúladiť ručne.");
     }
     const preservedPayload: ManagedArticleInput = {
