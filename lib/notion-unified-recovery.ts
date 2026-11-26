@@ -1,8 +1,8 @@
 import { UNIFIED_SYNC_AGENDAS, decideUnifiedField, type FieldIdentity, type UnifiedSyncAgenda } from "./notion-unified-field-sync.ts";
 import { readUnifiedFieldState } from "./notion-unified-field-state.ts";
 import { recoverDirectoryV2Field, directoryV2RecoveryFields, type NotionDirectorySyncBindings } from "./notion-directory-sync.ts";
-import { recoverBreedV2Field, breedV2RecoveryFields, type BreedWorkCopyBindings } from "./notion-breed-workcopy-sync.ts";
-import { recoverControlledBreedV2Field, controlledBreedV2RecoveryFields, type ControlledBreedBindings } from "./notion-breed-workcopy-controlled.ts";
+import { recoverBreedV2Field, breedV2RecoveryFields, retryBreedV2AdminField, type BreedWorkCopyBindings } from "./notion-breed-workcopy-sync.ts";
+import { recoverControlledBreedV2Field, controlledBreedV2RecoveryFields, retryControlledBreedV2AdminField, type ControlledBreedBindings } from "./notion-breed-workcopy-controlled.ts";
 import { recoverEventV2Field, syncEventAdminFields, type EventFieldSyncBindings } from "./notion-event-field-sync.ts";
 import { EVENT_NOTION_PATHS, type EventNotionField } from "./notion-event-field-contract.ts";
 import { recoverEventsHelpV2Field, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";
@@ -82,7 +82,11 @@ async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,iden
     }
     case "organizations":case "adoptions":case "lost-found":case "help-cases":
       return await syncOneAdminHelpRecord({database,bindings,agenda:identity.agenda,entityId:id,changedHelpFields:[identity.field]})==="synced";
-    default:return false; // Directory/Breed special writeback scopes need their own retry adapter.
+    case "directory":
+      await recoverDirectoryV2Field(database,bindings,id,identity.pageId,identity.field,"push");return true;
+    case "breeds":
+      if(identity.field.startsWith("controlled.")){await retryControlledBreedV2AdminField(database,bindings,id,identity.pageId,identity.field.slice(11));return true;}
+      return retryBreedV2AdminField(database,bindings,id,identity.pageId,identity.field);
   }
 }
 async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
