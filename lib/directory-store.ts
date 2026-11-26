@@ -2179,7 +2179,7 @@ export async function updateManagedDirectoryProfile(
     }),
   ];
   const receipt = guard?.unifiedEditFields && guard.expectedUpdatedAt
-    ? planDirectoryAdminReceipts(database, { id, expectedRevision: guard.expectedUpdatedAt, nextRevision: now, editor: editorEmail, fields: guard.unifiedEditFields })
+    ? planDirectoryAdminReceipts(database, { id, expectedRevision: guard.expectedUpdatedAt, nextRevision: now, editor: editorEmail, fields: [...guard.unifiedEditFields, ...(payload.additionalCategories !== undefined ? ["additionalCategories" as const] : [])] })
     : { before: [], after: [] };
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0 || receipt.before.length > 0) {
