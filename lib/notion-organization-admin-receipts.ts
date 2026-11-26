@@ -9,6 +9,9 @@ export const ORGANIZATION_V2_COLUMNS = {
   "Web": "website_url", "Facebook": "facebook_url", "Instagram": "instagram_url",
   "Hlavný obrázok URL": "image_url", "Zdroj dát": "source_url",
 } as const;
+export const ORGANIZATION_LOCATION_V2_COLUMNS = { "Mesto":"city", "Okres":"district", "Kraj":"region" } as const;
+export type OrganizationLocationV2Field = keyof typeof ORGANIZATION_LOCATION_V2_COLUMNS;
+export function isOrganizationLocationV2Field(field:string):field is OrganizationLocationV2Field { return Object.hasOwn(ORGANIZATION_LOCATION_V2_COLUMNS,field); }
 export type OrganizationV2Field = keyof typeof ORGANIZATION_V2_COLUMNS;
 export function isOrganizationV2Field(field: string): field is OrganizationV2Field {
   return Object.hasOwn(ORGANIZATION_V2_COLUMNS, field);
@@ -19,8 +22,12 @@ function expression(field: OrganizationV2Field) {
     ? "(CASE WHEN substr(" + cell + ",1,1)='/' THEN 'https://psipedia.sk'||" + cell + " ELSE " + cell + " END)"
     : cell;
 }
-const projection = "json_object(" + Object.keys(ORGANIZATION_V2_COLUMNS)
-  .map(field => "'" + field + "'," + expression(field as OrganizationV2Field)).join(",") + ")";
+const projection = "json_object(" + [
+  ...Object.keys(ORGANIZATION_V2_COLUMNS).map(field => "'" + field + "'," + expression(field as OrganizationV2Field)),
+  ...Object.entries(ORGANIZATION_LOCATION_V2_COLUMNS).map(([field,column]) =>
+    "'" + field + "',trim(COALESCE(NULLIF((SELECT l."+column+" FROM organization_locations l WHERE l.organization_id=p.id "+
+    "ORDER BY CASE WHEN l.role='SITE' THEN 0 ELSE 1 END,l.is_primary DESC,l.sort_order,l.id LIMIT 1),''),p."+column+",''))"),
+].join(",") + ")";
 
 export function nextOrganizationEditRevision(previous: string, now: Date) {
   const old = Date.parse(previous);
@@ -31,7 +38,7 @@ export function nextOrganizationEditRevision(previous: string, now: Date) {
  * This creates no remote mutation and never claims evidence from a webhook. */
 export async function commitOrganizationAdminEdit(
   database: AdoptionD1Database, statement: AdoptionD1Statement,
-  input: { id: number; expectedRevision: string; nextRevision: string; editor: string },
+  input: { id: number; expectedRevision: string; nextRevision: string; editor: string; locationMutation?: boolean },
 ): Promise<unknown> {
   const db = database as unknown as D1Database;
   const editId = crypto.randomUUID();
@@ -54,12 +61,32 @@ export async function commitOrganizationAdminEdit(
     "ON CONFLICT(agenda,entity_id,notion_page_id,field_key) DO UPDATE SET edit_id=excluded.edit_id,baseline_version=excluded.baseline_version," +
     "canonical_revision=excluded.canonical_revision,observed_at=excluded.observed_at,value_json=excluded.value_json,explicit_clear=excluded.explicit_clear",
   ).bind(editId,input.nextRevision,input.editor);
+  const guard=db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('ORGANIZATION_V2_ADMIN_CAS_FAILED','$') END");
+  const parent=input.locationMutation ? [
+    db.prepare("UPDATE help_organizations SET updated_at=?,updated_by=? WHERE id=? AND updated_at=? AND archived_at IS NULL AND status<>'ARCHIVED'")
+      .bind(input.nextRevision,input.editor,input.id,input.expectedRevision),
+    guard,
+  ] : [];
   const results = await db.batch([
-    before, statement as unknown as D1PreparedStatement,
+    before, ...parent, statement as unknown as D1PreparedStatement,
     // A lost CAS must rollback the intent and all potential receipts.
-    db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('ORGANIZATION_V2_ADMIN_CAS_FAILED','$') END"),
+    db.prepare(input.locationMutation
+      ? "SELECT CASE WHEN changes()>0 THEN 1 ELSE json_extract('ORGANIZATION_V2_LOCATION_CAS_FAILED','$') END"
+      : "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('ORGANIZATION_V2_ADMIN_CAS_FAILED','$') END"),
     after, db.prepare("DELETE FROM notion_help_admin_edit_intent WHERE edit_id=?").bind(editId),
   ]);
   if (results.some(result => !result.success)) throw Error("ORGANIZATION_V2_ADMIN_TRANSACTION_FAILED");
-  return results[1];
+  return results[1+parent.length];
+}
+
+/** Location routes own the SQL row; bump the parent revision in the same
+ * transaction so the field adapter never accepts an older Admin observation. */
+export async function commitOrganizationLocationAdminEdit(database:AdoptionD1Database,
+  statement:AdoptionD1Statement,id:number,editor:string):Promise<unknown> {
+  const row=await database.prepare("SELECT updated_at FROM help_organizations WHERE id=?").bind(id).first<{updated_at:string}>();
+  if(!row)throw Error("ORGANIZATION_V2_MISSING");
+  return commitOrganizationAdminEdit(database,statement,{
+    id,editor,expectedRevision:row.updated_at,
+    nextRevision:nextOrganizationEditRevision(row.updated_at,new Date()),locationMutation:true,
+  });
 }
