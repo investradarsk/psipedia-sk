@@ -185,6 +185,7 @@ export function PublicBannerContent({
   href,
   label,
   links,
+  actions,
   icon,
   className,
   actionVariant = "primary",
@@ -196,6 +197,7 @@ export function PublicBannerContent({
   href?: string;
   label?: ReactNode;
   links?: Array<{ href: string; label: string }>;
+  actions?: ReactNode;
   icon?: ReactNode;
   className?: string;
   actionVariant?: "primary" | "secondary";
@@ -211,9 +213,15 @@ export function PublicBannerContent({
         <PublicHeading role="section" as="h2" id={headingId}>
           {title}
         </PublicHeading>
-        {description ? <div className={styles.bannerDescription}>{description}</div> : null}
+        {description ? (
+          <div className={styles.bannerDescription} data-public-banner-description>
+            {description}
+          </div>
+        ) : null}
       </div>
-      {links?.length ? (
+      {actions ? (
+        <div data-public-banner-actions>{actions}</div>
+      ) : links?.length ? (
         <nav className={styles.links} aria-label="Užitočné odkazy">
           {links.map((link) => (
             <Link className={styles.link} key={link.href} href={link.href}>

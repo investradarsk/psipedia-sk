@@ -23,9 +23,11 @@ const nextBannerIndexBySlot = new Map<string, number>();
 export function AffiliateRotatingBanner({
   placement = "horizontal",
   sitewide = false,
+  compact = false,
 }: {
   placement?: AffiliateBannerPlacement;
   sitewide?: boolean;
+  compact?: boolean;
 }) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
@@ -85,6 +87,7 @@ export function AffiliateRotatingBanner({
       aria-label="Reklama"
       className={`${styles.banner} ${placement === "sidebar" ? styles.sidebar : styles.horizontal} ${imageLoaded ? "" : styles.pending}`}
       data-affiliate-rotating-banner={placement}
+      data-affiliate-compact={compact || sitewide || undefined}
       data-affiliate-shop={imageLoaded ? selected.id : undefined}
     >
       <span className={styles.label}>Reklama · affiliate</span>

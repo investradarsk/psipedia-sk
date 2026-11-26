@@ -121,7 +121,8 @@ test("mobile uses square originals and sidebar uses compact portrait or square o
   assert.doesNotMatch(component, /"adaptive"/);
   assert.match(component, /referrerPolicy="no-referrer"/);
   assert.match(component, /getAvailableAffiliateOriginalBanners\(format\)/);
-  assert.match(css, /--affiliate-max-creative-height: 300px/);
+  assert.match(css, /--affiliate-max-creative-height: 260px/);
+  assert.match(css, /\.horizontal\[data-affiliate-compact\]\s*\{\s*--affiliate-max-creative-height: 200px/);
   assert.match(css, /object-fit: contain/);
   assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });
@@ -134,7 +135,7 @@ test("single-column article shows one compatible banner after introduction, not 
   const inline = article.indexOf('data-article-mobile-affiliate-banner');
   const takeaway = article.indexOf('showTakeaway ? (');
   assert.ok(intro !== -1 && inline > intro && inline < takeaway);
-  assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
+  assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal" compact\s*\/>/);
   assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
   assert.match(articleCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
   assert.match(footerCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-rotating-banner\]\)/);
@@ -226,6 +227,7 @@ test("sidebar ads follow existing panel content; no external advertising rail", 
   assert.doesNotMatch(sitewide, /data-sitewide-affiliate-rail|placement="sidebar"/);
   assert.doesNotMatch(railCSS, /position:\s*absolute|\.rail\s*\{/);
   assert.match(css, /@media \(max-width: 1199px\)\s*\{\s*\.sidebar\s*\{\s*display: none;/);
-  assert.match(css, /\.sidebar\s*\{\s*--affiliate-max-creative-height: 360px/);
+  assert.match(css, /\.sidebar\s*\{\s*--affiliate-max-creative-height: 320px/);
+  assert.match(source("components/events-page.tsx"), /data-affiliate-stacked-fallback>\s*<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.doesNotMatch(source("components/affiliate-rotating-banner.tsx"), /Math\.random/);
 });

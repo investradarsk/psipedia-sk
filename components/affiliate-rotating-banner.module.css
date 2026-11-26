@@ -50,16 +50,21 @@
 }
 
 .sidebar {
-  --affiliate-max-creative-height: 360px;
-  width: min(100%, 290px);
+  --affiliate-max-creative-height: 320px;
+  width: min(100%, 250px);
   margin: 12px auto 0;
 }
 
 @media (max-width: 767px) {
   .horizontal {
-    --affiliate-max-creative-height: 300px;
-    width: min(calc(100% - 28px), 300px);
+    --affiliate-max-creative-height: 260px;
+    width: min(calc(100% - 28px), 260px);
     margin: 20px auto 24px;
+  }
+
+  .horizontal[data-affiliate-compact] {
+    --affiliate-max-creative-height: 200px;
+    margin-block: 14px 18px;
   }
 }
 

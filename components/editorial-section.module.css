@@ -99,7 +99,6 @@
   padding-block: 18px 4px;
 }
 
-.callout,
 .urgent {
   display: grid;
   min-width: 0;
@@ -113,28 +112,12 @@
   box-shadow: 0 10px 30px rgba(23, 53, 43, 0.065);
 }
 
-/* PublicBannerFrame owns the surface. This inner grid retains the editorial
-   icon, content and CTA arrangement without introducing a separate banner skin. */
-.calloutLayout {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 18px;
-}
-.calloutLayout > * {
-  min-width: 0;
-}
-
-.callout h2,
 .urgent h2 {
   margin: 2px 0 5px;
   font-size: clamp(1.25rem, 2vw, 1.65rem);
   line-height: 1.15;
 }
 
-.callout p,
 .urgent p {
   max-width: 720px;
   margin: 0;
@@ -143,7 +126,6 @@
   line-height: 1.55;
 }
 
-.calloutActions,
 .urgentActions {
   display: flex;
   flex-wrap: wrap;
@@ -152,20 +134,14 @@
 }
 
 .calloutIcon {
-  color: var(--section-accent);
+  color: #174d3a;
 }
 
-.calloutCopy {
-  min-width: 0;
-}
-
-.calloutUrgent,
 .urgent {
   border-color: rgba(178, 75, 54, 0.22);
   background: #fffaf6;
 }
 
-.calloutUrgent .calloutIcon,
 .urgentIcon {
   color: var(--section-accent);
 }
@@ -384,12 +360,10 @@
     grid-template-columns: 1fr;
   }
 
-  .calloutLayout,
   .urgent {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .calloutLayout > :last-child,
   .urgentActions {
     grid-column: 1 / -1;
     justify-content: flex-start;
@@ -415,34 +389,24 @@
     padding-top: 14px;
   }
 
-  .callout,
   .urgent {
     gap: 12px;
     padding: 17px;
   }
-  .calloutLayout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .calloutLayout > span,
   .urgent > span {
     justify-self: start;
   }
 
-  .calloutLayout > :last-child,
   .urgentActions {
     grid-column: auto;
   }
 
-  .calloutActions,
   .urgentActions,
   .serviceLinks > div {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .calloutActions > *,
   .urgentActions > *,
   .serviceLinks > div > * {
     width: 100%;
@@ -1033,7 +997,6 @@
     min-height: 30px;
     font-size: 0.71rem;
   }
-  .callout,
   .urgent {
     padding: 14px;
     gap: 9px;
@@ -1340,12 +1303,6 @@
 
 /* All topics use the same banner surface; emergency keeps only the
    medically meaningful blue icon/accent, not a separate decorative skin. */
-.callout .eyebrow {
-  color: #b44939;
-}
-.callout .calloutIcon {
-  color: #174d3a;
-}
 .topicEmergency [data-banner-semantic="urgent"] .calloutIcon {
   color: #387c88;
 }
