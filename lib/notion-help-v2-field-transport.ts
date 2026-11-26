@@ -68,7 +68,11 @@ async function observe(input:Adapter,field:string,kind:FieldKind,slugChange:bool
   const id=helpV2NotionObservation(page,"Psipedia ID","text"),url=helpV2NotionObservation(page,"URL Psipedia","text");
   if(!id.present||id.value!==String(entityId)||!url.present||(!slugChange&&url.value!==source.url))throw Error("HELP_V2_IDENTITY_CHANGED");
   const after=await database.prepare(revisionSql).bind(entityId).first<{updated_at:string;status:string}>();
-  if(after?.updated_at!==before.updated_at||after.status!==before.status)throw Error("HELP_V2_REVISION_CHANGED");
+  if(!after||after.updated_at!==before.updated_at||after.status!==before.status)throw Error("HELP_V2_REVISION_CHANGED");
+  const currentMapping=await database.prepare("SELECT notion_page_id,content_hash FROM notion_agenda_sync WHERE agenda=? AND entity_id=?")
+    .bind(agenda,entityId).first<{notion_page_id:string;content_hash:string}>();
+  if(currentMapping?.notion_page_id!==pageId||currentMapping.content_hash!==mapping.content_hash||
+    await isAdminNotionSyncLocked(database,agenda,entityId)||await notionPageIsTombstoned(database,pageId))throw Error("HELP_V2_SCOPE_CHANGED");
   const notion=helpV2NotionObservation(page,field,kind);
   const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:source.properties[field]}:{present:false};
   return {page,source,mapping,revision:before.updated_at,status:before.status,notion,psipedia};
