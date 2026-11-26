@@ -84,7 +84,7 @@ test("e-shop inline API is a narrow CAS mutation; slug, Lexical description, sta
   assert.match(store, /normalizedText\(input\.name, "Názov", 160\)/);
   assert.match(store, /normalizedUrl\(input\.websiteUrl, "Web e-shopu"\)/);
   assert.match(route, /export async function PATCH/);
-  assert.match(route, /requireAdminMutation\(request\)/);
+  assert.match(route, /requireAdminMutation\(request,\s*\{\s*strictProvenance:\s*true\s*\}\)/);
   assert.match(route, /keys\.join\(","\) !== "expectedUpdatedAt,name,websiteUrl"/);
   assert.match(route, /updateManagedEshopInline\(id,/);
   assert.match(route, /syncSavedNotionRecord/);

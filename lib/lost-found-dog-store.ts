@@ -1,3 +1,6 @@
+import { commitLostFoundV2AdminEdit, LOST_FOUND_V2_FIELDS, isLostFoundV2Field, lostFoundV2Value } from "./notion-lost-found-v2-contract.ts";
+import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
+import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
@@ -600,6 +603,7 @@ export async function transitionAdminDogReportStatus(
 export async function updateAdminDogReportInlineName(
   id: number, dogName: string | null, expectedUpdatedAt: string,
   databaseInput?: D1Database,
+  unifiedEditor?: string,
 ) {
   if (!Number.isSafeInteger(id) || id < 1 || !expectedUpdatedAt?.trim()) {
     throw new Error("Neplatné ID alebo verzia hlásenia.");
@@ -628,20 +632,25 @@ export async function updateAdminDogReportInlineName(
     before.distinguishing_marks, before.region, before.district, before.city,
     before.location_description, before.source,
   ].filter(Boolean).join(" "));
-  const result = await database.prepare(`UPDATE lost_found_dog_reports
+  const revision=unifiedEditor?nextHelpV2Revision(expectedUpdatedAt):new Date().toISOString();
+  const statement = database.prepare(`UPDATE lost_found_dog_reports
     SET dog_name=?,search_text=?,updated_at=?
     WHERE id=? AND updated_at=? AND status <> 'ARCHIVED'
       AND duplicate_of_id IS NULL RETURNING id`)
-    .bind(name, searchText, new Date().toISOString(), id, expectedUpdatedAt)
-    .first<{ id: number }>();
+    .bind(name, searchText, revision, id, expectedUpdatedAt);
+  const result=unifiedEditor
+    ? (await commitLostFoundV2AdminEdit(database,statement,{id,expectedRevision:expectedUpdatedAt,nextRevision:revision,editor:unifiedEditor})).results?.[0] as {id:number}|undefined
+    : await statement.first<{id:number}>();
   if (!result) throw new Error("Hlásenie sa medzitým zmenilo. Obnov tabuľku.");
   return result.id;
 }
 
-export async function updateAdminDogReport(id: number, input: ManagedDogReportInput, actor: string) {
+export async function updateAdminDogReport(id: number, input: ManagedDogReportInput, actor: string,
+  unifiedExpectedRevision?:string) {
   const database = requireD1Binding();
   const existing = await getAdminDogReport(id);
   if (!existing) throw new Error("Hlásenie neexistuje.");
+  if(unifiedExpectedRevision!==undefined && existing.updatedAt!==unifiedExpectedRevision)throw Error("LOST_FOUND_V2_REVISION_CHANGED");
   assertNoDuplicateMutation(input);
   if (input.status !== undefined && !LOST_FOUND_STATUSES.includes(input.status as LostFoundStatus)) throw new Error("Neplatný cieľový stav hlásenia.");
   const requestedStatus = (input.status ?? existing.status) as LostFoundStatus;
@@ -658,7 +667,7 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
     publicInstagramUrl: input.publicInstagramUrl ?? existing.publicInstagramUrl,
   });
   const privatePii = await preparePrivatePii(clean);
-  const now = new Date().toISOString();
+  const now = unifiedExpectedRevision!==undefined?nextHelpV2Revision(unifiedExpectedRevision):new Date().toISOString();
   const shortDescriptionReady = await hasShortDescriptionColumn(database);
   if (!shortDescriptionReady && clean.shortDescription)
     throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
@@ -670,7 +679,7 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
     type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,${shortDescriptionReady ? "short_description=?," : ""}description=?,distinguishing_marks=?,collar_description=?,chipped=?,
     main_image=?,main_image_key=?,thumbnail_display_json=?,detail_display_json=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
-    public_contact_note=?,${publicContactsReady ? "public_phone=?,public_email=?,public_website_url=?,public_facebook_url=?,public_instagram_url=?," : ""}source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
+    public_contact_note=?,${publicContactsReady ? "public_phone=?,public_email=?,public_website_url=?,public_facebook_url=?,public_instagram_url=?," : ""}source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?${unifiedExpectedRevision!==undefined?" AND updated_at=?":""}`).bind(
     clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     JSON.stringify(input.thumbnailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.thumbnailImageDisplay ?? null : clean.thumbnailImageDisplay ?? null),
@@ -678,7 +687,8 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
     clean.publicContactNote,
     ...(publicContactsReady ? [clean.publicPhone, clean.publicEmail, clean.publicWebsiteUrl, clean.publicFacebookUrl, clean.publicInstagramUrl] : []),
     clean.source, clean.sourceUrl, clean.searchText, existing.duplicateOfId, existing.duplicateReason,
-    now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
+    now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id,
+    ...(unifiedExpectedRevision!==undefined?[unifiedExpectedRevision]:[])
   );
   const privateUpsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
     report_id,contact_name_encrypted,contact_phone_encrypted,contact_phone_hash,contact_email_encrypted,contact_email_hash,private_note_encrypted,created_by,updated_by,created_at,updated_at
@@ -704,7 +714,10 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
     now,
     now,
   );
-  await database.batch([publicUpdate, privateUpsert]);
+  if(unifiedExpectedRevision!==undefined)await commitLostFoundV2AdminEdit(database,publicUpdate,{
+    id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:actor,companionStatements:[privateUpsert],
+  });
+  else await database.batch([publicUpdate, privateUpsert]);
   return getAdminDogReport(id);
 }
 
@@ -836,3 +849,58 @@ function optionalNumber(value: unknown) { if (value === null || value === undefi
 function cleanIsoNullable(value: unknown) { const text = cleanText(value, 50); if (!text) return null; const date = new Date(text); if (Number.isNaN(date.getTime())) throw new Error("Neplatný dátum alebo čas."); return date.toISOString(); }
 function cleanUrlNullable(value: unknown) { const text = cleanText(value, 1000); if (!text) return null; try { const url = new URL(text); if (!["http:", "https:"].includes(url.protocol)) throw new Error(); return url.toString(); } catch { throw new Error("Odkaz zdroja musí byť platná HTTP/HTTPS adresa."); } }
 function cleanImageNullable(value: unknown) { const text = cleanText(value, 1000); if (!text) return null; if (text.startsWith("/media/") || text.startsWith("/images/")) return text; try { const url = new URL(text); if (["http:", "https:"].includes(url.protocol)) return url.toString(); } catch {} throw new Error("Obrázok musí byť interná /media/ adresa alebo platná HTTP/HTTPS URL."); }
+
+/** V2 inbound writes only a single validated public cell and its necessary
+ * dependent SQL fields. Never reads or decrypts lost_found_dog_private_details,
+ * invokes moderation, changes publication, or modifies public contact approval. */
+export async function updateLostFoundV2NotionField(input:{
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+}) {
+  const {database,id,pageId,field,value,revision}=input;
+  if(!isLostFoundV2Field(field)||typeof value!=="string")throw Error("LOST_FOUND_V2_PROTECTED_FIELD");
+  const row=await database.prepare("SELECT type,status,slug,breed_id,breed_unknown,source,main_image_key,duplicate_of_id,updated_at,"+
+    "dog_name,breed,color,short_description,description,distinguishing_marks,region,district,city,location_description "+
+    "FROM lost_found_dog_reports WHERE id=? AND updated_at=?").bind(id,revision).first<{
+      type:string;status:string;slug:string;breed_id:number|null;breed_unknown:number;source:string;main_image_key:string|null;
+      duplicate_of_id:number|null;updated_at:string;dog_name:string|null;breed:string;color:string;short_description:string;description:string;
+      distinguishing_marks:string;region:string;district:string;city:string;location_description:string;
+    }>();
+  if(!row||row.status==="ARCHIVED"||row.duplicate_of_id!==null)throw Error("LOST_FOUND_V2_REVISION_CHANGED");
+  // The moderation pipeline exclusively owns public-submission media and
+  // provenance. Never replace an unapproved/quarantined photo from Notion.
+  if(field==="Hlavný obrázok"&&(row.source==="Používateľské hlásenie"||row.main_image_key?.startsWith("safe/")))
+    throw Error("LOST_FOUND_V2_MODERATION_MEDIA_LOCKED");
+  const [column,key]=LOST_FOUND_V2_FIELDS[field];
+  const patch:ManagedDogReportInput={type:row.type,status:row.status,slug:row.slug,source:row.source};
+  if(field==="Plemeno"){
+    const matches=await database.prepare("SELECT id,name FROM managed_breeds WHERE status='published' AND lower(trim(name))=lower(trim(?)) ORDER BY id LIMIT 2")
+      .bind(value).all<{id:number;name:string}>();
+    if(matches.results.length>1||(!matches.results.length&&row.breed_id!==null))throw Error("LOST_FOUND_V2_BREED_AMBIGUOUS");
+    patch.breedId=matches.results[0]?.id??null;patch.breed=value;patch.breedUnknown=!value;
+  }else if(field==="Hlavný obrázok"){
+    patch.mainImage=value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
+    if(patch.mainImage?.startsWith("/media/safe/"))throw Error("LOST_FOUND_V2_MODERATION_MEDIA_LOCKED");
+  }else Object.assign(patch,{[key]:value});
+  const clean=await cleanInput(database,patch);
+  const desired=clean[key];
+  if(lostFoundV2Value(field,desired)!==value)throw Error("LOST_FOUND_V2_NORMALIZATION_REVIEW");
+  const columns:string[]=[column];const values:unknown[]=[desired];
+  if(field==="Plemeno"){columns.push("breed_id","breed_unknown");values.push(clean.breedId,clean.breedUnknown?1:0);}
+  if(field==="Hlavný obrázok"){columns.push("main_image_key","thumbnail_display_json","detail_display_json");values.push(null,null,null);}
+  const searchFields=["type","dog_name","breed","color","short_description","description","distinguishing_marks","region","district","city","location_description","source"] as const;
+  if((searchFields as readonly string[]).includes(column)){
+    columns.push("search_text");
+    values.push(normalizeSearch(searchFields.map(name=>name===column?desired:row[name]).filter(Boolean).join(" ")));
+  }
+  columns.push("updated_at");values.push(nextHelpV2Revision(revision));
+  const relationGuard=field==="Plemeno"&&clean.breedId!==null
+    ?" AND EXISTS(SELECT 1 FROM managed_breeds WHERE id=? AND status='published' AND name=?)":"";
+  const result=await database.prepare("UPDATE lost_found_dog_reports SET "+columns.map(c=>c+"=?").join(",")+
+    " WHERE id=? AND updated_at=? AND status<>'ARCHIVED' AND duplicate_of_id IS NULL "+
+    "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='LOST_FOUND' AND entity_id=lost_found_dog_reports.id) "+
+    "AND NOT "+partnerReviewOwnerSql("LOST_FOUND","lost_found_dog_reports.id")+" "+
+    "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='lost-found' AND record_id=lost_found_dog_reports.id) "+
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='lost-found' AND entity_id=lost_found_dog_reports.id AND notion_page_id=?)"+
+    relationGuard).bind(...values,id,revision,pageId,...(relationGuard?[clean.breedId,clean.breed]:[])).run();
+  if(result.meta.changes!==1)throw Error("LOST_FOUND_V2_WRITE_CONFLICT");
+}

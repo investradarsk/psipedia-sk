@@ -140,6 +140,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
   const [status, setStatus] = useState<HelpCaseStatus>(item?.status ?? "draft");
   const [seo, setSeo] = useState(item?.seo ?? {});
   const mutationPending = useRef(false);
+  const persistedRevision = useRef(item?.updatedAt);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -224,10 +225,11 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
       const response = await fetch(item ? `/api/admin/help/${item.id}` : "/api/admin/help", {
         method: item ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title: titleDraftRef.current || titleInputRef.current?.value || title, slug, category, status: nextStatus, excerpt, description, organization, dogName, breed, ageNote, city, region, locationNote, reportedDate: reportedDate || null, deadlineDate: deadlineDate || null, actionLabel, actionUrl: actionUrl || null, contactNote, goalAmount: goalAmount || null, raisedAmount: raisedAmount || null, imageUrl: imageUrl || null, imageKey: imageKey || null, thumbnailImageDisplay, detailImageDisplay, verified, urgent, resolved, seo }),
+        body: JSON.stringify({ ...(item ? { expectedUpdatedAt: persistedRevision.current } : {}), title: titleDraftRef.current || titleInputRef.current?.value || title, slug, category, status: nextStatus, excerpt, description, organization, dogName, breed, ageNote, city, region, locationNote, reportedDate: reportedDate || null, deadlineDate: deadlineDate || null, actionLabel, actionUrl: actionUrl || null, contactNote, goalAmount: goalAmount || null, raisedAmount: raisedAmount || null, imageUrl: imageUrl || null, imageKey: imageKey || null, thumbnailImageDisplay, detailImageDisplay, verified, urgent, resolved, seo }),
       });
       const data = await response.json() as { item?: HelpCase; error?: string };
       if (!response.ok || !data.item) throw new Error(data.error || "Prípad sa nepodarilo uložiť.");
+      persistedRevision.current = data.item.updatedAt;
       setSyncRevision(v=>v+1);
       if (item) navigation.markSavedIfUnchanged(submittedRevision);
       else navigation.markSavedBeforeRedirect();

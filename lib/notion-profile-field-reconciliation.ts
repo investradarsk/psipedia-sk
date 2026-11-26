@@ -120,8 +120,8 @@ export function reconcileProfileFields(input: {
   equalField?: (path: string, left: unknown, right: unknown) => boolean;
   /** Per-field operator authority; never overrides protectedFields or baseline checks. */
   authorities?: Readonly<Record<string, "safe" | "notion" | "admin" | "latest">>;
-  /** Directory only: trust the verified one-sided baseline difference over
-   * a historical static authority setting. */
+  /** Unified profile policy: trust a verified one-sided baseline difference
+   * over historical static authority settings. */
   changedSideWins?: boolean;
   /** OPTIONAL: only independently authenticated human field edits, each
    * paired with the actual observed value. No caller supplies these yet. */

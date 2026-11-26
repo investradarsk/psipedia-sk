@@ -35,6 +35,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [persistedRevision,setPersistedRevision]=useState(shop.updatedAt);
   const [savedSignature, setSavedSignature] = useState(() => JSON.stringify({
     name: shop.name, slug: shop.slug, websiteUrl: shop.websiteUrl,
     description: shop.description, sourceUrl: shop.sourceUrl,
@@ -75,6 +76,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          expectedUpdatedAt:persistedRevision,
           name,
           slug,
           websiteUrl,
@@ -88,6 +90,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       });
       const data = await response.json() as { shop?: ManagedEshop; error?: string };
       if (!response.ok || !data.shop) throw new Error(data.error || "E-shop sa nepodarilo uložiť.");
+      setPersistedRevision(data.shop.updatedAt);
       setName(data.shop.name);
       setSlug(data.shop.slug);
       setWebsiteUrl(data.shop.websiteUrl);

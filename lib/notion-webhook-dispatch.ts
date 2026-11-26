@@ -17,6 +17,7 @@ import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership"
 export type WebhookBindings = NotionSyncBindings & {
   DB?: D1Database;
   NOTION_WEBHOOK_SYNC_ENABLED?: string;
+  NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string;
   NOTION_WEBHOOK_INBOX_ENABLED?: string;
   NOTION_WEBHOOK_VERIFICATION_TOKEN?: string;
   NOTION_WEBHOOK_HANDSHAKE_LOG_ENABLED?: string;

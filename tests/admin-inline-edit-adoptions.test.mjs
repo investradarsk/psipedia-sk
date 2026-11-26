@@ -13,7 +13,7 @@ test("adoption inline edit uses protected canonical server path and Notion sync"
   assert.match(api, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(api, /body\.action !== "set-inline-name"/);
   assert.match(api, /Object\.keys\(body\)\.length !== 3/);
-  assert.match(api, /updateAdoptionInlineName\(id, body\.name, body\.expectedUpdatedAt, auth\.user\.email\)/);
+  assert.match(api, /updateAdoptionInlineName\(id, body\.name, body\.expectedUpdatedAt, auth\.user\.email,\s*undefined,\s*unifiedAdoptionReceiptsEnabled\(\)\)/);
   assert.match(api, /agenda: "adoptions"/);
   assert.match(store, /export async function updateAdoptionInlineName/);
   assert.match(store, /buildAdoptionSearchText\(/);

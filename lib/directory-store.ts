@@ -1,3 +1,5 @@
+import { planDirectoryAdminReceipts } from "./notion-directory-admin-receipts.ts";
+import type { BreederEditorialField } from "./notion-breeder-field-events.ts";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
@@ -2118,13 +2120,14 @@ export async function updateManagedDirectoryProfile(
   editorEmail: string,
   existingProfile?: ManagedDirectoryProfile,
   databaseInput?: D1Database,
-  guard?: { expectedUpdatedAt?: string; restoreArchived?: boolean },
+  guard?: { expectedUpdatedAt?: string; restoreArchived?: boolean; unifiedEditFields?: readonly BreederEditorialField[] },
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const existing = existingProfile ?? (await getManagedDirectoryProfileById(id, database));
   if (!existing) return null;
-  const now = new Date().toISOString();
+  const previousTime = Date.parse(existing.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
   const normalizedForMirrors = normalizeManagedDirectoryProfileInput(payload, directoryQualitySqlSource(existing), {
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
@@ -2175,8 +2178,11 @@ export async function updateManagedDirectoryProfile(
       value:payload.trainerServicesText,
     }),
   ];
+  const receipt = guard?.unifiedEditFields && guard.expectedUpdatedAt
+    ? planDirectoryAdminReceipts(database, { id, expectedRevision: guard.expectedUpdatedAt, nextRevision: now, editor: editorEmail, fields: [...guard.unifiedEditFields, ...(payload.additionalCategories !== undefined ? ["additionalCategories" as const] : [])] })
+    : { before: [], after: [] };
   let row: DirectoryProfileRow | null;
-  if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0) {
+  if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0 || receipt.before.length > 0) {
     // Owner-submitted category changes commit relational SQL in the SAME
     // D1 transaction. An omitted field must never clear SQL membership.
     // The initial UPDATE is the authority/CAS and the planner fails closed
@@ -2190,12 +2196,14 @@ export async function updateManagedDirectoryProfile(
         actor: editorEmail,
       });
     const responses = await database.batch([
+      ...receipt.before,
       canonicalStatement,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
       ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
       ...presentationMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...receipt.after,
     ]);
-    row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
+    row = (responses[receipt.before.length]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
     row = await canonicalStatement.first<DirectoryProfileRow>();
   }

@@ -71,7 +71,7 @@ test("inline PATCH uses server-side canonical organization writer and protects c
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /organizationInputWithShelterInlineChanges\(before, body\.changes\)/);
   assert.match(route, /before\.updatedAt !== expectedUpdatedAt/);
-  assert.match(route, /updateShelterInlineFieldsFromAdmin\(id, payload, auth\.user\.email, expectedUpdatedAt\)/);
+  assert.match(route, /updateShelterInlineFieldsFromAdmin\(id, payload, auth\.user\.email, expectedUpdatedAt,\s*undefined,\s*new Date\(\),\s*unifiedOrganizationReceiptsEnabled\(\)\)/);
   assert.match(route, /syncSavedNotionRecord\(/);
   assert.match(route, /agenda: "organizations"/);
   assert.match(route, /invalidateVersionedPublicHtmlCacheUrl/);

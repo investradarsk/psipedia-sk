@@ -1,3 +1,5 @@
+import { planDirectoryAdminReceipts, directoryBreederRelationReceiptField } from "./notion-directory-admin-receipts.ts";
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock.ts";
 import { breedProfileHref, canonicalBreedIdsSqlV2 } from "./breed-canonical.ts";
 import type { PublicRelatedBreed } from "./content-relations";
 
@@ -73,6 +75,7 @@ export async function listBreederRelationOptions(database: Database) {
 }
 export async function saveBreederRelationSelection(
   database: Database, profileId: number, selection: BreederRelationSelection, actor: string,
+  unified?: { expectedRevision?: string; authenticatedAdmin?: boolean; fromNotion?: boolean },
 ) {
   const profile = await breeder(database, profileId);
   if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category) || profile.status === "archived")
@@ -91,7 +94,13 @@ export async function saveBreederRelationSelection(
   if ((breedRows.results ?? []).length !== chosen.breedIds.length ||
       (clubRows.results ?? []).length !== chosen.clubIds.length)
     throw Error("Niektoré vybrané plemená alebo kluby neexistujú.");
-  const now = new Date().toISOString();
+  const revision = unified ? await database.prepare("SELECT updated_at FROM directory_profiles WHERE id=? AND category=?").bind(profileId, profile.category).first<{updated_at:string}>() : null;
+  if (unified && (!revision || (unified.expectedRevision !== undefined && revision.updated_at !== unified.expectedRevision)))
+    throw Error("DIRECTORY_RELATION_CAS_CONFLICT");
+  if (unified?.fromNotion && await directoryProfileNotionSyncLocked(database, profileId))
+    throw Error("DIRECTORY_UNIFIED_LOCKED");
+  const previous = Date.parse(revision?.updated_at ?? "");
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
   const statements = [
     database.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(profileId),
     ...chosen.breedIds.map(id => database.prepare(
@@ -106,6 +115,20 @@ export async function saveBreederRelationSelection(
       statements.push(database.prepare(
         "INSERT INTO directory_breeder_club_relations (station_profile_id,club_profile_id,created_at,created_by) VALUES (?,?,?,?)",
       ).bind(profileId,clubId,now,actor));
+  }
+  if (unified && revision) {
+    const receipt = unified.authenticatedAdmin ? planDirectoryAdminReceipts(database, {
+      id: profileId, expectedRevision: revision.updated_at, nextRevision: now, editor: actor, fields: [],
+      structured: [directoryBreederRelationReceiptField("breedIds"),
+        ...(profile.category === "chovatelske-stanice" ? [directoryBreederRelationReceiptField("clubIds")] : [])],
+    }) : { before: [], after: [] };
+    const canonical = database.prepare(
+      "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id",
+    ).bind(now,actor,profileId,profile.category,revision.updated_at);
+    const verify = database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT','$') END AS cas_ok");
+    const results = await database.batch([...receipt.before,canonical,verify,...statements,...receipt.after]);
+    if (!(results[receipt.before.length]?.results ?? []).length) throw Error("DIRECTORY_RELATION_CAS_CONFLICT");
+    return chosen;
   }
   statements.push(database.prepare(
     "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND status<>'archived' RETURNING id",

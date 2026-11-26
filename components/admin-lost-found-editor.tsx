@@ -78,6 +78,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   const mutationPendingRef = useRef(false);
   // Moderation-only duplicate fields are not part of the profile save payload.
   const lastPersistedStateRef = useRef<EditorState>(initial(report));
+  const lastPersistedRevisionRef = useRef(report?.updatedAt);
   useEffect(()=>{ if(formRef.current) formRef.current.dataset.hydrated="true"; },[]);
   const set=<K extends keyof EditorState>(key:K,value:EditorState[K])=>{navigation.markDirty();setState((s)=>({...s,[key]:value}));};
   const publicHref=useMemo(()=>state.slug?dogReportHref({type:state.type,slug:state.slug}):"",[state.slug,state.type]);
@@ -108,11 +109,12 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
         region:state.region,district:state.district,city:state.city,locationDescription:state.locationDescription,publicLatitude:state.publicLatitude||null,publicLongitude:state.publicLongitude||null,publicLocationPrecision:state.publicLocationPrecision,
         contactName:state.contactName||null,contactPhone:state.contactPhone||null,contactEmail:state.contactEmail||null,publicContactNote:state.publicContactNote,publicPhone:state.publicPhone,publicEmail:state.publicEmail,publicWebsiteUrl:state.publicWebsiteUrl,publicFacebookUrl:state.publicFacebookUrl,publicInstagramUrl:state.publicInstagramUrl,source:state.source,sourceUrl:state.sourceUrl||null,expiresAt:state.expiresAt||null,internalNote:state.internalNote,
       };
-      const res=await fetch(report?`/api/admin/lost-found/${report.id}`:"/api/admin/lost-found",{method:report?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+      const res=await fetch(report?`/api/admin/lost-found/${report.id}`:"/api/admin/lost-found",{method:report?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(report?{...payload,expectedUpdatedAt:lastPersistedRevisionRef.current}:payload)});
       const data=await res.json() as {report?:AdminDogReport;error?:string};
       if(!res.ok||!data.report)throw new Error(data.error||"Uloženie zlyhalo.");
       setSyncRevision(v=>v+1);
       lastPersistedStateRef.current = initial(data.report);
+      lastPersistedRevisionRef.current = data.report.updatedAt;
       const hasNewerEdits = navigation.getRevision() !== submittedRevision;
       if (report) navigation.markSavedIfUnchanged(submittedRevision);
       else navigation.markSavedBeforeRedirect();
@@ -160,6 +162,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       const data=await res.json() as {report?:AdminDogReport;error?:string};
       if(!res.ok||!data.report)throw new Error(data.error||"Označenie duplicity zlyhalo.");
       lastPersistedStateRef.current = initial(data.report);
+      lastPersistedRevisionRef.current = data.report.updatedAt;
       navigation.markSaved();setState(initial(data.report));setMessage("Hlásenie bolo označené ako duplicita a archivované.");
     }catch(err){setError(err instanceof Error?err.message:"Označenie duplicity zlyhalo.")}finally{mutationPendingRef.current=false;setSaving(false)}
   }

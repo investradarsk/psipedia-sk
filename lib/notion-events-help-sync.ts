@@ -1,3 +1,13 @@
+import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
+import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
+import { HELP_CASE_V2_PROTECTED, helpCaseV2Kind } from "./notion-help-case-v2-contract.ts";
+import { updateHelpCaseV2NotionField } from "./help-store.ts";
+import { LOST_FOUND_V2_PROTECTED, lostFoundV2Kind } from "./notion-lost-found-v2-contract.ts";
+import { updateLostFoundV2NotionField } from "./lost-found-dog-store.ts";
+import { syncHelpV2Fields } from "./notion-help-v2-field-transport.ts";
+import { isAdoptionV2Field } from "./notion-adoption-v2-contract.ts";
+import { updateAdoptionV2NotionField } from "./adoption-admin-write.ts";
+import { syncOrganizationV2Fields } from "./notion-organization-field-v2.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
@@ -15,7 +25,9 @@ import {
   loadNotionBulkEvents,
   loadNotionBulkOrganizations,
   loadNotionBulkAdoptions,
+  loadNotionV2Adoptions,
   loadNotionBulkHelpCases,
+  loadNotionV2HelpCases,
   loadNotionBulkLostFound,
 } from "./notion-bulk-sources.ts";
 import type {
@@ -98,6 +110,7 @@ import {
 
 export type NotionEventsHelpSyncBindings = NotionSyncBindings & {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
+  NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
   NOTION_GEMINI_22_PRIORITY_A_ENABLED?: string;
@@ -1169,6 +1182,88 @@ async function syncAgenda(input: {
         if (pageIdentity.psipediaId !== source.id)
           throw new Error("HELP_FIELD_EVENT_IDENTITY_MISMATCH");
         const permitted = new Set(agendaEditableFields[agenda]);
+        if (agenda === "help-cases" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound=input.changedPropertyIds!==undefined;
+          const fields=inbound
+            ? changedNotionHelpFields(agenda,page.properties,input.changedPropertyIds??[]).filter(field=>!HELP_CASE_V2_PROTECTED.has(field))
+            : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
+          const result=await syncHelpV2Fields({
+            database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
+            dataSourceId:target.dataSourceId,load:loadNotionV2HelpCases,fields,
+            direction:inbound?"pull":"push",protectedFields:HELP_CASE_V2_PROTECTED,
+            kind:helpCaseV2Kind,
+            pull:(field,value,revision)=>updateHelpCaseV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            }),
+            encode:values=>encodeProperties(values,schema),
+          });
+          if(result.failed.length)throw Error("HELP_CASE_V2_FIELDS_PENDING: "+result.failed.join(","));
+          if(result.pulled)summary.pulledFromNotion++;
+          else if(result.pushed)summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
+        if (agenda === "lost-found" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound=input.changedPropertyIds!==undefined;
+          const fields=inbound
+            ? changedNotionHelpFields(agenda,page.properties,input.changedPropertyIds??[]).filter(field=>!LOST_FOUND_V2_PROTECTED.has(field))
+            : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
+          const result=await syncHelpV2Fields({
+            database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
+            dataSourceId:target.dataSourceId,load:loadNotionBulkLostFound,fields,
+            direction:inbound?"pull":"push",protectedFields:LOST_FOUND_V2_PROTECTED,
+            kind:lostFoundV2Kind,
+            pull:(field,value,revision)=>updateLostFoundV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            }),
+            encode:values=>encodeProperties(values,schema),
+          });
+          if(result.failed.length)throw Error("LOST_FOUND_V2_FIELDS_PENDING: "+result.failed.join(","));
+          if(result.pulled)summary.pulledFromNotion++;
+          else if(result.pushed)summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
+        if (agenda === "adoptions" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound=input.changedPropertyIds!==undefined;
+          const fields=inbound
+            ? changedNotionHelpFields(agenda,page.properties,input.changedPropertyIds??[])
+            : [...new Set(input.adminChangedFields??[])].filter(name=>permitted.has(name));
+          const result=await syncHelpV2Fields({
+            database:input.database,bindings:input.bindings,agenda,entityId,pageId:page.id,
+            dataSourceId:target.dataSourceId,load:loadNotionV2Adoptions,fields,
+            direction:inbound?"pull":"push",protectedFields:new Set(["Slug","Stav"]),
+            kind:field=>field==="Vek mesiace"||field==="Hmotnosť"?"number":
+              field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":
+              isAdoptionV2Field(field)||field==="Slug"||field==="Stav"?"text":undefined,
+            pull:(field,value,revision)=>updateAdoptionV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            }),
+            encode:values=>encodeProperties(values,schema),
+          });
+          if(result.failed.length)throw Error("ADOPTION_V2_FIELDS_PENDING: "+result.failed.join(","));
+          if(result.pulled)summary.pulledFromNotion++;
+          else if(result.pushed)summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
+        if (agenda === "organizations" && input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
+          const inbound = input.changedPropertyIds !== undefined;
+          const fields = inbound
+            ? changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds ?? [])
+            : [...new Set(input.adminChangedFields ?? [])].filter(name => permitted.has(name));
+          const result = await syncOrganizationV2Fields({
+            database: input.database, bindings: input.bindings, entityId,
+            pageId: page.id, dataSourceId: target.dataSourceId,
+            fields, direction: inbound ? "pull" : "push",
+            encode: values => encodeProperties(values, schema),
+          });
+          if (result.failed.length) throw Error("ORGANIZATION_V2_FIELDS_PENDING: " + result.failed.join(","));
+          if (result.pulled) summary.pulledFromNotion++;
+          else if (result.pushed) summary.pushedToNotion++;
+          else summary.unchanged++;
+          continue;
+        }
         if (input.changedPropertyIds !== undefined) {
           const fields = changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds);
           let live = sourceSnapshot;
@@ -1455,6 +1550,8 @@ await requireVerifiedMappedNotionWriteback({
             : notionSnapshot,
           psipedia: sourceSnapshot, protectedFields,
           canonicalFieldsWin: true, authorities: fieldAuthorities,
+          // Match Directory: a verified actual change outranks stale source preference.
+          changedSideWins: true,
           verifiedDeletes: agenda === "lost-found"
             ? verifiedLostFoundShortDescriptionDeletes(baseline, notionSnapshot, sourceSnapshot)
             : undefined,
@@ -2480,4 +2577,47 @@ export async function inspectManualEventsHelpProfile(input:{
     excluded:[...fixedNotionAgendaFields(input.agenda),
       ...(confirmed?["Adresa","Miesto","Mesto","Okres","Kraj"]:[])],
   };
+}
+
+/** Use the canonical target resolver without provisioning or persisting a
+ * replacement target. A missing/moved mapping is a recovery error. */
+export async function recoverEventsHelpV2Field(database:D1Database,bindings:NotionEventsHelpSyncBindings,
+  agenda:Exclude<BidirectionalAgendaKey,"events">,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe"){
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!enabled(bindings))throw Error("HELP_V2_RECOVERY_DISABLED");
+  const definition=definitions.find(item=>item.key===agenda);
+  if(!definition)throw Error("HELP_V2_RECOVERY_SCOPE");
+  const target=await resolveNotionCanonicalTarget({database,
+    bindings:bindings as NotionEventsHelpSyncBindings & Record<string,unknown>,
+    definition:canonicalTargetDefinition(definition),allowCreate:false,persist:false});
+  if(!target.dataSourceId)throw Error("HELP_V2_RECOVERY_TARGET_MISSING");
+  const scope={database,bindings,entityId:id,pageId,dataSourceId:target.dataSourceId};
+  if(direction==="pull"){
+    // The explicitly scoped recovery path is not a simulated signed webhook.
+    // Reuse field-only mutation adapters with the same baseline and readback.
+    const unavailable=()=>{throw Error("HELP_V2_RECOVERY_ENCODE_NOT_ALLOWED");};
+    const fields=[field];
+    if(agenda==="organizations"){
+      const result=await syncOrganizationV2Fields({...scope,fields,direction,encode:unavailable});
+      if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
+      return;
+    }
+    if(agenda==="adoptions"){
+      const result=await syncHelpV2Fields({...scope,agenda,load:loadNotionV2Adoptions,fields,direction,protectedFields:new Set(["Slug","Stav"]),kind:key=>key==="Vek mesiace"||key==="Hmotnosť"?"number":key==="Kríženec"?"checkbox":key==="Dátum narodenia"?"date":isAdoptionV2Field(key)?"text":undefined,pull:(key,value,revision)=>updateAdoptionV2NotionField({database,id,pageId,field:key,value,revision}),encode:unavailable});
+      if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
+      return;
+    }
+    const result=await syncHelpV2Fields({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases,fields,direction,protectedFields:agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED,kind:agenda==="lost-found"?lostFoundV2Kind:helpCaseV2Kind,pull:(key,value,revision)=>agenda==="lost-found"?updateLostFoundV2NotionField({database,id,pageId,field:key,value,revision}):updateHelpCaseV2NotionField({database,id,pageId,field:key,value,revision}),encode:unavailable});
+    if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
+    return;
+  }
+  if(agenda==="organizations"){await recoverOrganizationV2Field(scope,field);return;}
+  if(agenda==="adoptions"){
+    if(!isAdoptionV2Field(field))throw Error("HELP_V2_RECOVERY_SCOPE");
+    const kind=field==="Vek mesiace"||field==="Hmotnosť"?"number":field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":"text";
+    await recoverHelpV2Field({...scope,agenda,load:loadNotionV2Adoptions},field,kind);return;
+  }
+  const protectedFields=agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED;
+  const kind=agenda==="lost-found"?lostFoundV2Kind(field):helpCaseV2Kind(field);
+  if(!kind||protectedFields.has(field))throw Error("HELP_V2_RECOVERY_SCOPE");
+  await recoverHelpV2Field({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases},field,kind);
 }

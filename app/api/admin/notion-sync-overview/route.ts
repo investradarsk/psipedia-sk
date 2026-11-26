@@ -1,3 +1,4 @@
+import { readUnifiedDiagnostics } from "@/lib/notion-unified-diagnostics";
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { readNotionSyncOverview } from "@/lib/notion-sync-overview";
@@ -26,6 +27,7 @@ export async function GET() {
       runBasis: "EXISTING_ADMIN_AUTOMATION_EVENTS",
       checkedAt: new Date().toISOString(),
       rows,
+      unified: await readUnifiedDiagnostics(db,(env as unknown as {NOTION_UNIFIED_FIELD_SYNC_ENABLED?:string}).NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"),
       runs: await readNotionRunReceipts(db),
       preflight: notionSyncConfigurationPreflight(
         env as unknown as Record<string, unknown>, rows,

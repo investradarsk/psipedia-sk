@@ -1,3 +1,4 @@
+import { planDirectoryAdminReceipts, directoryFacetReceiptField } from "@/lib/notion-directory-admin-receipts";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
@@ -410,7 +411,11 @@ export async function PUT(request: Request, { params }: Props) {
     // A Notion webhook may update D1 after we read the profile but before
     // the full-form UPDATE. Never overwrite that concurrent revision silently.
     let profile = await updateManagedDirectoryProfile(
-      id, payload, user.email, before, db, { expectedUpdatedAt: before.updatedAt },
+      id, payload, user.email, before, db, {
+        expectedUpdatedAt: before.updatedAt,
+        unifiedEditFields: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true"
+          ? (editedPaths ?? []) : undefined,
+      },
     );
     if (!profile) return Response.json({
       error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
@@ -497,6 +502,7 @@ export async function PUT(request: Request, { params }: Props) {
         try {
           profile = await savePilotDirectoryMetadataField({
             database: db, profileId: id, category: profile.category, field, value,
+            adminReceiptActor: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true" ? user.email : undefined,
             expectedValue: typeof metadataOriginalValues?.[field] === "string"
               ? (metadataOriginalValues[field] as string).trim() : undefined,
           });
@@ -886,12 +892,20 @@ export async function PATCH(request: Request, { params }: Props) {
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       const breederBefore = await getManagedDirectoryProfileById(id, db);
-      const updated = await db.prepare(`UPDATE directory_profiles
+      const previousTime = Date.parse(typed.expectedUpdatedAt);
+      const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
+      const statement = db.prepare(`UPDATE directory_profiles
         SET name=?1,excerpt=?2,updated_at=?3,updated_by=?4
         WHERE id=?5 AND updated_at=?6 AND status IN ('draft','published')
-        RETURNING id`)
-        .bind(name, excerpt, new Date().toISOString(), user.email, id, typed.expectedUpdatedAt)
-        .first<{ id: number }>();
+        RETURNING id`).bind(name, excerpt, now, user.email, id, typed.expectedUpdatedAt);
+      const unified = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+      const receipt = unified ? planDirectoryAdminReceipts(db, {
+        id, expectedRevision: typed.expectedUpdatedAt, nextRevision: now, editor: user.email,
+        fields: ["name", "excerpt"],
+      }) : { before: [], after: [] };
+      const updated = receipt.before.length
+        ? (await db.batch<{ id: number }>([...receipt.before, statement, ...receipt.after]))[receipt.before.length]?.results?.[0]
+        : await statement.first<{ id: number }>();
       if (!updated) {
         return Response.json({ error: "Profil sa zmenil alebo je archivovaný. Obnov tabuľku." }, { status: 409 });
       }
@@ -969,7 +983,8 @@ export async function PATCH(request: Request, { params }: Props) {
         }
       }
       if (Object.keys(normalizedValues).length) {
-        const now = new Date().toISOString();
+        const previousTime = Date.parse(row.updated_at);
+        const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
         const canonical = db.prepare(`UPDATE directory_profiles
           SET updated_at=?1,updated_by=?2
           WHERE id=?3 AND category=?4 AND updated_at=?5 AND status<>'archived' RETURNING id`)
@@ -980,10 +995,15 @@ export async function PATCH(request: Request, { params }: Props) {
           updatedAt: now, actor: user.email,
         });
         // The revision CAS and only the changed filter rows commit together.
+        const receipt = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true"
+          ? planDirectoryAdminReceipts(db, { id, expectedRevision: row.updated_at, nextRevision: now,
+              editor: user.email, fields: [], structured: Object.keys(normalizedValues).map(field => directoryFacetReceiptField(row.category, field)) })
+          : { before: [], after: [] };
         const results = await db.batch([
-          canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
+          ...receipt.before, canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
+          ...receipt.after,
         ]);
-        if (!(results[0]?.results?.[0] as {id?:number}|undefined)?.id)
+        if (!(results[receipt.before.length]?.results?.[0] as {id?:number}|undefined)?.id)
           return Response.json({ error: "Údaje profilu sa medzičasom zmenili. Obnovte stránku." }, { status: 409 });
       }
       // Category filters are a separate structured channel from free-text

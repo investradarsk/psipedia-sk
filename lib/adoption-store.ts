@@ -1,3 +1,5 @@
+import { commitAdoptionV2AdminEdit } from "./notion-adoption-v2-contract.ts";
+import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { readImageDisplayConfig } from "./image-display.ts";
 import { canonicalBreedIdsForRead } from "./breed-canonical.ts";
 import { env } from "cloudflare:workers";
@@ -502,6 +504,7 @@ async function writeAdoption(database: AdoptionD1Database, payload: ManagedAdopt
 export async function updateAdoptionInlineName(
   id: number, nameInput: string, expectedUpdatedAt: string, editorEmail: string,
   databaseInput?: AdoptionD1Database,
+  recordUnifiedReceipt = false,
 ) {
   if (!Number.isSafeInteger(id) || id < 1 || typeof expectedUpdatedAt !== "string" ||
       !expectedUpdatedAt.trim()) throw new Error("Neplatné ID alebo verzia adopcie.");
@@ -524,11 +527,15 @@ export async function updateAdoptionInlineName(
     district: before.district, city: before.city, organizationName: before.organization_name,
     shortDescription: before.short_description, temperament: before.temperament,
   });
-  const updated = await database.prepare(`UPDATE adoption_dogs
+  const timestamp=recordUnifiedReceipt?nextHelpV2Revision(expectedUpdatedAt):new Date().toISOString();
+  const editor=normalizeAdoptionText(editorEmail).toLowerCase();
+  const statement = database.prepare(`UPDATE adoption_dogs
     SET name=?,search_text=?,updated_at=?,updated_by=?
     WHERE id=? AND updated_at=? AND status <> 'ARCHIVED' RETURNING id`)
-    .bind(name, searchText, new Date().toISOString(), normalizeAdoptionText(editorEmail).toLowerCase(),
-      id, expectedUpdatedAt).first<{ id: number }>();
+    .bind(name, searchText, timestamp, editor, id, expectedUpdatedAt);
+  const updated=recordUnifiedReceipt
+    ? (await commitAdoptionV2AdminEdit(database,statement,{id,expectedRevision:expectedUpdatedAt,nextRevision:timestamp,editor})).results?.[0] as {id:number}|undefined
+    : await statement.first<{id:number}>();
   if (!updated) throw new Error("Adopcia sa medzitým zmenila. Obnov tabuľku.");
   return updated.id;
 }

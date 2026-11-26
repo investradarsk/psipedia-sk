@@ -1,3 +1,4 @@
+import { acquireUnifiedManualFence, releaseUnifiedManualFence } from "./notion-unified-manual-fence.ts";
 import { NOTION_AUTHORITY_GROUPS } from "./notion-field-authority";
 import {
   validateManualTransferRequest,
@@ -331,12 +332,20 @@ async function previewOne(db:D1Database,bindings:ManualTransferBindings,
     "last_error_code=NULL,updated_at=? WHERE id=? AND status='PREVIEWING'")
     .bind(info.fingerprint,now,info.changed,now,item.id).run();
 }
-async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job:Job){
+async function executeVerifiedUnfenced(db:D1Database,bindings:ManualTransferBindings,job:Job){
   const before=await inspectManualTransferRecord({
     database:db,bindings,link:job,direction:job.direction,
   });
   if(!job.preview_hash||before.fingerprint!==job.preview_hash)
     throw Error("TRANSFER_PREVIEW_STALE");
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"&&job.direction==="NOTION_TO_ADMIN"){
+    // The legacy manual adapters may process all editable cells. Do not
+    // allow a populated SQL field to be cleared via a Notion blank.
+    for(const field of before.fields.filter(item=>item.status==="CHANGE")){
+      const value=Object.hasOwn(before.source,field.field)?before.source[field.field]:field.field.split(".").reduce<unknown>((v,key)=>v&&typeof v==="object"?(v as Record<string,unknown>)[key]:undefined,before.source);
+      if(value==null||(typeof value==="string"&&!value.trim())||(Array.isArray(value)&&!value.length))throw Error("TRANSFER_V2_NOTION_CLEAR_BLOCKED");
+    }
+  }
   if(before.changed)await runOne({db,bindings,job,changedFields:before.fields.filter(f=>f.status==="CHANGE").map(f=>f.field)});
   // The read-only preview already proved a no-op. Avoid another provider GET.
   const after=before.changed?await inspectManualTransferRecord({
@@ -355,6 +364,20 @@ async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job
     .bind(failed?"PARTIAL":"DONE",updated,failed,
       failed?"TRANSFER_FIELD_VERIFICATION_FAILED":null,now,now,job.id).run();
   return failed?"PARTIAL" as const:"DONE" as const;
+}
+
+async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job:Job){
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")return executeVerifiedUnfenced(db,bindings,job);
+  await assertManualMappingEligible(db,job);
+  if(!await mappingStillLinked(db,job))throw Error("TRANSFER_IDENTITY_CHANGED");
+  const fence=await acquireUnifiedManualFence(db,job);
+  try {
+    // Re-inspect only after the fence is acquired. An earlier preview can
+    // never authorize a changed source/target.
+    return await executeVerifiedUnfenced(db,bindings,job);
+  } finally {
+    await releaseUnifiedManualFence(db,fence);
+  }
 }
 
 /** Bounded per-minute queue: ten read-only previews and four owner-approved writes. */
@@ -434,7 +457,7 @@ export async function runManualTransferQueueBatch(input:{
       }
     }catch(error){
       const reason=errorCode(error);
-      const terminal=reason==="TRANSFER_PREVIEW_STALE"||
+      const terminal=reason==="TRANSFER_PREVIEW_STALE"||reason==="TRANSFER_V2_NOTION_CLEAR_BLOCKED"||
         reason.includes("IDENTITY")||item.attempts>=MAX_ATTEMPTS;
       const date=new Date().toISOString();
       await input.database.prepare(

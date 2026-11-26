@@ -48,8 +48,10 @@ test("directory inline mutation refuses stale, archived, and foreign IDs and lea
     // This is the exact SQL body from the protected PATCH branch, not a
     // synthetic alternative update statement.
     const block = route.slice(route.indexOf('if (body.action === "set-inline-editorial")'),route.indexOf('if (body.action === "set-category-filters")'));
-    const match = block.match(/await db\.prepare\(`([\s\S]*?UPDATE directory_profiles[\s\S]*?RETURNING id)`\)/);
+    const match = block.match(/(?:const statement = |await )db\.prepare\(`(UPDATE directory_profiles[\s\S]*?RETURNING id)`\)/);
     assert.ok(match, "exact directory CAS UPDATE not found");
+    assert.match(block, /planDirectoryAdminReceipts\(db,/);
+    assert.match(block, /db\.batch<\{ id: number \}>\(\[\.\.\.receipt\.before, statement, \.\.\.receipt\.after\]\)/);
     const stmt = db.prepare(match[1]);
     assert.equal(stmt.get("Zmenený názov", "Nový popis", "v2", "editor", 1, "stale"), undefined);
     assert.equal(stmt.get("Zmenený názov", "Nový popis", "v2", "editor", 2, "v1"), undefined);
