@@ -1209,3 +1209,44 @@ test("V2 generic Help receipts preserve typed amounts, SEO siblings and protecte
     assert.equal(helpCaseV2Value("Urgentné",0),false);
   }finally{db.close()}
 });
+
+test("V2 Eshop evidence preserves array values and only canonical editable fields", async () => {
+  const {commitEshopV2AdminEdit,observeEshopV2Property}=await import("../lib/notion-eshop-v2-contract.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE managed_eshops(id INTEGER PRIMARY KEY,name TEXT,website_url TEXT,description TEXT,source_url TEXT,focus_tags_json TEXT,logo_url TEXT,updated_at TEXT,updated_by TEXT,status TEXT,slug TEXT); CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.prepare("INSERT INTO managed_eshops VALUES(1,'Shop','https://example.sk/','Keep','',?,'/media/eshops/logo.png','r1','admin','published','shop')").run(JSON.stringify(["Krmivo","Hračky"]));
+    db.exec("INSERT INTO eshop_notion_sync VALUES(1,'page','hash');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE managed_eshops SET focus_tags_json='[]',description='',status='draft',updated_at='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    await assert.rejects(commitEshopV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitEshopV2AdminEdit(adapter,mutation.bind("r1"),input);
+    const receipts=Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts.focusTags,[[],1]);
+    assert.deepEqual(receipts.description,["",1]);
+    assert.equal(receipts.status,undefined);
+    assert.equal(receipts.logoUrl,undefined);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    assert.deepEqual(observeEshopV2Property({Zameranie:{type:"multi_select",multi_select:[]}},"focusTags"),{present:true,value:[]});
+    assert.deepEqual(observeEshopV2Property({Zameranie:{type:"rich_text",rich_text:[]}},"focusTags"),{present:false});
+    assert.deepEqual(observeEshopV2Property({Zameranie:{type:"multi_select",multi_select:[{name:"Krmivo"},{name:"krmivo"}]}},"focusTags"),{present:false});
+    assert.deepEqual(observeEshopV2Property({Popis:{type:"rich_text",rich_text:[{plain_text:"Line 1\r\nLine 2"}]}},"description"),{present:true,value:"Line 1\nLine 2"});
+  }finally{db.close()}
+});
