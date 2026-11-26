@@ -258,7 +258,7 @@ export function HelpContactsCard({
             target={contact.external ? "_blank" : undefined}
             rel={contact.external ? "noreferrer" : undefined}
           >
-            {contact.external ? `${contact.value} ↗` : contact.value}
+            {contact.external ? `${contact.label === "Web" ? "Otvoriť web" : contact.label === "Facebook" || contact.label === "Instagram" ? contact.label : contact.value} ↗` : contact.value}
           </a>
         ) : (
           <strong>{contact.value}</strong>
