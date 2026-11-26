@@ -308,6 +308,8 @@ export async function writeBackBreedToWorkCopy(input: {
   changedFieldKeys?: readonly string[];
   /** Owner-approved one-shot Admin → Notion; keep the existing per-field CAS. */
   forceFieldKeys?: readonly string[];
+  /** Internal recovery only; never owner-force or synthesize a before value. */
+  retryFieldKeys?: readonly string[];
 }) {
   if (!requireWorkCopyOnly(input.bindings))
     return { linked:false, updated:false, reason:"disabled" as const };
@@ -318,7 +320,10 @@ export async function writeBackBreedToWorkCopy(input: {
   const receipt = readReceipt(link.work_sync_receipt, input.before);
   const actualAdmin = breedFieldSnapshot(input.breed);
   const beforeAdmin = breedFieldSnapshot(input.before);
-  const selected = input.forceFieldKeys
+  if(input.retryFieldKeys&&(!unifiedBreedEnabled(input.bindings)||input.forceFieldKeys))throw Error("BREED_V2_RETRY_SCOPE");
+  const selected = input.retryFieldKeys
+    ? [...new Set(input.retryFieldKeys)].filter((field): field is BreedNotionField=>BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField))
+    : input.forceFieldKeys
     ? [...new Set(input.forceFieldKeys)].filter((field): field is BreedNotionField =>
         BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField))
     : workCopyAdminChangedFields(
@@ -326,7 +331,7 @@ export async function writeBackBreedToWorkCopy(input: {
       );
   const keys = selected.filter((field): field is BreedNotionField =>
     !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true));
-  const fciChanged = input.before.fciNumber !== input.breed.fciNumber &&
+  const fciChanged = input.retryFieldKeys?.includes("fciNumber") || input.before.fciNumber !== input.breed.fciNumber &&
     (!input.changedFieldKeys || input.changedFieldKeys.includes("fciNumber") ||
       input.forceFieldKeys?.includes("fciNumber"));
   // No record-wide receipt diff: never resend an untouched Admin field.
@@ -511,4 +516,12 @@ export async function recoverBreedV2Field(database:D1Database,bindings:BreedWork
 
 export function breedV2RecoveryFields():string[]{
   return [...new Set([...BREED_NOTION_EDITABLE_FIELDS.filter(isUnifiedBreedEditorialField),"fciNumber"])].sort();
+}
+
+export async function retryBreedV2AdminField(database:D1Database,bindings:BreedWorkCopyBindings,id:number,pageId:string,field:string){
+  if(!unifiedBreedEnabled(bindings)||!requireWorkCopyOnly(bindings))throw Error("BREED_V2_RETRY_DISABLED");
+  const link=await getActiveLink(database,id),breed=await getManagedBreed(id);
+  if(!link||link.work_notion_page_id!==pageId||!breed||!isUnifiedBreedEditorialField(field))throw Error("BREED_V2_RETRY_SCOPE");
+  const result=await writeBackBreedToWorkCopy({database,bindings,before:breed,breed,retryFieldKeys:[field]});
+  return Boolean(result.linked&&result.acknowledgedFields?.includes(field));
 }
