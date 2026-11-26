@@ -175,7 +175,7 @@ export async function retryOneHelpNotionWriteback(input: {
       return "review";
     }
     // Prevent an older queued edit from overwriting a newer Admin or Notion value.
-    const unifiedHelp=(agenda==="organizations"||agenda==="adoptions") && bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";
+    const unifiedHelp=(agenda==="organizations"||agenda==="adoptions"||agenda==="lost-found") && bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";
     const staleFields=Object.entries(fields).filter(([name,field])=>!same(agenda,name,source.properties[name],field.after)).map(([name])=>name);
     if (!unifiedHelp && staleFields.length) {
       await finish(database,row,"REVIEW","ADMIN_FIELD_CHANGED");
