@@ -4355,11 +4355,15 @@ export async function inspectManualDirectoryProfile(input:{
 /** Recovery uses the exact same field-scoped observers and does not replay
  * webhook events or bypass an Admin review lock. */
 export async function recoverDirectoryV2Field(database:D1Database,bindings:NotionDirectorySyncBindings,
-  id:number,pageId:string,field:string,direction:"observe"|"push"="observe") {
+  id:number,pageId:string,field:string,direction:"observe"|"push"|"pull"="observe") {
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!notionFlagEnabled(bindings.NOTION_DIRECTORY_SYNC_ENABLED))throw Error("DIRECTORY_V2_RECOVERY_DISABLED");
   if(field==="additionalCategories"){
     if(direction==="push"){const mapping=await loadMappingByProfile(database,id);if(mapping?.notion_page_id!==pageId)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");await mirrorDirectoryAdditionalCategoriesToNotion({database,bindings,profileId:id});}
-    else await reserveUnifiedDirectoryCategories(database,bindings,id,pageId,"observe");return;
+    else if(direction==="pull"){
+      const mapping=await loadMappingByProfile(database,id);
+      if(!mapping||mapping.notion_page_id!==pageId||!bindings.NOTION_DIRECTORY_DATA_SOURCE_ID)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
+      await applyNotionAdditionalCategories({database,bindings,mapping,page:await fetchNotionPage(bindings,pageId),dataSourceId:bindings.NOTION_DIRECTORY_DATA_SOURCE_ID});
+    } else await reserveUnifiedDirectoryCategories(database,bindings,id,pageId,"observe");return;
   }
   if(field.startsWith("meta:")){
     await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction,fields:[{kind:"meta",field:field.slice(5)}]});return;
