@@ -16,12 +16,14 @@ export async function reserveUnifiedField(input: {
   historicalBaseline: { value: unknown; version: string } | null;
   notion: FieldObservation;
   psipedia: FieldObservation;
-  direction: "pull" | "push";
+  direction: "pull" | "push" | "observe";
   psipediaEdit?: ScopedFieldEdit;
   notionEdit?: ScopedFieldEdit;
 }): Promise<FieldReservation | null> {
   const { database, identity } = input;
   const old = await readUnifiedFieldState(database, identity);
+  // Observation-only recovery may establish equality or record a conflict;
+  // it must never grant permission to mutate canonical or remote content.
   if (old?.status === "PENDING") {
     const age = Date.now() - Date.parse(old.updatedAt);
     if (!Number.isFinite(age) || age < 600_000) throw Error("UNIFIED_FIELD_PENDING_RECOVERY");
@@ -58,9 +60,9 @@ export async function reserveUnifiedField(input: {
   const notion = input.notion.present ? input.notion.value : undefined;
   const psipedia = input.psipedia.present ? input.psipedia.value : undefined;
   const unchanged = decision.action === "unchanged";
-  const allowed = decision.action === input.direction;
+  const allowed = input.direction !== "observe" && decision.action === input.direction;
   const reason = unchanged || allowed ? null :
-    decision.action === "review" ? decision.reason : "OPPOSITE_DIRECTION_REQUIRED";
+    decision.action === "review" ? decision.reason : input.direction === "observe" ? "RECOVERY_DIRECTION_REQUIRED" : "OPPOSITE_DIRECTION_REQUIRED";
   const version = await writeUnifiedFieldState(database, identity, old?.version ?? null, {
     baselineVersion: unchanged ? (baseline && decideUnifiedField({identity,baseline:null,notion:{present:true,value:baseline.value},psipedia:{present:true,value:decision.value}}).action === "unchanged" ? baseline.version : crypto.randomUUID()) : baseline?.version,
     baseline: unchanged ? decision.value : baseline?.value,
@@ -73,6 +75,7 @@ export async function reserveUnifiedField(input: {
   });
   if (version === null) throw Error("UNIFIED_FIELD_CONCURRENT_RESERVATION");
   if (unchanged) return null;
+  if (input.direction === "observe") return null;
   if (!allowed || decision.action === "review") throw Error(reason ?? "UNIFIED_FIELD_REVIEW");
   return { identity, version, value: decision.value };
 }
