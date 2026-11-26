@@ -1114,3 +1114,50 @@ test("V2 adoption Admin receipts preserve typed zero, false and explicit clears"
     assert.equal(decideUnifiedField({identity,baseline:{value:"123",version:"hash"},notion:present(""),psipedia:present("123")}).reason,"UNVERIFIED_NOTION_CLEAR");
   }finally{db.close()}
 });
+
+test("V2 Lost/Found receipts exclude private contacts and roll back companion failures", async () => {
+  const {LOST_FOUND_V2_FIELDS,LOST_FOUND_V2_PROTECTED,isLostFoundV2Field,lostFoundV2Kind,lostFoundV2Value,commitLostFoundV2AdminEdit}=await import("../lib/notion-lost-found-v2-contract.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(LOST_FOUND_V2_FIELDS).map(([column])=>column),"updated_at"])];
+    db.exec("CREATE TABLE lost_found_dog_reports(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" TEXT").join(",")+"); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT); CREATE TABLE lost_found_dog_private_details(report_id INTEGER PRIMARY KEY,encrypted_contact TEXT NOT NULL);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.exec("INSERT INTO lost_found_dog_reports(id,dog_name,short_description,description,last_seen_date_time,updated_at) VALUES(1,'Dog','Old','Keep','2026-11-22T08:00:00.000Z','r1'); INSERT INTO notion_agenda_sync VALUES('lost-found',1,'page','hash'); INSERT INTO lost_found_dog_private_details VALUES(1,'ciphertext');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE lost_found_dog_reports SET short_description='',last_seen_date_time='2026-11-22T09:00:00+01:00',updated_at='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    const privateWrite=adapter.prepare("UPDATE lost_found_dog_private_details SET encrypted_contact=? WHERE report_id=1");
+    await assert.rejects(commitLostFoundV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale",companionStatements:[privateWrite.bind("wrong")]}));
+    await assert.rejects(commitLostFoundV2AdminEdit(adapter,mutation.bind("r1"),{...input,companionStatements:[privateWrite.bind(null)]}));
+    assert.equal(db.prepare("SELECT updated_at FROM lost_found_dog_reports WHERE id=1").get().updated_at,"r1");
+    assert.equal(db.prepare("SELECT encrypted_contact FROM lost_found_dog_private_details WHERE report_id=1").get().encrypted_contact,"ciphertext");
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitLostFoundV2AdminEdit(adapter,mutation.bind("r1"),{...input,companionStatements:[privateWrite.bind("new-ciphertext")]});
+    const receipts=db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all();
+    assert.equal(receipts.length,1);
+    assert.equal(receipts[0].field_key,"Krátky popis");
+    assert.equal(JSON.parse(receipts[0].value_json),"");
+    assert.equal(receipts[0].explicit_clear,1);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    for(const field of ["Latitude","Longitude","Miesto","Verejný kontakt","Verejný e-mail","Verejný telefón","Psipedia stav","Typ","Slug","Zdroj"]){
+      assert.equal(isLostFoundV2Field(field),false);
+      assert.equal(LOST_FOUND_V2_PROTECTED.has(field),true);
+    }
+    assert.equal(lostFoundV2Kind("Naposledy videný"),"instant");
+    assert.equal(lostFoundV2Value("Naposledy videný","2026-11-22T09:00:00+01:00"),"2026-11-22T08:00:00.000Z");
+  }finally{db.close()}
+});
