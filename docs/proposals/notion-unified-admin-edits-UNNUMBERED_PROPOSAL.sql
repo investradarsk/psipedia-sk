@@ -36,7 +36,7 @@ BEGIN
     (agenda, entity_id, notion_page_id, field_key, edit_id, baseline_version,
      canonical_revision, observed_at, value_json, explicit_clear)
   SELECT 'events', CAST(NEW.id AS TEXT), m.notion_page_id, n.key,
-    i.edit_id || ':' || n.key, COALESCE(CAST(s.version AS TEXT), m.content_hash),
+    i.edit_id || ':' || n.key, COALESCE(s.baseline_version, m.content_hash),
     NEW.updated_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'),
     json_quote(n.value),
     CASE WHEN n.value IS NULL OR (n.type = 'text' AND trim(n.value) = '') THEN 1 ELSE 0 END
@@ -112,7 +112,7 @@ BEGIN
   WHERE i.entity_id = NEW.id
     AND EXISTS (SELECT 1 FROM json_each(i.fields_json) p WHERE p.value = n.key)
     AND (n.type IS NOT o.type OR n.value IS NOT o.value)
-    AND COALESCE(CAST(s.version AS TEXT), m.content_hash) IS NOT NULL
+    AND COALESCE(s.baseline_version, m.content_hash) IS NOT NULL
   ON CONFLICT(agenda, entity_id, notion_page_id, field_key) DO UPDATE SET
     edit_id = excluded.edit_id, baseline_version = excluded.baseline_version,
     canonical_revision = excluded.canonical_revision, observed_at = excluded.observed_at,
