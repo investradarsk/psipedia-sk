@@ -79,7 +79,7 @@ export async function reserveUnifiedField(input: {
   if (version === null) throw Error("UNIFIED_FIELD_CONCURRENT_RESERVATION");
   if (unchanged) return null;
   if (input.direction === "observe") return null;
-  if (!allowed || decision.action === "review") throw Error(reason ?? "UNIFIED_FIELD_REVIEW");
+  if (!allowed) throw Error(reason ?? "UNIFIED_FIELD_REVIEW");
   return { identity, version, value: decision.value };
 }
 
