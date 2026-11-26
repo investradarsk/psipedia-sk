@@ -880,7 +880,7 @@ export async function updateHelpCaseV2NotionField(input:{
   const assignments:string[]=[];
   const args:unknown[]=[];
   if(isHelpCaseV2Field(field)){
-    const [column,key]=HELP_CASE_V2_FIELDS[field];
+    const [column]=HELP_CASE_V2_FIELDS[field];
     let desired:unknown=value;
     if(field==="Názov" && (typeof value!=="string"||!value.trim()||value.length>180))throw Error("HELP_CASE_V2_TITLE_INVALID");
     if(field==="Cieľ"||field==="Vyzbierané"){
@@ -916,9 +916,9 @@ export async function updateHelpCaseV2NotionField(input:{
       actionLabel:field==="CTA text"?String(desired):row.action_label,
       resolved:Boolean(row.resolved),urgent:field==="Urgentné"?Boolean(desired):Boolean(row.urgent),
     });
-    if(lifecycle.resolved!==Boolean(row.resolved)||
+    if(["Perex","CTA text","Urgentné"].includes(field) && (lifecycle.resolved!==Boolean(row.resolved)||
       lifecycle.urgent!==(field==="Urgentné"?Boolean(desired):Boolean(row.urgent))||
-      lifecycle.actionLabel!==(field==="CTA text"?String(desired):row.action_label))
+      lifecycle.actionLabel!==(field==="CTA text"?String(desired):row.action_label)))
       throw Error("HELP_CASE_V2_LIFECYCLE_REVIEW");
     assignments.push(column+"=?");args.push(desired);
   }else{
