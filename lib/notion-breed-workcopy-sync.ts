@@ -239,8 +239,9 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         });
         failedFields.push("controlled");
       }
-      const parsed=breedWorkcopyEventValues(page,edited,BREED_NOTION_SCHEMA,
-        unifiedBreedEnabled(args.bindings) && !args.manualImport);
+      const parsed=unifiedBreedEnabled(args.bindings) && !args.manualImport
+        ? breedWorkcopyEventValues(page,edited,BREED_NOTION_SCHEMA,true)
+        : breedWorkcopyEventValues(page,edited,BREED_NOTION_SCHEMA);
       failedFields.push(...parsed.failures.map(item=>item.field));
       for (const field of parsed.values) {
         try {
