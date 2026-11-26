@@ -1952,7 +1952,10 @@ async function syncUnifiedDirectoryEditorialFields(input: {
       });
       const base = directoryUnifiedObservation(historical, path);
       const identity: FieldIdentity = { agenda: "directory", entityId: String(id), pageId, field: path };
-      const receipt = await readUnifiedAdminEdit(database, identity, observed.current.updatedAt);
+      const rawReceipt = await readUnifiedAdminEdit(database, identity, observed.current.updatedAt);
+      const receipt = rawReceipt && path === "services" && observed.current.category === "treneri" && typeof rawReceipt.value === "string"
+        ? { ...rawReceipt, value: rawReceipt.value.split(/\r?\n/).map(clean).filter(Boolean) }
+        : rawReceipt;
       const reservation = await reserveUnifiedField({
         database, identity, historicalBaseline: base.present
           ? { value: base.value, version: observed.mapping.content_hash } : null,
