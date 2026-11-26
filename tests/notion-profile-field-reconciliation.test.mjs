@@ -1161,3 +1161,51 @@ test("V2 Lost/Found receipts exclude private contacts and roll back companion fa
     assert.equal(lostFoundV2Value("Naposledy videný","2026-11-22T09:00:00+01:00"),"2026-11-22T08:00:00.000Z");
   }finally{db.close()}
 });
+
+test("V2 generic Help receipts preserve typed amounts, SEO siblings and protected lifecycle", async () => {
+  const {HELP_CASE_V2_FIELDS,HELP_CASE_V2_PROTECTED,helpCaseV2Kind,helpCaseV2Value,isHelpCaseV2Field,isHelpCaseV2SeoField,commitHelpCaseV2AdminEdit}=await import("../lib/notion-help-case-v2-contract.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(HELP_CASE_V2_FIELDS).map(([column])=>column),"updated_at","updated_by","seo_json","status","category","resolved","verified"])];
+    db.exec("CREATE TABLE help_cases(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" "+(["goal_amount","raised_amount","urgent","resolved","verified"].includes(c)?"NUMERIC":"TEXT")).join(",")+"); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.prepare("INSERT INTO help_cases(id,title,excerpt,goal_amount,raised_amount,urgent,seo_json,status,category,resolved,verified,updated_at,updated_by) VALUES(1,'Collection','Keep',100,20,1,?,'published','zbierky',0,1,'r1','admin')").run(JSON.stringify({title:"Old",description:"Keep",noindex:true,focusKeyword:"Preserve"}));
+    db.exec("INSERT INTO notion_agenda_sync VALUES('help-cases',1,'page','hash');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE help_cases SET raised_amount=0,urgent=0,seo_json=json_set(seo_json,'$.title','New'),'updated_at'='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    await assert.rejects(commitHelpCaseV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitHelpCaseV2AdminEdit(adapter,mutation.bind("r1"),input);
+    const receipts=Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts["Vyzbierané"],[0,0]);
+    assert.deepEqual(receipts["Urgentné"],[false,0]);
+    assert.deepEqual(receipts["SEO title"],["New",0]);
+    assert.equal(receipts["SEO popis"],undefined);
+    assert.equal(receipts["Noindex"],undefined);
+    assert.equal(JSON.parse(db.prepare("SELECT seo_json FROM help_cases WHERE id=1").get().seo_json).focusKeyword,"Preserve");
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    for(const field of ["Slug","Kategória","Psipedia stav","Vyriešené","Noindex"]){
+      assert.equal(HELP_CASE_V2_PROTECTED.has(field),true);
+      assert.equal(isHelpCaseV2Field(field)||isHelpCaseV2SeoField(field),false);
+    }
+    assert.equal(helpCaseV2Kind("Cieľ"),"number");
+    assert.equal(helpCaseV2Value("Cieľ",null),null);
+    assert.equal(helpCaseV2Value("Vyzbierané",0),0);
+    assert.equal(helpCaseV2Value("Urgentné",0),false);
+  }finally{db.close()}
+});
