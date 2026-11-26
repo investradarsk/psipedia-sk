@@ -88,3 +88,13 @@ export function directoryMetadataReceiptField(field: string, owner: "hours" | "f
     bindings: owner === "hours" ? [] : [field],
   };
 }
+
+export function directoryBreederRelationReceiptField(field: "breedIds" | "clubIds") {
+  return {
+    key: "relation:" + field,
+    expression: field === "breedIds"
+      ? "json((SELECT json_group_array(breed_id) FROM (SELECT breed_id FROM breed_directory_relations WHERE profile_id=p.id ORDER BY breed_id)))"
+      : "json((SELECT json_group_array(club_profile_id) FROM (SELECT club_profile_id FROM directory_breeder_club_relations WHERE station_profile_id=p.id ORDER BY club_profile_id)))",
+    bindings: [],
+  };
+}
