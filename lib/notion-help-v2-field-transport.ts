@@ -62,7 +62,7 @@ type Adapter=Scope & {fields:readonly string[];direction:"pull"|"push";
   pull:(field:string,value:unknown,revision:string)=>Promise<void>;
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>};
 
-async function observe(input:Adapter,field:string,kind:FieldKind,slugChange:boolean){
+async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolean){
   const {database,bindings,agenda,entityId,pageId,dataSourceId}=input;
   if(await isAdminNotionSyncLocked(database,agenda,entityId)||await notionPageIsTombstoned(database,pageId))
     throw Error("HELP_V2_LOCKED");
@@ -139,4 +139,15 @@ export async function syncHelpV2Fields(input:Adapter){
     }
   }
   return {pulled,pushed,failed};
+}
+
+export async function recoverHelpV2Field(input:Scope,field:string,kind:FieldKind){
+  const observed=await observe(input,field,kind,false);
+  if(observed.status==="ARCHIVED")throw Error("HELP_V2_ARCHIVED");
+  const {database,agenda,entityId,pageId}=input;
+  const identity={agenda,entityId:String(entityId),pageId,field};
+  const historical=await readProfileFieldBaseline({database,agenda,entityId,pageId,expectedHash:observed.mapping.content_hash});
+  await reserveUnifiedField({database,identity,direction:"observe",notion:observed.notion,psipedia:observed.psipedia,
+    historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
+    psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision)});
 }
