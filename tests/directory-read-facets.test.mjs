@@ -598,3 +598,54 @@ test("production-hot canonical breeder options and source facets preserve SQL re
     sqlite.close();
   }
 });
+
+
+test("breeding club and station FCI filter follows canonical breed links, including combined selection", () => {
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec(`
+      CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT);
+      CREATE TABLE managed_breeds (id INTEGER PRIMARY KEY, name TEXT, fci_group INTEGER);
+      CREATE TABLE breed_directory_relations (profile_id INTEGER, breed_id INTEGER);
+      CREATE TABLE directory_profile_public_facts (profile_id INTEGER, field_key TEXT, value_text TEXT);
+      CREATE TABLE directory_profile_extra_fields (profile_id INTEGER, field_key TEXT, text_value TEXT);
+      INSERT INTO directory_profiles VALUES
+        (1,'chovatelske-kluby','published'),(2,'chovatelske-stanice','published'),
+        (3,'chovatelske-kluby','published'),(4,'chovatelske-kluby','draft'),
+        (5,'chovatelske-kluby','published'),(6,'veterinari','published');
+      INSERT INTO managed_breeds VALUES (10,'Labrador',8),(11,'Border kólia',1),(12,'Neplatné',3);
+      INSERT INTO breed_directory_relations VALUES (1,10),(1,11),(2,10),(4,10),(5,12);
+      INSERT INTO directory_profile_public_facts VALUES
+        (1,'FCI skupina','3'),(3,'FCI skupina','3'),(6,'FCI skupina','3');
+    `);
+    const sourceExpr = DIRECTORY_PUBLIC_SOURCE_FACETS.fciGroup;
+    const ids = JSON.stringify([10,11]);
+    // Evaluate the production predicate using the same interpolated SQL fragments.
+    const hasCanonical = store.match(/const DIRECTORY_HAS_CANONICAL_BREEDS = `([^]+?)`;/)[1];
+    const block = store.slice(store.indexOf("  if (options.filters.fciGroup) {"), store.indexOf("  addSourceFacet(options.filters.organization"));
+    const predicate = block.match(/baseClauses\.push\(`([^]+?)`\);/)[1];
+    function matches(group, breed = "") {
+      const sql = predicate
+        .replace('${options.filters.breed ? "AND linked_breed.name = ?" : ""}', breed ? "AND linked_breed.name = ?" : "")
+        .replace("${DIRECTORY_HAS_CANONICAL_BREEDS}", hasCanonical)
+        .replace("${DIRECTORY_SOURCE_FACETS.fciGroup}", sourceExpr);
+      return sqlite.prepare("SELECT id FROM directory_profiles WHERE status='published' AND " + sql + " ORDER BY id")
+        .all(ids, group, ...(breed ? [breed] : []), ids, group).map(row => row.id);
+    }
+    assert.deepEqual(matches("8"), [1,2]);
+    assert.deepEqual(matches("1"), [1]);
+    assert.deepEqual(matches("8", "Border kólia"), []);
+    assert.deepEqual(matches("3"), [3,6]); // legacy fact only for unlinked or unrelated profiles
+    const fallback = directoryCanonicalBreedFacetSql(sourceExpr);
+    const legacyGroups = sqlite.prepare("SELECT " + fallback + " AS value FROM directory_profiles WHERE status='published' AND category='chovatelske-kluby' ORDER BY id").all(ids);
+    assert.deepEqual(legacyGroups.map(row => row.value), ["", "3", ""]);
+    assert.match(store, /linked_breed\.fci_group AS fciGroup/);
+    assert.match(store, /canonicalBreedOptions\.map\(row => String\(row\.fciGroup\)\)/);
+    const form = readFileSync(new URL("../components/directory-filter-form.tsx", import.meta.url), "utf8");
+    assert.match(form, /const breedingCategory = activeCategory === "chovatelske-stanice" \|\| activeCategory === "chovatelske-kluby"/);
+    assert.match(form, /breedingCategory \|\| options\.breeds\.length > 0/);
+    assert.match(form, /breedingCategory \|\| options\.fciGroups\.length > 0/);
+  } finally {
+    sqlite.close();
+  }
+});

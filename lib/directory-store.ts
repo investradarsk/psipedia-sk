@@ -1431,7 +1431,28 @@ export async function listPublishedDirectoryProfiles(options: {
       baseBindings.push(canonicalBreedIdsJson, options.filters.breed, canonicalBreedIdsJson, options.filters.breed);
     }
   }
-  addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
+  if (options.filters.fciGroup) {
+    if (!breedRelationsReady) {
+      addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
+    } else {
+      baseClauses.push(`(
+        (directory_profiles.category IN ('chovatelske-stanice','chovatelske-kluby') AND EXISTS (
+          SELECT 1 FROM breed_directory_relations linked
+          JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
+          WHERE linked.profile_id = directory_profiles.id
+            AND linked_breed.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+            AND CAST(linked_breed.fci_group AS TEXT) = ?
+            ${options.filters.breed ? "AND linked_breed.name = ?" : ""}
+        )) OR (
+          (directory_profiles.category NOT IN ('chovatelske-stanice','chovatelske-kluby') OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})
+          AND ${DIRECTORY_SOURCE_FACETS.fciGroup} = ?
+        )
+      )`);
+      baseBindings.push(canonicalBreedIdsJson, options.filters.fciGroup,
+        ...(options.filters.breed ? [options.filters.breed] : []),
+        canonicalBreedIdsJson, options.filters.fciGroup);
+    }
+  }
   addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
   addSourceFacet(options.filters.profileType, DIRECTORY_SOURCE_FACETS.profileType);
   const publicFacets = directoryPublicFacetSql(category ?? "", options.filters.facets);
@@ -1472,9 +1493,9 @@ export async function listPublishedDirectoryProfiles(options: {
   const facetBindings = category ? [category, category] : [];
   const sourceStatement = directorySourceFacetStatement(database, facetWhere, facetBindings, {
     breeds: breedRelationsReady ? DIRECTORY_CANONICAL_BREED_FACET : DIRECTORY_LEGACY_BREED,
-    fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
+    fciGroups: breedRelationsReady ? directoryCanonicalBreedFacetSql(DIRECTORY_SOURCE_FACETS.fciGroup) : DIRECTORY_SOURCE_FACETS.fciGroup,
     organizations: DIRECTORY_SOURCE_FACETS.organization,
-  }, breedRelationsReady ? [canonicalBreedIdsJson] : []);
+  }, breedRelationsReady ? [canonicalBreedIdsJson, canonicalBreedIdsJson] : []);
 
   // Keep the location/source facet reads in one D1 batch; legacy service/type option scans are no longer needed.
   // The canonical service-option lookup is independent: start it in parallel
@@ -1484,14 +1505,14 @@ export async function listPublishedDirectoryProfiles(options: {
     canonicalPublicEnabled &&
     Boolean(category) &&
     (serviceFilterCategories as readonly string[]).includes(category ?? "");
-  const loadCanonicalBreedOptions = async (): Promise<string[]> => {
+  const loadCanonicalBreedOptions = async (): Promise<{ name: string; fciGroup: number }[]> => {
     if (!breedRelationsReady) return [];
     // A category can also contain a breeder through additional membership.
     // Match the same category membership rule as the public result list.
     const categoryWhere = category
       ? `AND ${directoryCategoryMembershipSql("linked_profile")}` : "";
     const rows = await database.prepare(`
-      SELECT DISTINCT linked_breed.name AS name
+      SELECT DISTINCT linked_breed.name AS name, linked_breed.fci_group AS fciGroup
       FROM breed_directory_relations linked
       JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id
       JOIN directory_profiles linked_profile ON linked_profile.id=linked.profile_id
@@ -1499,8 +1520,8 @@ export async function listPublishedDirectoryProfiles(options: {
         AND linked_breed.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
         ${categoryWhere}
       ORDER BY linked_breed.name COLLATE NOCASE LIMIT 500
-    `).bind(canonicalBreedIdsJson, ...(category ? [category, category] : [])).all<{ name: string }>();
-    return (rows.results ?? []).map(row => row.name.trim()).filter(Boolean);
+    `).bind(canonicalBreedIdsJson, ...(category ? [category, category] : [])).all<{ name: string; fciGroup: number }>();
+    return (rows.results ?? []).filter(row => row.name.trim());
   };
   const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
     if (!canonicalServicesEnabled || !category) return [];
@@ -1650,9 +1671,12 @@ export async function listPublishedDirectoryProfiles(options: {
       canonicalServices,
       breeds: [...new Set([
         ...parseDirectoryFacetValues(sourceFacets?.breeds),
-        ...canonicalBreedOptions,
+        ...canonicalBreedOptions.map(row => row.name.trim()),
       ])].sort((a, b) => a.localeCompare(b, "sk")),
-      fciGroups: parseDirectoryFacetValues(sourceFacets?.fciGroups),
+      fciGroups: [...new Set([
+        ...parseDirectoryFacetValues(sourceFacets?.fciGroups),
+        ...canonicalBreedOptions.map(row => String(row.fciGroup)),
+      ])].sort((a, b) => a.localeCompare(b, "sk", { numeric: true })),
       organizations: parseDirectoryFacetValues(sourceFacets?.organizations),
       profileTypes: [],
     },
