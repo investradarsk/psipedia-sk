@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { commitOrganizationAdminEdit, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import { parseOrganizationAdminInput, type OrganizationAdminInput } from "./help-organization-admin-input.ts";
 import { getOrganizationPublicationAdminById } from "./help-organization-admin-store.ts";
@@ -148,6 +149,7 @@ export async function updateOrganizationFromAdmin(
   expectedUpdatedAt: string,
   database?: AdoptionD1Database,
   now = new Date(),
+  recordUnifiedReceipt = false,
 ) {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
@@ -159,9 +161,9 @@ export async function updateOrganizationFromAdmin(
   if (existing.status === "ARCHIVED" || existing.archivedAt) {
     throw new OrganizationPublicationTransitionError("Archivovaná organizácia je iba na čítanie. Najprv ju obnov do konceptu.");
   }
-  const timestamp = now.toISOString();
+  const timestamp = recordUnifiedReceipt ? nextOrganizationEditRevision(expectedUpdatedAt, now) : now.toISOString();
   try {
-    const result = await db.prepare(`
+    const statement = db.prepare(`
       UPDATE help_organizations
       SET name = ?, slug = ?, legal_name = ?, registration_number = ?, type = ?,
         short_description = ?, description = ?, public_email = ?, public_phone = ?,
@@ -178,7 +180,10 @@ export async function updateOrganizationFromAdmin(
       JSON.stringify(input.imageUrl === existing.imageUrl && !(payload && typeof payload === 'object' && 'detailImageDisplay' in payload) ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
       input.sourceUrl,
       timestamp, editorEmail, id, expectedUpdatedAt,
-    ).run() as RunResult;
+    );
+    const result = (recordUnifiedReceipt ? await commitOrganizationAdminEdit(db, statement, {
+      id, expectedRevision: expectedUpdatedAt, nextRevision: timestamp, editor: editorEmail,
+    }) : await statement.run()) as RunResult;
     const changes = Number(result.meta?.changes ?? result.changes ?? 0);
     if (changes !== 1) throw new OrganizationConcurrentEditError();
     return getOrganizationPublicationAdminById(id, db);
@@ -197,6 +202,7 @@ export async function updateShelterInlineFieldsFromAdmin(
   expectedUpdatedAt: string,
   database?: AdoptionD1Database,
   now = new Date(),
+  recordUnifiedReceipt = false,
 ) {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
@@ -207,7 +213,8 @@ export async function updateShelterInlineFieldsFromAdmin(
   if (current.type !== "SHELTER" || current.status === "ARCHIVED" || current.archivedAt) {
     throw new OrganizationPublicationTransitionError("Tento záznam nie je upraviteľný v tabuľke útulkov.");
   }
-  const result = await db.prepare(`
+  const timestamp = recordUnifiedReceipt ? nextOrganizationEditRevision(expectedUpdatedAt, now) : now.toISOString();
+  const statement = db.prepare(`
     UPDATE help_organizations
     SET name=?, short_description=?, public_email=?, public_phone=?, website_url=?,
       updated_at=?, updated_by=?
@@ -215,8 +222,11 @@ export async function updateShelterInlineFieldsFromAdmin(
       AND status IN ('DRAFT','PUBLISHED') AND archived_at IS NULL
   `).bind(
     changes.name, changes.shortDescription, changes.publicEmail, changes.publicPhone, changes.websiteUrl,
-    now.toISOString(), editorEmail, id, expectedUpdatedAt,
-  ).run() as RunResult;
+    timestamp, editorEmail, id, expectedUpdatedAt,
+  );
+  const result = (recordUnifiedReceipt ? await commitOrganizationAdminEdit(db, statement, {
+    id, expectedRevision: expectedUpdatedAt, nextRevision: timestamp, editor: editorEmail,
+  }) : await statement.run()) as RunResult;
   if (Number(result.meta?.changes ?? result.changes ?? 0) !== 1) {
     throw new OrganizationConcurrentEditError();
   }
@@ -231,6 +241,7 @@ export async function updateOrganizationInlineSummaryFromAdmin(
   editorEmail: string,
   expectedUpdatedAt: string,
   database?: AdoptionD1Database,
+  recordUnifiedReceipt = false,
 ) {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
@@ -241,12 +252,15 @@ export async function updateOrganizationInlineSummaryFromAdmin(
   if (current.status === "ARCHIVED" || current.archivedAt) {
     throw new OrganizationPublicationTransitionError("Archivovanú organizáciu nemožno upravovať.");
   }
-  const result = await db.prepare(`UPDATE help_organizations
+  const timestamp = recordUnifiedReceipt ? nextOrganizationEditRevision(expectedUpdatedAt, new Date()) : new Date().toISOString();
+  const statement = db.prepare(`UPDATE help_organizations
     SET name=?, short_description=?, updated_at=?, updated_by=?
     WHERE id=? AND updated_at=? AND status IN ('DRAFT','PUBLISHED')
       AND archived_at IS NULL`
-  ).bind(changes.name, changes.shortDescription, new Date().toISOString(),
-    editorEmail, id, expectedUpdatedAt).run() as RunResult;
+  ).bind(changes.name, changes.shortDescription, timestamp, editorEmail, id, expectedUpdatedAt);
+  const result = (recordUnifiedReceipt ? await commitOrganizationAdminEdit(db, statement, {
+    id, expectedRevision: expectedUpdatedAt, nextRevision: timestamp, editor: editorEmail,
+  }) : await statement.run()) as RunResult;
   if (Number(result.meta?.changes ?? result.changes ?? 0) !== 1) {
     throw new OrganizationConcurrentEditError();
   }

@@ -14,6 +14,7 @@ import { LOST_FOUND_PUBLIC_SOURCE } from "@/lib/lost-found-public-submission";
 
 export const dynamic = "force-dynamic";
 
+function unifiedLostFoundEnabled(){return (env as unknown as TargetedNotionSaveBindings).NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";}
 type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
@@ -42,6 +43,7 @@ export async function PATCH(request: Request, { params }: Context) {
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: id });
     const updatedId = await updateAdminDogReportInlineName(
       id, input.dogName as string | null, input.expectedUpdatedAt,
+      undefined, unifiedLostFoundEnabled()?auth.user.email:undefined,
     );
     if (!updatedId) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({
@@ -57,7 +59,7 @@ export async function PATCH(request: Request, { params }: Context) {
 }
 
 export async function PUT(request: Request, { params }: Context) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response!;
 
   const { id } = await params;
@@ -67,9 +69,12 @@ export async function PUT(request: Request, { params }: Context) {
   }
 
   try {
-    let input = await request.json() as ManagedDogReportInput;
+    let input = await request.json() as ManagedDogReportInput & {expectedUpdatedAt?:unknown};
     const existing = await getAdminDogReport(numericId);
     if (!existing) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
+    if (unifiedLostFoundEnabled() && (typeof input.expectedUpdatedAt !== "string" || input.expectedUpdatedAt !== existing.updatedAt)) {
+      return Response.json({error:"Hlásenie sa medzičasom zmenilo. Obnov stránku."},{status:409,headers:{"Cache-Control":"private, no-store"}});
+    }
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId });
 
     if (input.type !== undefined && input.type !== existing.type) {
@@ -109,6 +114,7 @@ export async function PUT(request: Request, { params }: Context) {
       numericId,
       input.gallery === undefined ? { ...input, gallery: existing.gallery } : input,
       auth.user.email,
+      unifiedLostFoundEnabled()?existing.updatedAt:undefined,
     );
 
     if (isPublicSubmission && nextStatus !== existing.status) {

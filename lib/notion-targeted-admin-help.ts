@@ -29,11 +29,7 @@ export async function syncOneAdminHelpRecord(input: {
       database:input.database,bindings:input.bindings,eventId:input.entityId,
       changedFields:input.changedEventFields??[],
     });
-    const mapping = input.agenda === "events"
-      ? await input.database.prepare(
-        "SELECT notion_page_id FROM event_notion_sync WHERE event_id=? LIMIT 1",
-      ).bind(input.entityId).first<{ notion_page_id: string }>()
-      : await input.database.prepare(
+    const mapping = await input.database.prepare(
         "SELECT notion_page_id FROM notion_agenda_sync WHERE agenda=? AND entity_id=? LIMIT 1",
       ).bind(input.agenda, input.entityId).first<{ notion_page_id: string }>();
     if (!mapping?.notion_page_id) return "unlinked";

@@ -181,7 +181,7 @@ const eventSynonymMap = phraseMap(
 const entitySynonymMap = phraseMap<Exclude<PortalSearchEntityIntent, "directory" | "event" | null>>(
   Object.entries(ENTITY_INTENT_SYNONYMS).flatMap(([intent, synonyms]) => {
     const value = intent === "lostFound" ? "lost-found" : intent;
-    return synonyms.map((synonym) => [synonym, value as Exclude<PortalSearchEntityIntent, "directory" | "event" | null>]);
+    return synonyms.map((synonym): [string, Exclude<PortalSearchEntityIntent, "directory" | "event" | null>] => [synonym, value as Exclude<PortalSearchEntityIntent, "directory" | "event" | null>]);
   }),
 );
 

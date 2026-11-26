@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationLocationAdminValidationError } from "@/lib/organization-location-admin";
 import {
@@ -47,9 +49,13 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   try {
-    const item = await createOrganizationLocationFromAdmin(organizationId, body.payload);
+    const bindings = env as unknown as TargetedNotionSaveBindings;
+    const unified = bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+    const beforeHelpSnapshot = unified ? await captureHelpNotionSnapshot({bindings,agenda:"organizations",entityId:organizationId}) : null;
+    const item = await createOrganizationLocationFromAdmin(organizationId, body.payload, undefined, unified ? auth.user.email : undefined);
+    const notionFieldSync = unified && item ? await syncSavedNotionRecord({bindings,agenda:"organizations",entityId:organizationId,beforeHelpSnapshot}) : undefined;
     return item
-      ? Response.json({ item }, { status: 201 })
+      ? Response.json({ item, ...(notionFieldSync ? {notionFieldSync}: {}) }, { status: 201 })
       : Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
   } catch (error) {
     return errorResponse(error);

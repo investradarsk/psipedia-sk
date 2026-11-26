@@ -303,12 +303,16 @@ test("authorized admin detail receives private contact fields from the private t
 
 test("authenticated admin LOST/FOUND mutation contract covers create, edit, lifecycle, duplicate and archive", async ({
   page,
+  baseURL,
 }, testInfo) => {
   test.skip(
     testInfo.project.name.includes("mobile"),
     "Mutation contract runs once on desktop; mobile coverage remains read-only for overflow/accessibility.",
   );
 
+  if (!baseURL) throw new Error("Missing local E2E base URL");
+  const origin = new URL(baseURL).origin;
+  const sameOriginHeaders = { Origin: origin, "Sec-Fetch-Site": "same-origin" };
   const unique = `${Date.now()}-${testInfo.retry}`;
   const contactEmail = `lost-found-runtime-${unique}@example.invalid`;
   const basePayload = {
@@ -353,16 +357,37 @@ test("authenticated admin LOST/FOUND mutation contract covers create, edit, life
   });
   expect(createResponse.status()).toBe(201);
   const created = (await createResponse.json()) as {
-    report: { id: number; status: string; contactEmail: string | null };
+    report: { id: number; status: string; contactEmail: string | null; updatedAt: string };
   };
   expect(created.report.status).toBe("DRAFT");
   expect(created.report.contactEmail).toBe(contactEmail);
   const reportId = created.report.id;
 
-  const put = async (payload: Record<string, unknown>) =>
-    page.request.put(`/api/admin/lost-found/${reportId}`, {
-      data: { ...basePayload, ...payload },
+  let revision = created.report.updatedAt;
+  // Strict provenance must reject unauthenticated-origin mutations without
+  // changing the report. The test client then sends the same origin as a browser.
+  const missingOrigin = await page.request.put(`/api/admin/lost-found/${reportId}`, {
+    data: { ...basePayload, status: "PENDING", expectedUpdatedAt: revision },
+  });
+  expect(missingOrigin.status()).toBe(403);
+  const foreignOrigin = await page.request.put(`/api/admin/lost-found/${reportId}`, {
+    headers: { Origin: "https://foreign.invalid", "Sec-Fetch-Site": "cross-site" },
+    data: { ...basePayload, status: "PENDING", expectedUpdatedAt: revision },
+  });
+  expect(foreignOrigin.status()).toBe(403);
+
+  const put = async (payload: Record<string, unknown>) => {
+    const response = await page.request.put(`/api/admin/lost-found/${reportId}`, {
+      headers: sameOriginHeaders,
+      data: { ...basePayload, ...payload, expectedUpdatedAt: revision },
     });
+    if (response.ok()) {
+      const body = (await response.json()) as { report: { updatedAt: string } };
+      expect(body.report.updatedAt).toBeTruthy();
+      revision = body.report.updatedAt;
+    }
+    return response;
+  };
 
   const pendingResponse = await put({ status: "PENDING" });
   expect(pendingResponse.status()).toBe(200);
