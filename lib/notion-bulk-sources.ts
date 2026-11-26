@@ -343,6 +343,27 @@ export async function loadNotionBulkAdoptions(database: D1Database, targetId?: n
   });
 }
 
+/** V2 must not export a stale denormalized relationship name when the
+ * related canonical organization/breed has changed independently. Treat
+ * disagreement as missing proof, isolate it from unrelated editorial fields;
+ * catch-up of cross-record renames is handled in step 10. */
+export async function loadNotionV2Adoptions(database:D1Database,targetId:number) {
+  const records=await loadNotionBulkAdoptions(database,targetId);
+  const relation=await database.prepare(
+    "SELECT a.breed_id,a.organization_id,b.name AS breed_name,o.name AS organization_name "+
+    "FROM adoption_dogs a LEFT JOIN managed_breeds b ON b.id=a.breed_id "+
+    "LEFT JOIN help_organizations o ON o.id=a.organization_id AND o.archived_at IS NULL WHERE a.id=?"
+  ).bind(targetId).first<{breed_id:number|null;organization_id:number|null;breed_name:string|null;organization_name:string|null}>();
+  if(!relation)return [];
+  for(const record of records){
+    if(relation.breed_id!==null && (!relation.breed_name||s(relation.breed_name)!==record.properties["Plemeno"]))
+      delete record.properties["Plemeno"];
+    if(relation.organization_id!==null && (!relation.organization_name||s(relation.organization_name)!==record.properties["Organizácia"]))
+      delete record.properties["Organizácia"];
+  }
+  return records;
+}
+
 export async function loadNotionBulkHelpCases(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,slug,title,category,status,excerpt,description,organization,dog_name,breed,age_note,city,region,
     location_note,reported_date,deadline_date,action_label,action_url,contact_note,goal_amount,raised_amount,image_url,urgent,resolved,
