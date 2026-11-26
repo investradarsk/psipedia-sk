@@ -66,3 +66,25 @@ export function planDirectoryAdminReceipts(database: D1Database, input: {
   ).bind(...projectionBindings, editId, input.nextRevision, input.editor);
   return { before: [before], after: [after, database.prepare("DELETE FROM notion_directory_admin_edit_intent WHERE edit_id=?").bind(editId)] };
 }
+
+/** SQL owner for one category-specific filter. Scope is bound, not interpolated. */
+export function directoryFacetReceiptField(category: string, field: string) {
+  return {
+    key: "facet:" + category + ":" + field,
+    expression: "(SELECT value_text FROM directory_profile_filter_values WHERE profile_id=p.id AND category=? AND filter_id=?)",
+    bindings: [category, field],
+  };
+}
+
+/** Explicit text fact or hours receipt, using exactly the selected SQL owner. */
+export function directoryMetadataReceiptField(field: string, owner: "hours" | "fact" | "extra") {
+  return {
+    key: "meta:" + field,
+    expression: owner === "hours"
+      ? "COALESCE((SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=p.id AND day_of_week=0),'')"
+      : owner === "fact"
+        ? "COALESCE((SELECT value_text FROM directory_profile_public_facts WHERE profile_id=p.id AND field_key=?),'')"
+        : "COALESCE((SELECT text_value FROM directory_profile_extra_fields WHERE profile_id=p.id AND field_key=? AND value_kind='text'),'')",
+    bindings: owner === "hours" ? [] : [field],
+  };
+}
