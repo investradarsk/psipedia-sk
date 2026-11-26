@@ -125,18 +125,19 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
   // Prioritize authenticated edits even when the first direct writeback failed
   // before reserving any field. No stale receipt is replayed as a mutation.
   const receipt = await database.prepare(
-    "SELECT e.agenda,e.entity_id,e.notion_page_id,e.field_key FROM notion_unified_admin_field_edits e "+
+    "UPDATE notion_unified_admin_field_edits SET recovery_after=? WHERE rowid=("+
+    "SELECT e.rowid FROM notion_unified_admin_field_edits e "+
     "LEFT JOIN notion_unified_field_state s ON s.agenda=e.agenda AND s.entity_id=e.entity_id AND s.notion_page_id=e.notion_page_id AND s.field_key=e.field_key "+
-    "WHERE (s.version IS NULL OR (s.status=\'SYNCED\' AND s.baseline_version=e.baseline_version)) "+
+    "WHERE (s.version IS NULL OR (s.status='SYNCED' AND s.baseline_version=e.baseline_version)) "+
     "AND (e.recovery_after IS NULL OR e.recovery_after<=?) "+
     "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=e.agenda AND f.entity_id=e.entity_id) "+
-    "ORDER BY e.observed_at,e.agenda,e.entity_id,e.field_key LIMIT 1"
-  ).bind(stamp).first<Candidate>();
+    "ORDER BY e.observed_at,e.agenda,e.entity_id,e.field_key LIMIT 1) "+
+    "RETURNING agenda,entity_id,notion_page_id,field_key"
+  ).bind(next,stamp).first<Candidate>();
   if(receipt){
-    await database.prepare("UPDATE notion_unified_admin_field_edits SET recovery_after=? WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=?")
-      .bind(next,receipt.agenda,receipt.entity_id,receipt.notion_page_id,receipt.field_key).run();
     result.checked++;
-    try{const outcome=await recoverOne(database,bindings,receipt);result[outcome]++;}catch{result.failed++;}
+    try{const outcome=await recoverOne(database,bindings,receipt);result[outcome]++;}
+    catch{result.failed++;}
   }
   await database.batch(UNIFIED_SYNC_AGENDAS.map(agenda=>database.prepare(
     "INSERT OR IGNORE INTO notion_unified_recovery_cursor(agenda) VALUES(?)").bind(agenda)));
