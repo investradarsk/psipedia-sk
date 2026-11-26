@@ -1250,3 +1250,37 @@ test("V2 Eshop evidence preserves array values and only canonical editable field
     assert.deepEqual(observeEshopV2Property({Popis:{type:"rich_text",rich_text:[{plain_text:"Line 1\r\nLine 2"}]}},"description"),{present:true,value:"Line 1\nLine 2"});
   }finally{db.close()}
 });
+
+test("V2 observation preserves confirmed baseline generation across review and retry; invalidation blocks historical fallback", async () => {
+  const {readUnifiedFieldState,writeUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const {reserveUnifiedField,confirmUnifiedField,assertUnifiedReservationCurrent}=await import("../lib/notion-unified-field-transfer.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const adapter={prepare(sql){const wrap=args=>({bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])}};
+    const identity={agenda:"eshops",entityId:"1",pageId:"page",field:"description"};
+    const p=value=>({present:true,value});
+    const reserve=(n,a,direction,receipt)=>reserveUnifiedField({database:adapter,identity,historicalBaseline:{value:"old",version:"hash"},notion:p(n),psipedia:p(a),direction,psipediaEdit:receipt});
+    await reserve("old","old","observe");
+    const first=await readUnifiedFieldState(adapter,identity);
+    const receipt={identity,source:"psipedia",baselineVersion:first.baselineVersion,editId:"a",observedAt:"2026-11-26T09:00:00.000Z",value:"",explicitClear:true};
+    assert.equal(await reserve("old","","observe",receipt),null);
+    const review=await readUnifiedFieldState(adapter,identity);
+    assert.equal(review.baselineVersion,first.baselineVersion);
+    assert.equal(review.reason,"RECOVERY_DIRECTION_REQUIRED");
+    assert.ok(review.version>first.version);
+    const reservation=await reserve("old","","push",receipt);
+    assert.ok(reservation);
+    await assertUnifiedReservationCurrent(adapter,reservation);
+    await confirmUnifiedField(adapter,reservation,p(""),p(""));
+    const synced=await readUnifiedFieldState(adapter,identity);
+    assert.equal(synced.status,"SYNCED");
+    assert.notEqual(synced.baselineVersion,first.baselineVersion);
+    db.exec("DELETE FROM notion_unified_field_state; INSERT INTO notion_unified_scope_invalidation VALUES('eshops','1','now');");
+    await reserve("old","new","observe");
+    assert.equal((await readUnifiedFieldState(adapter,identity)).reason,"BASELINE_UNAVAILABLE");
+    const state=await readUnifiedFieldState(adapter,identity);
+    await writeUnifiedFieldState(adapter,identity,state.version,{...state,status:"REVIEW",reason:"SCOPE_INVALIDATED",baselineVersion:undefined,baseline:undefined});
+    await assert.rejects(assertUnifiedReservationCurrent(adapter,reservation),/INVALIDATED/);
+  }finally{db.close()}
+});
