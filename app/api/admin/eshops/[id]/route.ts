@@ -12,6 +12,7 @@ import {
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
+function unifiedEshopEnabled(){return (env as unknown as TargetedNotionSaveBindings).NOTION_UNIFIED_FIELD_SYNC_ENABLED==='true';}
 type UploadBindings = { BUCKET?: R2Bucket };
 
 async function numericId(params: Props["params"]) {
@@ -39,7 +40,7 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request,{strictProvenance:true});
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID e-shopu." }, { status: 400 });
@@ -48,8 +49,10 @@ export async function PUT(request: Request, { params }: Props) {
     const before = await getManagedEshopById(id);
     if (!before) return Response.json({ error: "E-shop sa nenašiel." }, { status: 404 });
 
-    const body = await request.json() as ManagedEshopUpdateInput;
-    const shop = await updateManagedEshop(id, body, auth.user.email);
+    const body = await request.json() as ManagedEshopUpdateInput & {expectedUpdatedAt?:unknown};
+    if(unifiedEshopEnabled()&&(typeof body.expectedUpdatedAt!=='string'||body.expectedUpdatedAt!==before.updatedAt))
+      return Response.json({error:'E-shop sa medzičasom zmenil. Obnov stránku.'},{status:409});
+    const shop = await updateManagedEshop(id, body, auth.user.email,undefined,unifiedEshopEnabled()?before.updatedAt:undefined);
     if (!shop) return Response.json({ error: "E-shop sa nenašiel." }, { status: 404 });
 
     if (before.logoKey && before.logoKey !== shop.logoKey) {
@@ -68,7 +71,7 @@ export async function PUT(request: Request, { params }: Props) {
  * the canonical editor path; the inline route cannot update publication,
  * ratings, media, slug, description or a Notion-controlled identity. */
 export async function PATCH(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request,{strictProvenance:true});
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     return Response.json({ error: "Vyžaduje sa JSON." }, { status: 415 });
@@ -94,7 +97,7 @@ export async function PATCH(request: Request, { params }: Props) {
     const shop = await updateManagedEshopInline(id, {
       name: input.name, websiteUrl: input.websiteUrl,
       expectedUpdatedAt: input.expectedUpdatedAt,
-    }, auth.user.email);
+    }, auth.user.email,undefined,unifiedEshopEnabled());
     // Keep the existing targeted mirror; never bypass Notion authority.
     const notionFieldSync = await syncSavedNotionRecord({
       bindings: env as unknown as TargetedNotionSaveBindings,
