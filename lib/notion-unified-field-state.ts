@@ -3,6 +3,7 @@ import type { FieldIdentity, ScopedFieldEdit } from "./notion-unified-field-sync
 export type UnifiedFieldState = {
   version: number;
   updatedAt: string;
+  baselineVersion?: string;
   baseline: unknown | undefined;
   notion: unknown | undefined;
   psipedia: unknown | undefined;
@@ -15,6 +16,7 @@ export type UnifiedFieldState = {
 type Row = {
   version: number;
   updated_at: string;
+  baseline_version: string | null;
   baseline_json: string | null;
   notion_json: string | null;
   psipedia_json: string | null;
@@ -36,13 +38,14 @@ export async function readUnifiedFieldState(
   db: D1Database, id: FieldIdentity,
 ): Promise<UnifiedFieldState | null> {
   const row = await db.prepare(
-    "SELECT version,updated_at,baseline_json,notion_json,psipedia_json,notion_edit_json,psipedia_edit_json,status,reason " +
+    "SELECT version,updated_at,baseline_version,baseline_json,notion_json,psipedia_json,notion_edit_json,psipedia_edit_json,status,reason " +
     "FROM notion_unified_field_state WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=?",
   ).bind(...key(id)).first<Row>();
   if (!row) return null;
   return {
     version: row.version,
     updatedAt: row.updated_at,
+    baselineVersion: row.baseline_version ?? undefined,
     baseline: decode(row.baseline_json),
     notion: decode(row.notion_json),
     psipedia: decode(row.psipedia_json),
@@ -61,19 +64,19 @@ export async function writeUnifiedFieldState(
   state: Omit<UnifiedFieldState, "version" | "updatedAt">,
 ): Promise<number | null> {
   const values = [
-    encode(state.baseline), encode(state.notion), encode(state.psipedia),
+    state.baselineVersion ?? null, encode(state.baseline), encode(state.notion), encode(state.psipedia),
     encode(state.notionEdit), encode(state.psipediaEdit),
     state.status, state.reason, new Date().toISOString(),
   ];
   const row = expectedVersion === null
     ? await db.prepare(
         "INSERT INTO notion_unified_field_state " +
-        "(agenda,entity_id,notion_page_id,field_key,baseline_json,notion_json,psipedia_json," +
+        "(agenda,entity_id,notion_page_id,field_key,baseline_version,baseline_json,notion_json,psipedia_json," +
         "notion_edit_json,psipedia_edit_json,status,reason,updated_at) " +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING version",
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING version",
       ).bind(...key(id), ...values).first<{version: number}>()
     : await db.prepare(
-        "UPDATE notion_unified_field_state SET baseline_json=?,notion_json=?,psipedia_json=?," +
+        "UPDATE notion_unified_field_state SET baseline_version=?,baseline_json=?,notion_json=?,psipedia_json=?," +
         "notion_edit_json=?,psipedia_edit_json=?,status=?,reason=?,updated_at=?,version=version+1 " +
         "WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? AND version=? RETURNING version",
       ).bind(...values, ...key(id), expectedVersion).first<{version: number}>();
