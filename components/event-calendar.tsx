@@ -294,8 +294,9 @@ export function EventCalendar({
       const type = eventsListingType(url.pathname);
       if (!type) return;
       const fromUrlMonth = eventMonthFilterFromParam(url.searchParams.get("mesiac") ?? "");
+      const day = parseEventListing({ den: url.searchParams.get("den") ?? undefined }).day ?? "";
       const visible = resolveCalendarMonth(
-        eventMonthFilterFromParam(url.searchParams.get("kalendar") ?? ""),
+        day.slice(0, 7) || eventMonthFilterFromParam(url.searchParams.get("kalendar") ?? ""),
         fromUrlMonth,
         today,
       );
@@ -303,7 +304,7 @@ export function EventCalendar({
         url.pathname + url.search,
         {
           month: visible,
-          day: url.searchParams.get("den") ?? "",
+          day,
           filterMonth: fromUrlMonth,
           time: eventTimeFilterFromParam(url.searchParams.get("termin") ?? ""),
           type,

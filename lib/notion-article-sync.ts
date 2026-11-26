@@ -237,15 +237,20 @@ function checkboxProperty(page: NotionPage, name: string) {
 
 
 /** The existing Notion article relation is authoritative only when present and fully read. */
-function notionArticleBreedPageIds(page: NotionPage): string[] | null {
+function notionArticleBreedPageIds(page: NotionPage, requireValidIds = false): string[] | null {
   const property = propertyRecord(page, "Prepojené plemená");
   if (!property) return null; // older schema or inaccessible property: do not erase Admin relations
   if (property.has_more === true) throw new Error("NOTION_ARTICLE_BREED_RELATION_TRUNCATED");
   if (!Array.isArray(property.relation)) throw new Error("NOTION_ARTICLE_BREED_RELATION_INVALID");
-  return [...new Set(property.relation.map((entry) =>
+  const ids = property.relation.map((entry) =>
     entry && typeof entry === "object" && typeof (entry as { id?: unknown }).id === "string"
       ? (entry as { id: string }).id.toLowerCase().replace(/-/g, "") : ""
-  ).filter((id) => /^[a-f0-9]{32}$/.test(id)))];
+  );
+  const valid = ids.filter((id) => /^[a-f0-9]{32}$/.test(id));
+  if (requireValidIds && valid.length !== ids.length) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_INVALID");
+  }
+  return [...new Set(valid)];
 }
 function notionArticleBreedFingerprint(page: NotionPage) {
   const ids = notionArticleBreedPageIds(page);
@@ -254,7 +259,7 @@ function notionArticleBreedFingerprint(page: NotionPage) {
 async function resolveNotionArticleBreedIds(
   database: D1Database, page: NotionPage, existingIds: readonly number[] = [],
 ): Promise<number[]> {
-  const pageIds = notionArticleBreedPageIds(page);
+  const pageIds = notionArticleBreedPageIds(page, true);
   if (pageIds === null) return [...existingIds];
   const resolved: number[] = [];
   for (const pageId of pageIds) {
@@ -1914,6 +1919,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   database: D1Database;
   bindings: NotionSyncBindings;
   article: ManagedArticle;
+  previousExcerpt?: string;
 }): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" };
@@ -2024,9 +2030,19 @@ export async function writeBackDraftArticleContentToNotion(args: {
     }
     const selected = selectNotionArticleBodyBlocks(remoteBlocks,
       hasCompletePublicPhotoCredit(current.imageCredit, current.imageCreditUrl));
+    const writeExcerpt = args.previousExcerpt !== undefined &&
+      args.previousExcerpt !== article.excerpt && article.excerpt.length >= 20 &&
+      Object.hasOwn(page.properties ?? {}, "Perex");
+    if (writeExcerpt) {
+      const remote = notionEditorialPropertyText(page.properties?.Perex, "rich_text");
+      if (remote !== args.previousExcerpt && remote !== article.excerpt) {
+        throw new Error("NOTION_EDITORIAL_PEREX_CONFLICT");
+      }
+    }
     plan = buildNotionEditorialPlan({
       article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
+      perex: writeExcerpt ? article.excerpt : undefined,
       seoFields: [], // SEO-only changed-field writer handles all eight properties.
     });
     plan.pageGuard = pageGuard(page);
@@ -2194,6 +2210,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     article: editorProjection, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
     seoFields: [],
+    perex: plan.propertyAfter.Perex,
   });
   if (verified.blocks.length || Object.keys(verified.properties).length) {
     throw new Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
@@ -2326,13 +2343,13 @@ function articleSignedNotionFields(
   page: NotionPage, changedPropertyIds?: readonly string[], eventType?: string,
 ): ReadonlySet<ArticleAuthorityKey> | null {
   if (eventType === "page.content_updated")
-    return new Set<ArticleAuthorityKey>(["intro", "blocks", "excerpt"]);
+    return new Set<ArticleAuthorityKey>(["intro", "blocks"]);
   if (eventType !== "page.properties_updated" || !changedPropertyIds?.length)
     return null;
   const ids = new Set(changedPropertyIds);
   const changed = new Set<ArticleAuthorityKey>();
   const direct = {
-    title: "Názov", socialCaption: "Popis na sociálne siete",
+    title: "Názov", excerpt: "Perex", socialCaption: "Popis na sociálne siete",
     imageCredit: "Kredit fotografie", relatedBreedIds: "Prepojené plemená",
     category: "Kategória",
   } as const;
@@ -2344,7 +2361,6 @@ function articleSignedNotionFields(
   }
   for (const field of articleSeoSignedChangedFields(page, changedPropertyIds))
     changed.add(field);
-  if (changed.has("metaDescription")) changed.add("excerpt");
   return changed;
 }
 
@@ -2354,15 +2370,8 @@ function articleApplySignedFields(
   edited: ReadonlySet<ArticleAuthorityKey>,
 ): ManagedArticleInput {
   const next: ManagedArticleInput = {
-    ...existing, ...incoming,
-    slug: existing.slug, category: existing.category,
-    portalSection: existing.portalSection,
-    portalSubpage: existing.portalSubpage,
-    newsCategory: existing.newsCategory,
-    status: existing.status, author: existing.author,
-    authorProfileId: existing.authorProfileId,
-    publishedAt: existing.publishedAt,
-    imageUrl: existing.image, imageKey: existing.imageKey,
+    ...existing,
+    imageUrl: existing.image,
   };
   // A deliberate change to Notion Kategória is also a placement change;
   // always use its canonical portal section/subsection together.
@@ -2373,16 +2382,20 @@ function articleApplySignedFields(
     next.newsCategory = incoming.newsCategory;
   }
   for (const key of ARTICLE_EDITABLE_AUTHORITY_FIELDS) {
-    if (edited.has(key)) continue;
     if (key === "intro") {
-      next.intro = existing.intro;
-      next.introRichText = existing.introRichText;
+      if (edited.has(key)) {
+        next.intro = incoming.intro;
+        next.introRichText = incoming.introRichText;
+      }
     } else if (key === "blocks") {
-      next.blocks = existing.blocks;
-      next.readingMinutes = existing.readingMinutes;
+      if (edited.has(key)) {
+        next.blocks = incoming.blocks;
+        next.readingMinutes = incoming.readingMinutes;
+      }
     } else {
-      (next as Record<string, unknown>)[key] = articleCurrentField(existing, key);
-      if (key === "ogImageUrl") next.ogImageKey = existing.ogImageKey;
+      (next as Record<string, unknown>)[key] =
+        edited.has(key) ? incoming[key] : articleCurrentField(existing, key);
+      if (key === "ogImageUrl" && edited.has(key)) next.ogImageKey = incoming.ogImageKey;
     }
   }
   return next;
@@ -2569,17 +2582,31 @@ async function syncOneNotionPage(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
   );
-  const relatedBreedIdsFromNotion = await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
-  // An unrelated Notion body or metadata sweep must not erase Admin's existing relations.
-  // Explicit relation webhook edits (including clearing the relation) remain authoritative.
-  sourcePayload.relatedBreedIds = existing?.relatedBreedIds.length && !signedFields?.has("relatedBreedIds")
-    ? existing.relatedBreedIds : relatedBreedIdsFromNotion;
+  // Do not look up unrelated remote relations for a scoped update. Stale
+  // Notion mappings must not block a change to an independent article field.
+  const preserveBreedIds = existing && !signedFields?.has("relatedBreedIds") &&
+    ((mapping && signedFields !== null) || existing.relatedBreedIds.length > 0);
+  sourcePayload.relatedBreedIds = preserveBreedIds
+    ? existing.relatedBreedIds : await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
+  // Keep the legacy source projection used in stored receipts. For D1 writes,
+  // use the separate Perex cell on import or after a scoped property edit.
+  // A sweep or unrelated edit cannot replace an existing canonical excerpt.
+  const perex = richTextProperty(page, "Perex").trim();
+  if (signedFields?.has("excerpt") && perex.length < 20) {
+    throw new Error("Perex v Notione musí mať aspoň 20 znakov.");
+  }
+  const inboundPayload = {
+    ...sourcePayload,
+    excerpt: signedFields?.has("excerpt") || !existing
+      ? (perex.length >= 20 ? perex : sourcePayload.excerpt)
+      : existing.excerpt,
+  };
   const authorityPayload = existing && mapping && signedFields === null
-    ? applyArticleAuthority(sourcePayload,existing,articleModes) : sourcePayload;
+    ? applyArticleAuthority(inboundPayload,existing,articleModes) : inboundPayload;
   const basePayload = existing && mapping && signedFields !== null
-    ? articleApplySignedFields(sourcePayload, existing, signedFields)
+    ? articleApplySignedFields(inboundPayload, existing, signedFields)
     : existing && mapping
       ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
       : authorityPayload;
@@ -2668,7 +2695,7 @@ async function syncOneNotionPage(
       if (mapping && existing.updatedBy !== SYNC_ACTOR
         && (!Number.isFinite(Date.parse(mapping.last_synced_at))
           || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)
-        && !signedFields && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
+        && !signedFields && !articleAuthorityCoversDifferences(inboundPayload,existing,articleModes)) {
         throw new Error("ARTICLE_ADMIN_REVISION_NOT_SYNCED");
       }
       const publishedPayload: ManagedArticleInput = {
@@ -2692,6 +2719,10 @@ async function syncOneNotionPage(
         takeawayRichText: existing.takeawayRichText,
         imageUrl: existing.image,
         imageKey: existing.imageKey,
+        // The published image stays in place. Keep its attribution unless a
+        // webhook explicitly reports an edit to the credit text.
+        imageCredit: signedFields?.has("imageCredit") ? basePayload.imageCredit : existing.imageCredit,
+        imageCreditUrl: existing.imageCreditUrl,
         contentUpdatedAt: now,
         showUpdated: existing.showUpdated,
         blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
@@ -2712,11 +2743,22 @@ async function syncOneNotionPage(
     }
     // Drafts retain the existing Admin-authority conflict contract.
     if (mapping && existing.updatedBy !== SYNC_ACTOR && !signedFields
-      && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
+      && !articleAuthorityCoversDifferences(inboundPayload,existing,articleModes)) {
       throw new Error("Prepojený koncept bol upravený v administrácii. Automatický sync ho neprepíše; zmeny treba zosúladiť ručne.");
     }
     const preservedPayload: ManagedArticleInput = {
       ...basePayload,
+      // The Notion parser supplies creation defaults for these Admin fields.
+      // An existing draft must keep its editorial data during a periodic import.
+      accent: existing.accent,
+      author: existing.author,
+      authorProfileId: existing.authorProfileId,
+      takeaway: existing.takeaway,
+      takeawayRichText: existing.takeawayRichText,
+      sections: existing.sections,
+      sources: existing.sources,
+      contentUpdatedAt: existing.contentUpdatedAt,
+      showUpdated: existing.showUpdated,
       blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
     };
     const previouslyClearedOg = previousSeo?.ogImageUrl === "" &&

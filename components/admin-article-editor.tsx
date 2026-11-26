@@ -392,7 +392,7 @@ export function AdminArticleEditor({
         body: JSON.stringify({
           action: "retry-article-followup", step,
           expectedUpdatedAt: persisted.updatedAt,
-          ...((step === "seo" || step === "placement") && followupBefore
+          ...((step === "seo" || step === "placement" || step === "draft") && followupBefore
             ? { before: followupBefore } : {}),
         }),
       });

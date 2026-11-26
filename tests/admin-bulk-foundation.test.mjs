@@ -297,3 +297,42 @@ test("FOUNDATION-ADMIN proof-of-contract reuses the shared toolbar without chang
   assert.match(bulkCss, /\.checkLabel,[\s\S]*min-height: 44px/);
   assert.match(bulkCss, /\.rowCheck \{[\s\S]*min-width: 44px/);
 });
+
+test("bulk selection works in memory when browser storage is blocked or full", async () => {
+  const { default: ts } = await import("typescript");
+  const source = readFileSync(new URL("../components/admin-bulk-selection.tsx", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  for (const blocked of [true, false]) {
+    const deny = () => { throw new Error("Storage unavailable"); };
+    const storage = { getItem: blocked ? deny : () => null, removeItem: blocked ? deny : () => {}, setItem: deny };
+    let state;
+    const dependencies = [];
+    let effectIndex;
+    const react = {
+      useState(initial) {
+        return [state ?? initial, update => { state = typeof update === "function" ? update(state) : update; }];
+      },
+      useEffect(effect, deps) {
+        const previous = dependencies[effectIndex];
+        dependencies[effectIndex++] = deps;
+        if (!previous || deps.some((value, i) => value !== previous[i])) effect();
+      },
+    };
+    const exports = {};
+    new Function("require", "exports", "sessionStorage", compiled)(
+      name => name === "react" ? react : {}, exports, storage,
+    );
+    const render = () => {
+      effectIndex = 0;
+      return exports.useAdminBulkSelection({
+        module: "directory", membershipFingerprint: "all", pageIds: [12], resultCount: 1,
+      });
+    };
+    render();
+    await Promise.resolve();
+    render().toggleRow(12);
+    assert.deepEqual(render().selection, { mode: "explicit", ids: [12] });
+  }
+});

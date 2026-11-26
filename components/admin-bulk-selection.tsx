@@ -93,7 +93,7 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
         else sessionStorage.removeItem(key);
       }
     } catch {
-      sessionStorage.removeItem(key);
+      // Storage access can be blocked. Start with the empty in-memory selection.
     }
     let active = true;
     queueMicrotask(() => {
@@ -109,8 +109,12 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     if (!ready) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
-    if (selectedCount === 0) sessionStorage.removeItem(key);
-    else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
+    try {
+      if (selectedCount === 0) sessionStorage.removeItem(key);
+      else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
+    } catch {
+      // Persistence is optional when storage is unavailable or full.
+    }
   }, [module, ready, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
