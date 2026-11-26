@@ -108,7 +108,7 @@ async function observePilotField(db: D1Database, bindings: EventFieldSyncBinding
   };
 }
 async function reservePilotField(db: D1Database, bindings: EventFieldSyncBindings,
-  id: number, pageId: string, field: EventNotionField, direction: "pull" | "push") {
+  id: number, pageId: string, field: EventNotionField, direction: "pull" | "push" | "observe") {
   const observation = await observePilotField(db, bindings, id, pageId, field);
   const mapping = await db.prepare(
     "SELECT content_hash FROM event_notion_sync WHERE event_id=? AND notion_page_id=? LIMIT 1",
@@ -407,4 +407,9 @@ export async function syncEventAdminFields(input:{
       e instanceof Error?e.message:"UNKNOWN");
     return "pending";
   }
+}
+
+export async function recoverEventV2Field(database:D1Database,bindings:EventFieldSyncBindings,id:number,pageId:string,field:string) {
+  if(!pilotEnabled(bindings)||!available(bindings)||!EVENT_NOTION_PATHS.includes(field as EventNotionField))throw Error("EVENT_V2_RECOVERY_SCOPE");
+  await reservePilotField(database,bindings,id,pageId,field as EventNotionField,"observe");
 }
