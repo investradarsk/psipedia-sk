@@ -1,4 +1,4 @@
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock.ts";
@@ -120,6 +120,7 @@ export async function syncHelpV2Fields(input:Adapter){
         fresh.notion.value!==observed.notion.value||fresh.psipedia.value!==observed.psipedia.value||
         fresh.page.last_edited_time!==observed.page.last_edited_time)
         throw Error("HELP_V2_SOURCE_CHANGED");
+      if(reservation)await assertUnifiedReservationCurrent(database,reservation);
       if(direction==="pull")await input.pull(field,value,observed.revision);
       else {
         const values:Record<string,ReconciliationValue>={[field]:value as ReconciliationValue};
