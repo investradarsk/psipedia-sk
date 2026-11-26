@@ -422,3 +422,7 @@ export async function recoverControlledBreedV2Field(database:D1Database,bindings
   if(link.work_notion_page_id!==pageId)throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
   await reserveControlledV2(database,bindings,link,key,"observe");
 }
+
+export function controlledBreedV2RecoveryFields():string[]{
+  return [...keys].map(key=>"controlled."+key).sort();
+}
