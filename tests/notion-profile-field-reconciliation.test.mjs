@@ -924,3 +924,93 @@ test("V2 pending recovery verifies convergence without replaying uncertain write
     assert.equal((await readUnifiedFieldState(adapter,identity)).baseline,"new");
   } finally { db.close(); }
 });
+
+test("V2 Directory receipts record only committed scalar and relational SQL changes", async () => {
+  const { planDirectoryAdminReceipts, directoryFacetReceiptField,
+    directoryMetadataReceiptField, directoryBreederRelationReceiptField } =
+    await import("../lib/notion-directory-admin-receipts.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    const columns = "name excerpt description region district city address postal_code street house_number address_format price_note website_url public_phone public_email facebook_url instagram_url category updated_at updated_by".split(" ");
+    db.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY," + columns.map(c => c + " TEXT").join(",") + ");");
+    db.exec("CREATE TABLE directory_profile_seo(profile_id INTEGER PRIMARY KEY,title TEXT,description TEXT,focus_keyword TEXT,canonical_url TEXT,og_title TEXT,og_description TEXT,og_image_url TEXT);");
+    db.exec(`
+      CREATE TABLE directory_profile_qualifications(profile_id INTEGER,item_order INTEGER,qualification_text TEXT);
+      CREATE TABLE directory_profile_service_texts(profile_id INTEGER,item_order INTEGER,service_text TEXT);
+      CREATE TABLE directory_profile_extra_fields(profile_id INTEGER,field_key TEXT,value_kind TEXT,text_value TEXT);
+      CREATE TABLE directory_profile_additional_categories(profile_id INTEGER,category TEXT);
+      CREATE TABLE directory_profile_filter_values(profile_id INTEGER,category TEXT,filter_id TEXT,value_text TEXT);
+      CREATE TABLE directory_profile_opening_hours(profile_id INTEGER,day_of_week INTEGER,hours_text TEXT);
+      CREATE TABLE directory_profile_public_facts(profile_id INTEGER,field_key TEXT,value_text TEXT);
+      CREATE TABLE breed_directory_relations(profile_id INTEGER,breed_id INTEGER);
+      CREATE TABLE directory_breeder_club_relations(station_profile_id INTEGER,club_profile_id INTEGER);
+      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER PRIMARY KEY,notion_page_id TEXT,content_hash TEXT);
+      CREATE TABLE managed_events(id INTEGER PRIMARY KEY,updated_at TEXT,updated_by TEXT);
+      CREATE TABLE event_notion_sync(event_id INTEGER PRIMARY KEY,notion_page_id TEXT,content_hash TEXT);
+    `);
+    // SQLite validates event trigger column references only when executing that
+    // trigger; this test uses only the Directory proposal tables.
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    const proposal = await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8");
+    db.exec(proposal.slice(proposal.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"), proposal.indexOf("-- Trigger sees actual")));
+    db.exec(proposal.slice(proposal.indexOf("-- Directory captures SQL")));
+    db.exec(`INSERT INTO directory_profiles(id,name,description,category,updated_at,updated_by) VALUES(1,'Old','Keep','chovatelske-stanice','r1','admin');
+      INSERT INTO directory_notion_sync VALUES(1,'page','hash');
+      INSERT INTO directory_profile_qualifications VALUES(1,0,'old certificate');
+      INSERT INTO directory_profile_service_texts VALUES(1,0,'old service');
+      INSERT INTO directory_profile_additional_categories VALUES(1,'treneri');
+      INSERT INTO directory_profile_filter_values VALUES(1,'chovatelske-stanice','filter','yes');
+      INSERT INTO directory_profile_public_facts VALUES(1,'Organizácia','old');
+      INSERT INTO breed_directory_relations VALUES(1,5);`);
+    const adapter = { prepare(sql) { return { bind(...args) { return {sql,args}; } }; } };
+    const run = statement => db.prepare(statement.sql).run(...statement.args);
+    const plan = (expectedRevision,nextRevision) => planDirectoryAdminReceipts(adapter, {
+      id:1, expectedRevision,nextRevision,editor:"admin",
+      fields:["name","description","qualifications","services","additionalCategories"],
+      structured:[directoryFacetReceiptField("chovatelske-stanice","filter"),
+        directoryMetadataReceiptField("Organizácia","fact"),
+        directoryBreederRelationReceiptField("breedIds")],
+    });
+    let edit = plan("stale","r2");
+    db.exec("BEGIN");
+    edit.before.forEach(run);
+    db.exec("UPDATE directory_profiles SET updated_at='r2' WHERE id=1 AND updated_at='stale'");
+    edit.after.forEach(run);
+    db.exec("COMMIT");
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    edit=plan("r1","r2");
+    db.exec("BEGIN");
+    edit.before.forEach(run);
+    db.exec(`UPDATE directory_profiles SET name='New',updated_at='r2' WHERE id=1 AND updated_at='r1';
+      DELETE FROM directory_profile_qualifications WHERE profile_id=1;
+      UPDATE directory_profile_service_texts SET service_text='new service' WHERE profile_id=1;
+      DELETE FROM directory_profile_additional_categories WHERE profile_id=1;
+      DELETE FROM directory_profile_filter_values WHERE profile_id=1;
+      UPDATE directory_profile_public_facts SET value_text='new' WHERE profile_id=1;
+      UPDATE breed_directory_relations SET breed_id=6 WHERE profile_id=1;`);
+    edit.after.forEach(run);
+    db.exec("COMMIT");
+    const receipts = Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts.name,["New",0]);
+    assert.equal(receipts.description,undefined);
+    assert.deepEqual(receipts.qualifications,[[],1]);
+    assert.deepEqual(receipts.services,[["new service"],0]);
+    assert.deepEqual(receipts.additionalCategories,[[],1]);
+    assert.deepEqual(receipts["facet:chovatelske-stanice:filter"],[null,1]);
+    assert.deepEqual(receipts["meta:Organizácia"],["new",0]);
+    assert.deepEqual(receipts["relation:breedIds"],[[6],0]);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_directory_admin_edit_intent").get().n,0);
+  } finally { db.close(); }
+});
+
+test("V2 Directory structured sets retain populated values when Notion is blank", async () => {
+  const { decideUnifiedField } = await import("../lib/notion-unified-field-sync.ts");
+  for (const field of ["additionalCategories","qualifications","services","relation:breedIds"]) {
+    const identity = {agenda:"directory",entityId:"1",pageId:"page",field};
+    const baseline = {value:["previous"],version:"v1"};
+    const observe = value => ({present:true,value});
+    assert.equal(decideUnifiedField({identity,baseline,notion:observe([]),psipedia:observe(["previous"])}).reason,"UNVERIFIED_NOTION_CLEAR");
+    assert.equal(decideUnifiedField({identity,baseline,notion:observe(["previous"]),psipedia:observe(["new"])}).action,"push");
+    assert.equal(decideUnifiedField({identity,baseline,notion:observe(["new"]),psipedia:observe(["previous"])}).action,"pull");
+  }
+});
