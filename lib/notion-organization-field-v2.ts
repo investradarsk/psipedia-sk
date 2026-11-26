@@ -2,7 +2,7 @@ import { ORGANIZATION_V2_COLUMNS, isOrganizationV2Field, ORGANIZATION_LOCATION_V
 import { normalizeOrganizationLocationAdminInput } from "./organization-location-admin.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeOrganizationNotionField } from "./help-organization-admin-input.ts";
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { loadNotionBulkOrganizations } from "./notion-bulk-sources.ts";
@@ -169,6 +169,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
           !fresh.psipedia.present || fresh.psipedia.value!==observation.psipedia.value ||
           JSON.stringify(fresh.location)!==JSON.stringify(observation.location))
           throw Error("ORGANIZATION_V2_SOURCE_CHANGED");
+        if(reservation)await assertUnifiedReservationCurrent(database,reservation);
         if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh);
         else await pullScalar(input,field,value,observation.revision);
         pulled++;
@@ -182,6 +183,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
         if(slug)values["URL Psipedia"]=fresh.source.url;
         const patch=input.encode(values);
         if(Object.keys(values).some(key=>!Object.hasOwn(patch,key)))throw Error("ORGANIZATION_V2_ENCODE_MISSING");
+        if(reservation)await assertUnifiedReservationCurrent(database,reservation);
         await notionRequest(input.bindings,"/pages/"+encodeURIComponent(pageId),{method:"PATCH",body:JSON.stringify({properties:patch})});
         pushed++;
       }
