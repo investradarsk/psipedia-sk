@@ -63,7 +63,7 @@ test.describe("organization public profile", () => {
       "tel:+421900987654",
     );
     await expect(
-      main.getByRole("link", { name: /https:\/\/example\.org\/organization/ }),
+      main.locator("[data-public-contact-panel]").getByRole("link", { name: "Otvoriť web", exact: true }),
     ).toHaveAttribute("href", "https://example.org/organization");
     await expect(
       main.getByText("https://provenance.example.invalid/internal-only", { exact: true }),
