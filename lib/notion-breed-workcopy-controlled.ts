@@ -149,7 +149,7 @@ async function observeControlledV2(database:D1Database,bindings:ControlledBreedB
 }
 
 async function reserveControlledV2(database:D1Database,bindings:ControlledBreedBindings,
-  link:Link,key:string,direction:"pull"|"push") {
+  link:Link,key:string,direction:"pull"|"push"|"observe") {
   const observed=await observeControlledV2(database,bindings,link,key);
   const identity={agenda:"breeds" as const,entityId:String(link.breed_id),
     pageId:link.work_notion_page_id,field:"controlled."+key};
@@ -413,4 +413,12 @@ export async function saveBreedControlledFromAdmin(args:{
   const latest=await record(args.database,args.breedId);
   if (!latest) throw Error("BREED_CONTROLLED_RECORD_MISSING");
   return {...state(latest),rejectedKeys};
+}
+
+export async function recoverControlledBreedV2Field(database:D1Database,bindings:ControlledBreedBindings,id:number,pageId:string,key:string){
+  requireNewEngine(bindings);
+  if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!keys.has(key))throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
+  const link=await activeLink(database,id);
+  if(link.work_notion_page_id!==pageId)throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
+  await reserveControlledV2(database,bindings,link,key,"observe");
 }
