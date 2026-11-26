@@ -13,7 +13,7 @@ type Item={id:number;scope:string;profile_id:number;profile_name?:string;status:
 type Run={id:string;area:string;scope:string|null;direction:string;selection:string;
   status:string;total_profiles:number;processed_profiles:number;
   changed_fields:number;failed_fields:number;created_at:string};
-type Detail={run:Run;items:Item[];offset:number;hasMore:boolean};
+type Detail={run:Run;items:Item[];offset:number;limit:number;hasMore:boolean};
 type ServerError={error?:string;runId?:string;items?:number;status?:string};
 const directionLabel=(value:string)=>value==="NOTION_TO_ADMIN"?"Notion → Admin":"Admin → Notion";
 const statusText:Record<string,string>={
@@ -300,10 +300,12 @@ export function AdminNotionManualTransfer(){
             <td>{field.status}</td><td>{field.reason_code?errorLabel(field.reason_code):"—"}</td>
           </tr>)}</tbody></table>:<p>Čaká na kontrolu.</p>}
       </details>)}
-      <div className={styles.pager}>
-        <button type="button" disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-100))}>Predchádzajúce</button>
-        <span>{offset+1} – {offset+detail.items.length}</span>
-        <button type="button" disabled={!detail.hasMore} onClick={()=>setOffset(offset+100)}>Ďalšie</button>
+      <div className={styles.pager} aria-label="Stránkovanie výsledkov prenosu">
+        <button type="button" disabled={detail.offset===0 || offset!==detail.offset}
+          onClick={()=>setOffset(Math.max(0,detail.offset-detail.limit))}>Predchádzajúce</button>
+        <span>{detail.items.length ? `${detail.offset+1} – ${detail.offset+detail.items.length}` : "0 výsledkov"}</span>
+        <button type="button" disabled={!detail.hasMore || offset!==detail.offset}
+          onClick={()=>setOffset(detail.offset+detail.limit)}>Ďalšie</button>
       </div>
     </div>:null}
     <details className={styles.history}>

@@ -25,7 +25,9 @@ function BreedTransferDiagnostic(){
   const [result,setResult]=useState<BreedDiagnostic|null>(null);
   const [status,setStatus]=useState("");
   const [busy,setBusy]=useState(false);
+  const validId = /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
   async function inspect(){
+    if (!validId) return;
     setBusy(true);setStatus("");setResult(null);
     try{
       const r=await fetch("/api/admin/notion-breed-transfer?id="+encodeURIComponent(id)+"&field="+encodeURIComponent(field),{cache:"no-store"});
@@ -53,14 +55,14 @@ function BreedTransferDiagnostic(){
     <p>Diagnostika porovná aktuálne hodnoty priamo v D1 a Notione.
       Ručné prenesenie je obmedzené na potvrdené jedno pole a odmietne novšiu úpravu Adminu.</p>
     <div className={styles.diagnosticControls}>
-      <label>Psipedia ID <input type="number" min="1" value={id}
-        onChange={e=>{setId(e.target.value);setResult(null)}} placeholder="napr. 3129"/></label>
-      <label>Pole <select value={field} onChange={e=>{setField(e.target.value);setResult(null)}}>
+      <label>Psipedia ID <input type="number" min="1" value={id} disabled={busy}
+        onChange={e=>{setId(e.target.value);setResult(null);setStatus("")}} placeholder="napr. 3129"/></label>
+      <label>Pole <select value={field} disabled={busy} onChange={e=>{setField(e.target.value);setResult(null);setStatus("")}}>
         <option value="intro">Úvod</option><option value="children">Deti</option>
         <option value="character">Charakter</option><option value="health">Zdravie</option>
         <option value="training">Výcvik</option><option value="needs">Potreby</option>
       </select></label>
-      <button type="button" disabled={busy||!id} onClick={()=>void inspect()}>
+      <button type="button" disabled={busy || !validId} onClick={()=>void inspect()}>
         Skontrolovať prenos
       </button>
     </div>
@@ -86,6 +88,7 @@ export function AdminNotionFieldSettings(){
   const [error,setError]=useState("");
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(()=>{
     let active=true;
     void fetch("/api/admin/notion-field-authority",{cache:"no-store",credentials:"same-origin"})
@@ -96,7 +99,7 @@ export function AdminNotionFieldSettings(){
       .then(data=>{if(active)setResult(data)})
       .catch(e=>{if(active)setError(String(e))});
     return ()=>{active=false};
-  },[]);
+  },[loadAttempt]);
   const group=useMemo(()=>result?.groups.find(g=>g.scope===scope)??result?.groups[0],[result,scope]);
   async function save(field:string,mode:Mode){
     if(!group||!result?.ready||busy)return;
@@ -154,7 +157,11 @@ export function AdminNotionFieldSettings(){
     </div>
     {error?<p role="alert" className={styles.error}>{error}</p>:null}
     {message?<p role="status" className={styles.success}>{message}</p>:null}
-    {!result?<p>Načítavam…</p>:null}
+    {!result && (error ? (
+      <button type="button" onClick={() => { setError(""); setLoadAttempt((attempt) => attempt + 1); }}>
+        Skúsiť načítať znova
+      </button>
+    ) : <p role="status">Načítavam…</p>)}
     {result&&!result.ready?<p role="alert" className={styles.error}>{result.note}</p>:null}
     {result?<div className={styles.columns}>
       <nav className={styles.navigation} aria-label="Agendy Notion">
