@@ -160,7 +160,8 @@ export async function updateAdoptionV2NotionField(input:{
     Object.assign(patch,{[key]:value});
   }
   const prepared=await prepareAdoptionWritePayload(database,patch,"notion-events-help-sync@psipedia.sk",existing,new Date(nextHelpV2Revision(revision)));
-  const values=Object.fromEntries(MUTABLE_COLUMNS.map((name,index)=>[name,writeValues(prepared)[index]]));
+  const preparedValues=writeValues(prepared);
+  const values:Record<string,unknown>=Object.fromEntries(MUTABLE_COLUMNS.map((name,index)=>[name,preparedValues[index]]));
   if(adoptionV2Value(field,values[column])!==value)throw Error("ADOPTION_V2_NORMALIZATION_REVIEW");
   const columns:string[]=[column];
   if(field==="Plemeno")columns.push("breed_id");
