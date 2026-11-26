@@ -4376,3 +4376,15 @@ export async function recoverDirectoryV2Field(database:D1Database,bindings:Notio
   const page=await fetchNotionPage(bindings,pageId);
   await syncUnifiedDirectoryEditorialFields({database,bindings,profile,page,direction:"observe",fields:[field as BreederEditorialField]});
 }
+
+export async function directoryV2RecoveryFields(database:D1Database,id:number):Promise<string[]>{
+  const profile=await getManagedDirectoryProfileById(id,database);
+  if(!profile||await directoryProfileNotionSyncLocked(database,id))return [];
+  const fields=Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS).filter(path=>path!=="seo.noindex"&&
+    (path!=="services"||!isDirectoryEventPilotCategory(profile.category)));
+  return [...new Set([...fields,"additionalCategories",
+    ...PILOT_DIRECTORY_METADATA_FIELDS.filter(isDirectoryPublicMetadataField).map(field=>"meta:"+field),
+    ...directoryFilterRegistry.filter(def=>def.category===profile.category).map(def=>"facet:"+profile.category+":"+def.id),
+    ...(["chovatelske-stanice","chovatelske-kluby"].includes(profile.category)?["relation:breedIds"]:[]),
+    ...(profile.category==="chovatelske-stanice"?["relation:clubIds"]:[])])].sort();
+}
