@@ -601,6 +601,7 @@ export async function readManualTransferRun(
     "FROM notion_manual_transfer_runs WHERE id=?"
   ).bind(runId).first();
   if(!run)throw Error("TRANSFER_RUN_NOT_FOUND");
+  const pageSize = 100;
   const clause=(onlyErrors?" AND i.status IN ('PARTIAL','FAILED')":"")+
     (onlyDifferences?" AND i.preview_hash IS NOT NULL AND (i.changed_fields>0 OR "+
       "EXISTS (SELECT 1 FROM notion_manual_transfer_field_results f "+
@@ -619,11 +620,12 @@ export async function readManualTransferRun(
     "LEFT JOIN managed_eshops s ON i.scope='eshops' AND s.id=i.profile_id "+
     "WHERE i.run_id=?"+clause+
     " ORDER BY CASE WHEN i.preview_hash IS NOT NULL AND i.changed_fields>0 THEN 0 "+
-    "WHEN i.preview_hash IS NOT NULL THEN 1 ELSE 2 END,i.id LIMIT 100 OFFSET ?"
-  ).bind(runId,offset).all<{id:number;scope:string;profile_id:number;
+    "WHEN i.preview_hash IS NOT NULL THEN 1 ELSE 2 END,i.id LIMIT ? OFFSET ?"
+  ).bind(runId,pageSize + 1,offset).all<{id:number;scope:string;profile_id:number;
     status:string;attempts:number;changed_fields:number;failed_fields:number;
     last_error_code:string|null;updated_at:string;profile_name:string}>();
-  const eligible=(rows.results??[]).filter(row=>row.status!=="PENDING"||row.attempts>0);
+  const page = (rows.results ?? []).slice(0, pageSize);
+  const eligible=page.filter(row=>row.status!=="PENDING"||row.attempts>0);
   const fieldsByItem=new Map<number,Array<{
     field_key:string;status:string;reason_code:string|null;attempts:number;
   }>>();
@@ -647,9 +649,9 @@ export async function readManualTransferRun(
       fieldsByItem.set(field.item_id,list);
     }
   }
-  const items=(rows.results??[]).map(row=>({
+  const items=page.map(row=>({
     ...row,fields:fieldsByItem.get(row.id)??[],
   }));
-  return {run,items,offset,limit:100,hasMore:(rows.results?.length??0)===100,
+  return {run,items,offset,limit:pageSize,hasMore:(rows.results?.length??0)>pageSize,
     onlyErrors,onlyDifferences};
 }
