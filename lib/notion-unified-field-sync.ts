@@ -74,6 +74,8 @@ export function decideUnifiedField(input: {
   psipediaEdit?: ScopedFieldEdit;
   locked?: boolean;
   protected?: boolean;
+  /** Explicit initialization only; never an inferred historical edit. */
+  initializeEmpty?: boolean;
 }): UnifiedFieldDecision {
   const review = (reason: string): UnifiedFieldDecision => ({ action: "review", reason });
   if (input.locked) return review("LOCKED");
@@ -83,8 +85,19 @@ export function decideUnifiedField(input: {
     return review("MISSING_FIELD");
   const n = input.notion.value, p = input.psipedia.value;
   if (same(n, p)) return { action: "unchanged", value: p };
-  if (!input.baseline || input.baseline.value === undefined || !input.baseline.version)
+  if (!input.baseline || input.baseline.value === undefined || !input.baseline.version) {
+    if (input.initializeEmpty && !input.baseline && !input.notionEdit && !input.psipediaEdit) {
+      // Explicit observed blanks only. Zero and false are legitimate values.
+      const filled = (value: unknown) =>
+        (typeof value === "string" && !!value.trim()) ||
+        (typeof value === "number" && Number.isFinite(value)) ||
+        typeof value === "boolean" ||
+        (Array.isArray(value) && value.length > 0);
+      if (blank(n) && filled(p)) return { action: "push", value: p };
+      if (blank(p) && filled(n)) return { action: "pull", value: n };
+    }
     return review("BASELINE_UNAVAILABLE");
+  }
 
   const base = input.baseline.value;
   const ne = verified(input.notionEdit, input.identity, "notion", input.baseline.version, n);

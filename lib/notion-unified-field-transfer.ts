@@ -50,21 +50,40 @@ export async function reserveUnifiedField(input: {
     const observed = decideUnifiedField({ identity, baseline: null, notion: input.notion, psipedia: input.psipedia });
     if (observed.action !== "unchanged") throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
   }
-  const invalidation = !old && input.historicalBaseline ? await database.prepare(
+  const initialMarker = old?.reason === "INITIAL_FILL_PUSH" || old?.reason === "INITIAL_FILL_PULL";
+  const initialCandidate = !input.historicalBaseline && !input.notionEdit && !input.psipediaEdit &&
+    (!old || (old.status === "REVIEW" && old.baseline === undefined && !old.baselineVersion &&
+      !old.notionEdit && !old.psipediaEdit && (old.reason === "BASELINE_UNAVAILABLE" || initialMarker)));
+  const invalidation = ((!old && input.historicalBaseline) || initialCandidate) ? await database.prepare(
     "SELECT 1 AS invalidated FROM notion_unified_scope_invalidation WHERE agenda=? AND entity_id=?"
   ).bind(identity.agenda,identity.entityId).first<{invalidated:number}>() : null;
   const baseline = old
     ? old.baseline === undefined ? null : { value: old.baseline, version: old.baselineVersion ?? String(old.version) }
     : invalidation ? null : input.historicalBaseline;
+  // The marker is only created by a live observation. A directional call
+  // may consume it only for the same two observed values, never an arbitrary
+  // new blank, stale receipt, changed mapping or uncertain earlier write.
+  const samePair = !!old && input.notion.present && input.psipedia.present &&
+    JSON.stringify(old.notion) === JSON.stringify(input.notion.value) &&
+    JSON.stringify(old.psipedia) === JSON.stringify(input.psipedia.value);
+  const initialReceipt = initialCandidate && !invalidation ? await database.prepare(
+    "SELECT 1 AS found FROM notion_unified_admin_field_edits WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? LIMIT 1"
+  ).bind(identity.agenda,identity.entityId,identity.pageId,identity.field).first<{found:number}>() : null;
+  const initializeEmpty = initialCandidate && !invalidation && !initialReceipt &&
+    (initialMarker ? samePair : input.direction === "observe");
   const decision = decideUnifiedField({
     identity, baseline, notion: input.notion, psipedia: input.psipedia,
-    notionEdit: input.notionEdit, psipediaEdit: input.psipediaEdit,
+    notionEdit: input.notionEdit, psipediaEdit: input.psipediaEdit, initializeEmpty,
   });
   const notion = input.notion.present ? input.notion.value : undefined;
   const psipedia = input.psipedia.present ? input.psipedia.value : undefined;
   const unchanged = decision.action === "unchanged";
   const allowed = input.direction !== "observe" && decision.action === input.direction;
   const reason = unchanged || allowed ? null :
+    initialMarker && !samePair ? "INITIAL_FILL_CHANGED" :
+    old?.reason === "INITIAL_FILL_CHANGED" && !baseline ? "INITIAL_FILL_CHANGED" :
+    initializeEmpty && !baseline && decision.action === "push" ? "INITIAL_FILL_PUSH" :
+    initializeEmpty && !baseline && decision.action === "pull" ? "INITIAL_FILL_PULL" :
     decision.action === "review" ? decision.reason : input.direction === "observe" ? "RECOVERY_DIRECTION_REQUIRED" : "OPPOSITE_DIRECTION_REQUIRED";
   const version = await writeUnifiedFieldState(database, identity, old?.version ?? null, {
     baselineVersion: unchanged ? (baseline && decideUnifiedField({identity,baseline:null,notion:{present:true,value:baseline.value},psipedia:{present:true,value:decision.value}}).action === "unchanged" ? baseline.version : crypto.randomUUID()) : baseline?.version,

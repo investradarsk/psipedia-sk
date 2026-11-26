@@ -1412,3 +1412,63 @@ test("V2 numbered migrations install and invalidate only the affected record", a
     db.close();
   }
 });
+
+test("V2 initial fill is explicit, non-destructive and available across eight agendas", async () => {
+  const {decideUnifiedField,UNIFIED_SYNC_AGENDAS}=await import("../lib/notion-unified-field-sync.ts");
+  const p=value=>({present:true,value});
+  for(const agenda of UNIFIED_SYNC_AGENDAS){
+    const identity={agenda,entityId:"1",pageId:"p",field:"sample"};
+    const decide=(n,a,extra={})=>decideUnifiedField({identity,baseline:null,notion:p(n),psipedia:p(a),initializeEmpty:true,...extra});
+    assert.deepEqual(decide(null,3),{action:"push",value:3});
+    assert.deepEqual(decide("filled",""),{action:"pull",value:"filled"});
+    assert.deepEqual(decide(null,0),{action:"push",value:0});
+    assert.deepEqual(decide(null,false),{action:"push",value:false});
+    assert.equal(decide(0,1).reason,"BASELINE_UNAVAILABLE");
+    assert.equal(decide(false,true).reason,"BASELINE_UNAVAILABLE");
+    assert.equal(decide("old","new").reason,"BASELINE_UNAVAILABLE");
+    assert.equal(decide(null,3,{initializeEmpty:false}).reason,"BASELINE_UNAVAILABLE");
+    assert.equal(decide(null,3,{notion:{present:false}}).reason,"MISSING_FIELD");
+    assert.equal(decide(null,3,{locked:true}).reason,"LOCKED");
+    assert.equal(decide(null,3,{protected:true}).reason,"PROTECTED_FIELD");
+    assert.equal(decide(null,3,{baseline:{value:3,version:"v"}}).reason,"UNVERIFIED_NOTION_CLEAR");
+    assert.equal(decide("old","",{baseline:{value:"old",version:"v"}}).reason,"UNVERIFIED_ADMIN_CLEAR");
+  }
+});
+test("V2 initial fill requires an observed scoped marker; never replays uncertainty", async()=>{
+  const {reserveUnifiedField,confirmUnifiedField}=await import("../lib/notion-unified-field-transfer.ts");
+  const {readUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    for(const f of ["0178_notion_unified_field_state.sql","0179_notion_unified_admin_edits.sql"]){
+      if(f.startsWith("0179"))db.exec("CREATE TABLE managed_events(id INTEGER PRIMARY KEY, updated_at TEXT, updated_by TEXT); CREATE TABLE event_notion_sync(event_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+      db.exec(await readFile(new URL("../drizzle/"+f,import.meta.url),"utf8"));
+    }
+    const adapter={prepare(sql){return{bind(...args){return{async first(){return db.prepare(sql).get(...args)??null;}};}};}};
+    const p=value=>({present:true,value});
+    const identity={agenda:"breeds",entityId:"1",pageId:"p",field:"apartment"};
+    const reserve=(n,a,direction,id=identity)=>reserveUnifiedField({database:adapter,identity:id,historicalBaseline:null,notion:p(n),psipedia:p(a),direction});
+    await assert.rejects(reserve(null,3,"push"),/BASELINE_UNAVAILABLE/);
+    await reserve(null,3,"observe");
+    assert.equal((await readUnifiedFieldState(adapter,identity)).reason,"INITIAL_FILL_PUSH");
+    const claim=await reserve(null,3,"push");
+    assert.equal(claim.value,3);
+    await confirmUnifiedField(adapter,claim,p(3),p(3));
+    assert.equal((await readUnifiedFieldState(adapter,identity)).status,"SYNCED");
+    await assert.rejects(reserve(null,3,"push"),/UNVERIFIED_NOTION_CLEAR/);
+    const changed={...identity,field:"energy"};
+    await reserve(null,4,"observe",changed);
+    await assert.rejects(reserve(null,5,"push",changed),/INITIAL_FILL_CHANGED/);
+    await reserve(null,5,"observe",changed);
+    assert.equal((await readUnifiedFieldState(adapter,changed)).reason,"INITIAL_FILL_CHANGED");
+    const inbound={...identity,entityId:"2",field:"intro"};
+    await reserve("text","", "observe",inbound);
+    const pull=await reserve("text","","pull",inbound);
+    assert.equal(pull.value,"text");
+    await confirmUnifiedField(adapter,pull,p("text"),p("text"));
+    db.exec("INSERT INTO notion_unified_scope_invalidation VALUES('breeds','3','now')");
+    const blocked={...identity,entityId:"3"};
+    await reserve(null,3,"observe",blocked);
+    assert.equal((await readUnifiedFieldState(adapter,blocked)).reason,"BASELINE_UNAVAILABLE");
+    await assert.rejects(reserve(null,3,"push",blocked),/BASELINE_UNAVAILABLE/);
+  }finally{db.close();}
+});
