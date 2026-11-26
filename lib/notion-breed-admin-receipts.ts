@@ -26,7 +26,7 @@ export function breedAdminFieldReceipt(database: D1Database, input: {
     : "(" + cell + " IS NULL OR (typeof(" + cell + ")='text' AND trim(" + cell + ")=''))";
   return [database.prepare(
     "INSERT INTO notion_unified_admin_field_edits(agenda,entity_id,notion_page_id,field_key,edit_id,baseline_version,canonical_revision,observed_at,value_json,explicit_clear) " +
-    "SELECT 'breeds',CAST(p.id AS TEXT),l.work_notion_page_id,?, ?,CAST(s.version AS TEXT),p.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')," +
+    "SELECT 'breeds',CAST(p.id AS TEXT),l.work_notion_page_id,?, ?,s.baseline_version,p.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')," +
     value + ",CASE WHEN " + cleared + " THEN 1 ELSE 0 END " +
     "FROM managed_breeds p JOIN breed_notion_workcopy_links l ON l.breed_id=p.id AND l.status='ACTIVE' " +
     "JOIN notion_unified_field_state s ON s.agenda='breeds' AND s.entity_id=CAST(p.id AS TEXT) AND s.notion_page_id=l.work_notion_page_id AND s.field_key=? " +
