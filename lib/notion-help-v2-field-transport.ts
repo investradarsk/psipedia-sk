@@ -92,7 +92,7 @@ async function observe(input:Adapter,field:string,kind:FieldKind,slugChange:bool
 export async function syncHelpV2Fields(input:Adapter){
   const {database,agenda,entityId,pageId,direction}=input;
   const fields=[...new Set(input.fields)];
-  if(direction==="push")for(const key of ["Slug",...(agenda==="lost-found"?["Typ"]:[])]){
+  if(direction==="push")for(const key of ["Slug",...(agenda==="lost-found"?["Typ"]:agenda==="help-cases"?["Kategória"]:[])]){
     if(fields.includes(key))fields.splice(0,0,...fields.splice(fields.indexOf(key),1));
   }
   let pulled=0,pushed=0;
@@ -102,7 +102,7 @@ export async function syncHelpV2Fields(input:Adapter){
       const structural=input.protectedFields.has(field),kind=input.kind(field);
       if(!kind)throw Error("HELP_V2_UNKNOWN_FIELD");
       if(structural&&direction==="pull")throw Error("HELP_V2_PROTECTED_FIELD");
-      const slug=direction==="push"&&(field==="Slug"||(agenda==="lost-found"&&field==="Typ"));
+      const slug=direction==="push"&&(field==="Slug"||(agenda==="lost-found"&&field==="Typ")||(agenda==="help-cases"&&field==="Kategória"));
       const observed=await observe(input,field,kind,slug);
       if(observed.status==="ARCHIVED"&&!(structural&&direction==="push"))throw Error("HELP_V2_ARCHIVED");
       const identity={agenda,entityId:String(entityId),pageId,field};
