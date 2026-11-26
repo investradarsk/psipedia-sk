@@ -2236,7 +2236,12 @@ async function syncBreederEvent(input: {
         }) || updated;
       } catch { failures.push("relations"); }
       // Moderation flags remain under the canonical Admin-owned workflow.
-      if (trustFields.length) failures.push("protected-trust");
+      if (trustFields.length) {
+        const latest = await getManagedDirectoryProfileById(input.profile.id, database);
+        const currentPage = await fetchNotionPage(bindings, page.id);
+        if (!latest || trustFields.some(field => property(currentPage, TRAINER_TRUST_NOTION_PROPERTIES[field])?.checkbox !== latest[field]))
+          failures.push("protected-trust");
+      }
       if (failures.length) throw Error("DIRECTORY_UNIFIED_FIELDS_PENDING: " + failures.join(","));
       return updated ? "pulled" : "unchanged";
     }
@@ -4071,16 +4076,23 @@ export async function runNotionDirectorySyncSweep(input: {
       }
       const additionalChanged = additionalCategoriesEvent(page, changedIds);
       let categorySaved = false;
+      let categoryError: unknown;
       if (additionalChanged) {
         categorySaved = await applyNotionAdditionalCategories({
           database: input.database, bindings: input.bindings, dataSourceId,
           page, mapping,
+        }).catch(error => {
+          if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED !== "true" ||
+              error instanceof NotionDirectoryUnsafeTargetError) throw error;
+          categoryError = error;
+          return false;
         });
         const metadata = ["Sync stav", "Sync chyba", "Posledný sync", "Sync hash"];
         const onlyCategory = changedIds.length > 0 && changedIds.every((id) =>
           additionalCategoriesEvent(page, [id]) ||
           metadata.some((key) => id === key || id === property(page, key)?.id));
         if (onlyCategory) {
+          if (categoryError) throw categoryError;
           if (categorySaved) summary.pulledFromNotion += 1;
           else summary.unchanged += 1;
           continue;
@@ -4105,11 +4117,19 @@ export async function runNotionDirectorySyncSweep(input: {
         }));
       if (onlyTrustOrServices && (trustFields.length || relationChanged)) {
         if (input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true" && trustFields.length) {
+          const latest = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
+          const currentPage = await fetchNotionPage(input.bindings, page.id);
           if (relationChanged) {
             const relation = await syncRelation(page.id, mapping.directory_profile_id, true);
             summary.serviceRelationSync = relation;
+            if (relation === "skipped") throw Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
           }
-          throw Error("DIRECTORY_UNIFIED_PROTECTED_TRUST_REVIEW");
+          if (!latest || categoryError || trustFields.some(field =>
+            property(currentPage, TRAINER_TRUST_NOTION_PROPERTIES[field])?.checkbox !== latest[field]))
+            throw Error("DIRECTORY_UNIFIED_PROTECTED_TRUST_REVIEW");
+          if (categorySaved || summary.serviceRelationSync === "pulled" || summary.serviceRelationSync === "merged") summary.pulledFromNotion++;
+          else summary.unchanged++;
+          continue;
         }
         let current = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
         if (!current || current.status === "archived" ||
@@ -4200,6 +4220,7 @@ export async function runNotionDirectorySyncSweep(input: {
         summary.serviceRelationSync = relation;
         if (relation === "skipped" && relationChanged) summary.failed++;
       }
+      if (categoryError) throw categoryError;
       if (editorialError) throw editorialError;
       // Do not dismiss the profile's existing pending alert just because a
       // different field (for example Popis instead of legacy Služby) synced.
