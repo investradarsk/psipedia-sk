@@ -31,11 +31,11 @@ export async function readUnifiedDiagnostics(database: D1Database, enabled: bool
     const [counts, issues, fences] = await database.batch([
       database.prepare(
         "SELECT agenda,SUM(status='SYNCED') AS synced,SUM(status='PENDING') AS pending,SUM(status='REVIEW') AS review," +
-        "COUNT(DISTINCT entity_id) AS profiles,MAX(updated_at) AS lastRecordedAt FROM notion_unified_field_state GROUP BY agenda"
+        "COUNT(DISTINCT entity_id) AS profiles,MAX(updated_at) AS lastRecordedAt FROM notion_unified_field_state WHERE NOT (agenda='breeds' AND field_key='accent') GROUP BY agenda"
       ),
       database.prepare(
         "SELECT agenda,entity_id,field_key,status,reason,updated_at,recovery_after FROM notion_unified_field_state " +
-        "WHERE status IN ('PENDING','REVIEW') ORDER BY CASE status WHEN 'REVIEW' THEN 0 ELSE 1 END,updated_at DESC,agenda,entity_id,field_key LIMIT 51"
+        "WHERE status IN ('PENDING','REVIEW') AND NOT (agenda='breeds' AND field_key='accent') ORDER BY CASE status WHEN 'REVIEW' THEN 0 ELSE 1 END,updated_at DESC,agenda,entity_id,field_key LIMIT 51"
       ),
       database.prepare("SELECT COUNT(*) AS n FROM notion_unified_manual_fence"),
     ]);

@@ -9,6 +9,6 @@ export function breedWorkcopyObservation(value: unknown, present: boolean): Fiel
 /** Ordinary mirrored content only. Moderation, immutable identity and
  * unsupported aggregate/relationship fields retain their separate owners. */
 export function isUnifiedBreedEditorialField(field: string): boolean {
-  return !new Set(["id", "slug", "status", "editorialComplete", "seo.noindex",
+  return !new Set(["id", "slug", "status", "accent", "editorialComplete", "seo.noindex",
     "relatedBreedIds", "relatedArticleIds", "directoryProfileIds", "fciStandard", "editorial"]).has(field);
 }
