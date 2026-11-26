@@ -49,6 +49,7 @@ function FilterFields({
   modal = false,
 }: Props & { modal?: boolean }) {
   const activeCategory = category ?? filters.category;
+  const breedingCategory = activeCategory === "chovatelske-stanice" || activeCategory === "chovatelske-kluby";
   const serviceFacetIds = new Set(
     legacyFacetMappings
       .filter((mapping) => mapping.targetKind === "service")
@@ -151,16 +152,17 @@ function FilterFields({
           </PublicSelect>
         </label>
       </fieldset>
-      {(options.breeds.length > 0 ||
+      {(breedingCategory || options.breeds.length > 0 ||
         options.fciGroups.length > 0 ||
         options.organizations.length > 0) && (
         <fieldset className={styles.group}>
           <legend>Ďalšie možnosti</legend>
-          {options.breeds.length > 0 && (
+          {(breedingCategory || options.breeds.length > 0) && (
             <label>
               <span>Plemeno</span>
               <PublicSelect appearance="context" name="breed" defaultValue={filters.breed}>
-                <option value="">Všetky plemená</option>
+                <option value="">{options.breeds.length ? "Všetky plemená" : "Zatiaľ bez priradených plemien"}</option>
+                {filters.breed && !options.breeds.includes(filters.breed) && <option value={filters.breed}>{filters.breed}</option>}
                 {options.breeds.map((item) => (
                   <option value={item} key={item}>
                     {item}
@@ -169,14 +171,15 @@ function FilterFields({
               </PublicSelect>
             </label>
           )}
-          {options.fciGroups.length > 0 && (
+          {(breedingCategory || options.fciGroups.length > 0) && (
             <label>
               <span>FCI skupina</span>
               <PublicSelect appearance="context" name="fci" defaultValue={filters.fciGroup}>
-                <option value="">Všetky FCI skupiny</option>
+                <option value="">{options.fciGroups.length ? "Všetky FCI skupiny" : "Zatiaľ bez priradených FCI skupín"}</option>
+                {filters.fciGroup && !options.fciGroups.includes(filters.fciGroup) && <option value={filters.fciGroup}>{filters.fciGroup}</option>}
                 {options.fciGroups.map((item) => (
                   <option value={item} key={item}>
-                    {item}
+                    {/^(?:[1-9]|10)$/.test(item) ? `FCI skupina ${item}` : item}
                   </option>
                 ))}
               </PublicSelect>
