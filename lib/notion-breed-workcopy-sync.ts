@@ -161,7 +161,7 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
   const after = await getManagedBreed(link.breed_id);
   if (!after || after.updatedAt !== before.updatedAt)
     throw Error("BREED_UNIFIED_REVISION_CHANGED");
-  const parsed = breedWorkcopyEventValues(page, Object.keys(page.properties ?? {}), BREED_NOTION_SCHEMA);
+  const parsed = breedWorkcopyEventValues(page, Object.keys(page.properties ?? {}), BREED_NOTION_SCHEMA, true);
   const remote = parsed.values.find(item => item.field === field);
   const snapshot = breedFieldSnapshot(after) as Record<string, unknown>;
   const value = field === "fciNumber" ? after.fciNumber : snapshot[field];
@@ -239,7 +239,8 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         });
         failedFields.push("controlled");
       }
-      const parsed=breedWorkcopyEventValues(page,edited,BREED_NOTION_SCHEMA);
+      const parsed=breedWorkcopyEventValues(page,edited,BREED_NOTION_SCHEMA,
+        unifiedBreedEnabled(args.bindings) && !args.manualImport);
       failedFields.push(...parsed.failures.map(item=>item.field));
       for (const field of parsed.values) {
         try {
