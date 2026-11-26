@@ -301,58 +301,77 @@ async function loadWriter(h, overrides = {}, exportName = "writeBackDraftArticle
   return exports[exportName];
 }
 
-test("targeted Notion updates synchronize Perex separately from Meta description", async () => {
-  const h = setup();
-  const pageId = h.notion.id;
-  h.notion.parent = { type: "data_source_id", data_source_id: "synthetic-articles" };
-  h.notion.properties.Stav.select.name = "Publikované";
-  h.notion.properties.Perex = { id: "opaque-perex", rich_text: rich("Samostatný redakčný perex článku.") };
-  h.notion.properties["Meta description"].id = "opaque-seo";
-  const local = {
-    ...h.article, status: "published", category: "Výživa", portalSection: "starostlivost",
-    portalSubpage: "vyziva", relatedBreedIds: [160],
-    excerpt: "Pôvodný perex uložený v Admine.", image: "/original.webp", imageKey: "original.webp",
-  };
-  let stored = { ...local };
-  const sweep = await loadWriter(h, {
-    "./notion-article-seo-properties": {
-      articleSeoFromNotion: (page) => ({
-        metaDescription: page.properties["Meta description"].rich_text[0].plain_text,
-      }),
-      articleSeoSignedChangedFields: (_page, ids) =>
-        new Set(ids.includes("opaque-seo") ? ["metaDescription"] : []),
-    },
-    "@/lib/article-store": {
-      getManagedArticleById: async () => stored,
-      updateManagedArticle: async (id, data) => {
-        assert.equal(id, local.id);
-        stored = { ...stored, ...data, seo: { description: data.metaDescription } };
-        return stored;
+for (const status of ["draft", "published"]) {
+  test(`targeted Notion updates preserve unrelated fields on a ${status} article`, async () => {
+    const h = setup();
+    const pageId = h.notion.id;
+    h.notion.parent = { type: "data_source_id", data_source_id: "synthetic-articles" };
+    h.notion.properties.Stav.select.name = status === "published" ? "Publikované" : "Ready";
+    h.notion.properties.Perex = { id: "opaque-perex", rich_text: rich("Samostatný redakčný perex článku.") };
+    h.notion.properties["Meta description"].id = "opaque-seo";
+    h.notion.properties["Zdroj obrázka"].url = "https://example.test/old-photo-source";
+    const untouched = {
+      takeaway: "Hlavná myšlienka uložená v Admine.",
+      sources: [{ label: "Redakčný zdroj", url: "https://example.test/editorial-source" }],
+      accent: "gold",
+      imageCreditUrl: "https://example.test/verified-photo-source",
+      imageAlt: "Titulná fotografia z Adminu",
+      showUpdated: true,
+    };
+    const local = {
+      ...h.article, ...untouched, status, category: "Výživa", portalSection: "starostlivost",
+      portalSubpage: "vyziva", relatedBreedIds: [160],
+      excerpt: "Pôvodný perex uložený v Admine.", image: "/original.webp", imageKey: "original.webp",
+    };
+    let stored = { ...local };
+    const sweep = await loadWriter(h, {
+      "./notion-article-seo-properties": {
+        articleSeoFromNotion: (page) => ({
+          metaDescription: page.properties["Meta description"].rich_text[0].plain_text,
+        }),
+        articleSeoSignedChangedFields: (_page, ids) =>
+          new Set(ids.includes("opaque-seo") ? ["metaDescription"] : []),
       },
-    },
-    "@/lib/article-promo": { preserveArticlePromoBlocks: (_old, incoming) => incoming },
-  }, "runNotionArticleSyncSweep");
-  const send = (property, eventType = "page.properties_updated") => sweep({
-    database: h.db, bindings: { ...h.bindings, NOTION_ARTICLES_DATA_SOURCE_ID: "synthetic-articles" },
-    targetPageId: pageId, eventType, changedPropertyIds: [property],
+      "@/lib/article-store": {
+        getManagedArticleById: async () => stored,
+        updateManagedArticle: async (id, data) => {
+          assert.equal(id, local.id);
+          stored = { ...stored, ...data, seo: { description: data.metaDescription } };
+          return stored;
+        },
+      },
+      "@/lib/article-promo": { preserveArticlePromoBlocks: (_old, incoming) => incoming },
+    }, "runNotionArticleSyncSweep");
+    const send = (property, eventType = "page.properties_updated") => sweep({
+      database: h.db, bindings: { ...h.bindings, NOTION_ARTICLES_DATA_SOURCE_ID: "synthetic-articles" },
+      targetPageId: pageId, eventType, changedPropertyIds: [property],
+    });
+    assert.equal((await send("opaque-perex")).updated, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    const assertUntouched = () => {
+      for (const [key, value] of Object.entries(untouched)) {
+        assert.deepEqual(stored[key], value, key);
+      }
+    };
+    assertUntouched();
+    assert.equal(stored.seo.description, local.seo.description);
+    h.notion.properties["Meta description"].rich_text = rich("Samostatný upravený opis pre SEO.");
+    assert.equal((await send("opaque-seo")).updated, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    assert.equal(stored.seo.description, "Samostatný upravený opis pre SEO.");
+    assertUntouched();
+    h.blocks[0].paragraph.rich_text = rich("Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
+    assert.equal((await send("", "page.content_updated")).updated, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    assert.equal(stored.intro, "Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
+    assertUntouched();
+    h.notion.properties.Perex.rich_text = rich("");
+    assert.equal((await send("opaque-perex")).failed, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    assert.equal(stored.imageKey, local.imageKey);
+    assert.deepEqual(stored.relatedBreedIds, [160]);
   });
-  assert.equal((await send("opaque-perex")).updated, 1);
-  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
-  assert.equal(stored.seo.description, local.seo.description);
-  h.notion.properties["Meta description"].rich_text = rich("Samostatný upravený opis pre SEO.");
-  assert.equal((await send("opaque-seo")).updated, 1);
-  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
-  assert.equal(stored.seo.description, "Samostatný upravený opis pre SEO.");
-  h.blocks[0].paragraph.rich_text = rich("Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
-  assert.equal((await send("", "page.content_updated")).updated, 1);
-  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
-  assert.equal(stored.intro, "Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
-  h.notion.properties.Perex.rich_text = rich("");
-  assert.equal((await send("opaque-perex")).failed, 1);
-  assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
-  assert.equal(stored.imageKey, local.imageKey);
-  assert.deepEqual(stored.relatedBreedIds, [160]);
-});
+}
 test("disabled content writeback performs zero database or Notion I/O", async () => {
   const h = setup({ enabled: false });
   const writer = await loadWriter(h);

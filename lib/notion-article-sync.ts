@@ -2365,15 +2365,8 @@ function articleApplySignedFields(
   edited: ReadonlySet<ArticleAuthorityKey>,
 ): ManagedArticleInput {
   const next: ManagedArticleInput = {
-    ...existing, ...incoming,
-    slug: existing.slug, category: existing.category,
-    portalSection: existing.portalSection,
-    portalSubpage: existing.portalSubpage,
-    newsCategory: existing.newsCategory,
-    status: existing.status, author: existing.author,
-    authorProfileId: existing.authorProfileId,
-    publishedAt: existing.publishedAt,
-    imageUrl: existing.image, imageKey: existing.imageKey,
+    ...existing,
+    imageUrl: existing.image,
   };
   // A deliberate change to Notion Kategória is also a placement change;
   // always use its canonical portal section/subsection together.
@@ -2384,16 +2377,20 @@ function articleApplySignedFields(
     next.newsCategory = incoming.newsCategory;
   }
   for (const key of ARTICLE_EDITABLE_AUTHORITY_FIELDS) {
-    if (edited.has(key)) continue;
     if (key === "intro") {
-      next.intro = existing.intro;
-      next.introRichText = existing.introRichText;
+      if (edited.has(key)) {
+        next.intro = incoming.intro;
+        next.introRichText = incoming.introRichText;
+      }
     } else if (key === "blocks") {
-      next.blocks = existing.blocks;
-      next.readingMinutes = existing.readingMinutes;
+      if (edited.has(key)) {
+        next.blocks = incoming.blocks;
+        next.readingMinutes = incoming.readingMinutes;
+      }
     } else {
-      (next as Record<string, unknown>)[key] = articleCurrentField(existing, key);
-      if (key === "ogImageUrl") next.ogImageKey = existing.ogImageKey;
+      (next as Record<string, unknown>)[key] =
+        edited.has(key) ? incoming[key] : articleCurrentField(existing, key);
+      if (key === "ogImageUrl" && edited.has(key)) next.ogImageKey = incoming.ogImageKey;
     }
   }
   return next;
