@@ -118,3 +118,12 @@ BEGIN
     canonical_revision = excluded.canonical_revision, observed_at = excluded.observed_at,
     value_json = excluded.value_json, explicit_clear = excluded.explicit_clear;
 END;
+
+-- Directory captures SQL before and after the canonical/sidecar batch.
+CREATE TABLE IF NOT EXISTS notion_directory_admin_edit_intent (
+  edit_id TEXT PRIMARY KEY,
+  entity_id INTEGER NOT NULL,
+  notion_page_id TEXT NOT NULL,
+  baseline_json TEXT NOT NULL CHECK(json_valid(baseline_json)),
+  fields_json TEXT NOT NULL CHECK(json_valid(fields_json))
+);
