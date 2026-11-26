@@ -3659,6 +3659,7 @@ export async function runNotionDirectorySyncSweep(input: {
       db: input.database, bindings: input.bindings, pageId, profileId,
       category: profile.category, directoryDataSourceId: dataSourceId,
       lookup: await lookupPromise, notionExplicitEdit, adminChoiceSave,
+      unifiedFieldPolicy: input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true",
     });
   }
 
