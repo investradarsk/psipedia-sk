@@ -51,21 +51,35 @@ test("mobile editorial action remains after the contextual rail", async ({ page 
 for (const width of [1280, 1440, 1920]) {
   test(`homepage affiliate keeps the full event rail width at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 960 });
-    await page.route(/https:\/\/(?:api\.app\.dognet\.com|visibility\.postaffiliatepro\.com)\//, (route) =>
-      route.fulfill({
-        contentType: "image/svg+xml",
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350"><rect width="100%" height="100%" fill="green"/></svg>',
-      }),
+    const artwork = Promise.withResolvers<void>();
+    await page.route(
+      /https:\/\/(?:api\.app\.dognet\.com|visibility\.postaffiliatepro\.com)\//,
+      async (route) => {
+        await artwork.promise;
+        await route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350"><rect width="100%" height="100%" fill="green"/></svg>',
+        });
+      },
     );
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const rail = page.locator("[data-home-latest] .home-magazine-side");
     const events = rail.locator(".home-magazine-sidebar-block");
     const ad = rail.locator('[data-affiliate-rotating-banner="sidebar"]');
     await events.scrollIntoViewIfNeeded();
-    await expect(ad).toBeAttached();
+    const image = ad.locator("img");
+    const link = ad.locator("a");
+    const reservedSize = await link.evaluate((element) => {
+      const { width, height } = element.getBoundingClientRect();
+      return { width, height };
+    });
+    expect(reservedSize.height).toBeGreaterThan(0);
+    artwork.resolve();
     await ad.scrollIntoViewIfNeeded();
     await expect(ad).toBeVisible();
     await expect(events).toBeVisible();
+    expect(await link.boundingBox()).toMatchObject(reservedSize);
+    expect(await image.boundingBox()).toEqual(await link.boundingBox());
     const railBox = (await rail.boundingBox())!;
     const eventBox = (await events.boundingBox())!;
     const adBox = (await ad.boundingBox())!;

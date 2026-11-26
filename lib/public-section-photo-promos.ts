@@ -63,7 +63,14 @@ export const publicSectionPhotoPromos = {
 /** Contextual copy only; all placements use the existing magazine banner. */
 export const eventCategoryPhotoPromos = {
   "Výstava": { eyebrow: "Chov a plemená", title: "Hľadáte chovateľskú stanicu?", text: "Nájdite chovateľov a informácie o ich chove v adresári.", href: "/adresar/chovatelske-stanice", action: "Chovateľské stanice", tone: "care" },
-  "Preteky": publicSectionPhotoPromos.events,
+  "Preteky": {
+    eyebrow: "Psie športy",
+    title: "Vyberte si disciplínu pre seba a svojho psa",
+    text: "Zistite, čo zahŕňa agility, rally obedience a ďalšie psie športy.",
+    href: "/aktivity/psie-sporty",
+    action: "Objaviť psie športy",
+    tone: "volunteer",
+  },
   "Seminár": { eyebrow: "Starostlivosť", title: "Rozšírte si vedomosti o psoch", text: "Praktické informácie o zdraví a každodennej starostlivosti.", href: "/starostlivost", action: "Praktické rady", tone: "care" },
   "Tréning": { eyebrow: "Psie školy", title: "Nájdite trénera pre svojho psa", text: "Vyberte si výcvik podľa zamerania a lokality.", href: "/adresar/treneri", action: "Nájsť trénera", tone: "volunteer" },
   "Stretnutie": publicSectionPhotoPromos.aktivity,

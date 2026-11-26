@@ -7,7 +7,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 const sections = ["events", "services", "reviews", "steniatka", "starostlivost", "aktivity"];
 
 test("six explicitly approved section banners use existing photos and real public CTA URLs", () => {
-  const presets = read("lib/public-section-photo-promos.ts");
+  const presets = read("lib/public-section-photo-promos.ts").split(
+    "export const eventCategoryPhotoPromos",
+  )[0];
   const urls = {
     events: "/aktivity/trening",
     services: "/adresar/veterinari",
@@ -54,6 +56,12 @@ test("event, service and review banners appear only on their top-level overviews
   assert.match(events, /<PublicMagazineBanner[\s\S]*?testId="events-organizer-cta"/);
   assert.match(directory, /<DirectoryResults/);
   assert.match(reviews, /<PublicSubcategoryNavigator/);
+});
+
+test("the competition banner links to dog sports while the closing banner links to training", () => {
+  const presets = read("lib/public-section-photo-promos.ts");
+  assert.match(presets, /"Preteky":\s*\{[^}]*href: "\/aktivity\/psie-sporty"/);
+  assert.match(presets, /events:\s*\{[^}]*href: "\/aktivity\/trening"/);
 });
 
 test("puppies, health and training hubs share one conditional preset, no topic or breed banners", () => {

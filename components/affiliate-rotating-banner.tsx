@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import {
   getAvailableAffiliateOriginalBanners,
@@ -42,26 +43,31 @@ export function AffiliateRotatingBanner({
     return () => media.removeEventListener("change", sync);
   }, [placement]);
 
-  const format: AffiliateBannerFormat | null = placement === "sidebar"
-    ? "sidebar"
-    : isMobile === null
-      ? null
-      : isMobile
-        ? "mobile"
-        : "horizontal";
+  const format: AffiliateBannerFormat | null =
+    placement === "sidebar"
+      ? "sidebar"
+      : isMobile === null
+        ? null
+        : isMobile
+          ? "mobile"
+          : "horizontal";
   const banners = format ? getAvailableAffiliateOriginalBanners(format) : [];
   const slotKey = `${sitewide ? "sitewide" : placement}:${format ?? placement}`;
   const selectionKey = `${pathname ?? ""}:${slotKey}`;
-  const candidates = format && selection?.key === selectionKey
-    ? getAffiliateBannerCandidates(format, selection.index)
-    : [];
+  const candidates =
+    format && selection?.key === selectionKey
+      ? getAffiliateBannerCandidates(format, selection.index)
+      : [];
   const failedSources = failedImages?.key === selectionKey ? failedImages.sources : [];
   const selected = candidates.find(({ creative }) => !failedSources.includes(creative.src));
   const original = selected?.creative;
-  const imageLoaded = Boolean(original && loadedImage?.key === selectionKey && loadedImage.src === original.src);
+  const imageLoaded = Boolean(
+    original && loadedImage?.key === selectionKey && loadedImage.src === original.src,
+  );
 
   useEffect(() => {
-    if (!pathname || !format || !banners.length || lastSelectionKey.current === selectionKey) return;
+    if (!pathname || !format || !banners.length || lastSelectionKey.current === selectionKey)
+      return;
     lastSelectionKey.current = selectionKey;
     const initialIndex = nextBannerIndexBySlot.get(slotKey) ?? 0;
     const rotation = nextAffiliateRotation(initialIndex, banners.length);
@@ -83,29 +89,37 @@ export function AffiliateRotatingBanner({
     >
       <span className={styles.label}>Reklama · affiliate</span>
       <a
-          className={styles.creative}
-          href={selected.href}
-          rel="nofollow sponsored noopener noreferrer"
-          target="_blank"
-          aria-label={`Reklama ${selected.name}: otvoriť obchod v novej karte`}
-        >
-          <img
-            key={`${selectionKey}:${original.src}`}
-            className={styles.image}
-            src={original.src}
-            alt={`Reklamný banner ${selected.name}`}
-            width={original.width}
-            height={original.height}
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setLoadedImage({ key: selectionKey, src: original.src })}
-            onError={() => setFailedImages((previous) => ({
+        className={styles.creative}
+        style={
+          {
+            "--affiliate-creative-ratio": original.width / original.height,
+            "--affiliate-creative-width": `${original.width}px`,
+          } as CSSProperties
+        }
+        href={selected.href}
+        rel="nofollow sponsored noopener noreferrer"
+        target="_blank"
+        aria-label={`Reklama ${selected.name}: otvoriť obchod v novej karte`}
+      >
+        <img
+          key={`${selectionKey}:${original.src}`}
+          className={styles.image}
+          src={original.src}
+          alt={`Reklamný banner ${selected.name}`}
+          width={original.width}
+          height={original.height}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoadedImage({ key: selectionKey, src: original.src })}
+          onError={() =>
+            setFailedImages((previous) => ({
               key: selectionKey,
               sources: [...(previous?.key === selectionKey ? previous.sources : []), original.src],
-            }))}
-          />
-        </a>
+            }))
+          }
+        />
+      </a>
     </aside>
   );
 }

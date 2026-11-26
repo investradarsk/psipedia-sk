@@ -14,18 +14,22 @@
   display: block;
   margin-bottom: 7px;
   color: var(--muted, #65736d);
-  font-size: .7rem;
+  font-size: 0.7rem;
   line-height: 1.25;
   font-weight: 700;
 }
 
-.creative,
-.placeholder {
+.creative {
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
+  display: block;
+  /* Match the link and the reserved space to the original artwork, even before it loads. */
+  width: min(
+    100%,
+    var(--affiliate-creative-width),
+    calc(var(--affiliate-max-creative-height) * var(--affiliate-creative-ratio))
+  );
+  aspect-ratio: var(--affiliate-creative-ratio);
+  margin-inline: auto;
 }
 
 .creative:focus-visible {
@@ -35,53 +39,27 @@
 
 .image {
   display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  max-height: 600px;
 }
 
 .horizontal {
+  --affiliate-max-creative-height: 100px;
   width: min(calc(100% - 32px), 750px);
 }
 
-.horizontal .creative,
-.horizontal .placeholder {
-  min-height: 100px;
-}
-
-.horizontal .image {
-  max-height: 100px;
-}
-
 .sidebar {
+  --affiliate-max-creative-height: 360px;
   width: min(100%, 290px);
   margin: 12px auto 0;
 }
 
-.sidebar .image {
-  max-height: 360px;
-}
-
-.sidebar .creative,
-.sidebar .placeholder {
-  min-height: 0;
-}
-
 @media (max-width: 767px) {
   .horizontal {
+    --affiliate-max-creative-height: 300px;
     width: min(calc(100% - 28px), 300px);
     margin: 20px auto 24px;
-  }
-
-  .horizontal .creative,
-  .horizontal .placeholder {
-    min-height: 300px;
-  }
-
-  .horizontal .image {
-    max-height: 300px;
   }
 }
 
