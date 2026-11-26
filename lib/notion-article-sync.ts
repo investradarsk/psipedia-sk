@@ -2713,6 +2713,10 @@ async function syncOneNotionPage(
         takeawayRichText: existing.takeawayRichText,
         imageUrl: existing.image,
         imageKey: existing.imageKey,
+        // The published image stays in place. Keep its attribution unless a
+        // webhook explicitly reports an edit to the credit text.
+        imageCredit: signedFields?.has("imageCredit") ? basePayload.imageCredit : existing.imageCredit,
+        imageCreditUrl: existing.imageCreditUrl,
         contentUpdatedAt: now,
         showUpdated: existing.showUpdated,
         blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
@@ -2738,6 +2742,17 @@ async function syncOneNotionPage(
     }
     const preservedPayload: ManagedArticleInput = {
       ...basePayload,
+      // The Notion parser supplies creation defaults for these Admin fields.
+      // An existing draft must keep its editorial data during a periodic import.
+      accent: existing.accent,
+      author: existing.author,
+      authorProfileId: existing.authorProfileId,
+      takeaway: existing.takeaway,
+      takeawayRichText: existing.takeawayRichText,
+      sections: existing.sections,
+      sources: existing.sources,
+      contentUpdatedAt: existing.contentUpdatedAt,
+      showUpdated: existing.showUpdated,
       blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
     };
     const previouslyClearedOg = previousSeo?.ogImageUrl === "" &&
