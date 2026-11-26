@@ -32,7 +32,7 @@ function setup(category){
    },
  };
  const out={};
- runInNewContext(js,{
+ runInNewContext(js,{directoryProfileNotionSyncLocked:async()=>false,
    exports:out,SYSTEM_ACTOR:"directory-sync-contract-test",
    directoryFilterRegistry:[],
    TRAINER_SERVICES_TEXT_METADATA_KEY:"_psipedia_trainer_services_text",
