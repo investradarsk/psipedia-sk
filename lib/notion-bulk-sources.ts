@@ -406,6 +406,21 @@ export async function loadNotionBulkHelpCases(database: D1Database, targetId?: n
   });
 }
 
+/** Never interpret a malformed legacy SEO document as a set of empty cells.
+ * Only the V2 adapter needs this strict observation; ordinary exports remain
+ * backwards-compatible. */
+export async function loadNotionV2HelpCases(database:D1Database,targetId:number) {
+  const records=await loadNotionBulkHelpCases(database,targetId);
+  const row=await database.prepare("SELECT seo_json FROM help_cases WHERE id=? AND "+HELP_ADMIN_DOMAIN_SQL)
+    .bind(targetId).first<{seo_json:string}>();
+  if(!row)return [];
+  const seo=jsonObject(row.seo_json);
+  for(const record of records)if(!seo){
+    for(const field of Object.keys(notionSeoSourceProperties("help-cases",{},"")))delete record.properties[field];
+  }
+  return records;
+}
+
 export async function loadNotionBulkLostFound(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,type,status,slug,dog_name,sex,breed,color,approximate_age,size,short_description,description,distinguishing_marks,
     collar_description,chipped,main_image,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,
