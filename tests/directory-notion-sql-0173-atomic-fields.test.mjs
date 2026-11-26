@@ -53,7 +53,7 @@ function setup(category="veterinari"){
     },
   };
   const exports={};
-  runInNewContext(code,{exports,SYSTEM_ACTOR:"notion-field-event",directoryFilterRegistry:[],
+  runInNewContext(code,{exports,directoryProfileNotionSyncLocked:async()=>false,SYSTEM_ACTOR:"notion-field-event",directoryFilterRegistry:[],
     TRAINER_SERVICES_TEXT_METADATA_KEY:"_psipedia_trainer_services_text",
     DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS:[],
     isDirectoryEventPilotCategory,isDirectoryFieldEventCategory,
