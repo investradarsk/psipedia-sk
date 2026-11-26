@@ -1070,3 +1070,47 @@ test("V2 organization receipts include actual scalar and canonical location edit
     assert.notEqual(db.prepare("SELECT updated_at FROM help_organizations WHERE id=1").get().updated_at,next);
   } finally {db.close()}
 });
+
+test("V2 adoption Admin receipts preserve typed zero, false and explicit clears", async () => {
+  const {ADOPTION_V2_FIELDS,commitAdoptionV2AdminEdit,adoptionV2Value}=await import("../lib/notion-adoption-v2-contract.ts");
+  const {decideUnifiedField}=await import("../lib/notion-unified-field-sync.ts");
+  const db=new DatabaseSync(":memory:");
+  try {
+    const columns=[...new Set([...Object.values(ADOPTION_V2_FIELDS).map(([column])=>column),"updated_at","updated_by"])];
+    db.exec("CREATE TABLE adoption_dogs(id INTEGER PRIMARY KEY,"+columns.map(c=>c+" "+(["approximate_age_months","weight","breed_mix"].includes(c)?"NUMERIC":"TEXT")).join(",")+"); CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../docs/proposals/notion-unified-admin-edits-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-help-receipts-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    db.exec("INSERT INTO adoption_dogs(id,name,description,breed_mix,approximate_age_months,contact_phone,updated_at,updated_by) VALUES(1,'Dog','Keep',1,3,'123','r1','admin'); INSERT INTO notion_agenda_sync VALUES('adoptions',1,'page','hash');");
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{
+          const stmt=db.prepare(sql);
+          if(/^SELECT/i.test(sql))return {success:true,results:stmt.all(...args)};
+          const result=stmt.run(...args);
+          return {success:true,meta:{changes:Number(result.changes)}};
+        });db.exec("COMMIT");return results}catch(error){db.exec("ROLLBACK");throw error}
+      }
+    };
+    const mutation=adapter.prepare("UPDATE adoption_dogs SET breed_mix=0,approximate_age_months=0,contact_phone=NULL,updated_at='r2' WHERE id=1 AND updated_at=?");
+    const input={id:1,expectedRevision:"r1",nextRevision:"r2",editor:"admin"};
+    await assert.rejects(commitAdoptionV2AdminEdit(adapter,mutation.bind("stale"),{...input,expectedRevision:"stale"}));
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_unified_admin_field_edits").get().n,0);
+    await commitAdoptionV2AdminEdit(adapter,mutation.bind("r1"),input);
+    const receipts=Object.fromEntries(db.prepare("SELECT field_key,value_json,explicit_clear FROM notion_unified_admin_field_edits").all().map(row=>[row.field_key,[JSON.parse(row.value_json),row.explicit_clear]]));
+    assert.deepEqual(receipts["Kríženec"],[false,0]);
+    assert.deepEqual(receipts["Vek mesiace"],[0,0]);
+    assert.deepEqual(receipts["Kontaktný telefón"],["",1]);
+    assert.equal(receipts["Popis"],undefined);
+    assert.equal(db.prepare("SELECT count(*) n FROM notion_help_admin_edit_intent").get().n,0);
+    assert.equal(adoptionV2Value("Hmotnosť",null),null);
+    assert.equal(adoptionV2Value("Vek mesiace",0),0);
+    assert.equal(adoptionV2Value("Kríženec",0),false);
+    const identity={agenda:"adoptions",entityId:"1",pageId:"page",field:"Kontaktný telefón"};
+    const present=value=>({present:true,value});
+    assert.equal(decideUnifiedField({identity,baseline:{value:"123",version:"hash"},notion:present(""),psipedia:present("123")}).reason,"UNVERIFIED_NOTION_CLEAR");
+  }finally{db.close()}
+});
