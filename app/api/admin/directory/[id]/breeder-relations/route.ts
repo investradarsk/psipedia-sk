@@ -40,7 +40,9 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const selected = validateBreederRelations(await request.json());
     const before = await getBreederRelationSelection(database, id);
-    const saved = await saveBreederRelationSelection(database, id, selected, auth.user.email);
+    const unified = (env as unknown as NotionDirectorySyncBindings).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+    const saved = await saveBreederRelationSelection(database, id, selected, auth.user.email,
+      unified ? { authenticatedAdmin: true } : undefined);
     // A Notion outage or an unrecognised name never rolls back the Admin save.
     const changed: BreederRelationField[] = [];
     if (before) {
