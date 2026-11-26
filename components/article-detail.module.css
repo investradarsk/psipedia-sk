@@ -298,10 +298,10 @@
 .readingShell :global(.takeaway-box) {
   margin: 25px 0 31px;
   padding: 16px 19px;
-  border: 0;
+  border: 1px solid #e4d6ca;
   border-left: var(--ps-premium-accent-width) solid var(--coral-dark);
   border-radius: var(--ps-radius-card);
-  background: var(--paper);
+  background: #fbf3ea;
   box-shadow: none;
 }
 
@@ -519,20 +519,28 @@
 }
 
 .readingShell :global(.article-block-callout--tip) {
+  border: 1px solid #c8ddce;
   border-left: 3px solid #2e7958;
-  background: #f1f7f2;
+  background: #eaf3ec;
 }
 
 .readingShell :global(.article-block-callout--warning) {
+  border: 1px solid #ead1b8;
   border-left: 3px solid #c87636;
-  background: #fff6ed;
+  background: #fcebdc;
 }
 
 .readingShell :global(.article-block-quote) {
-  border-left-width: 3px;
+  border: 1px solid #d4e0d7;
+  border-left: 3px solid #809c8d;
   border-radius: var(--ps-radius-card);
-  background: #f5f7f4;
+  background: #edf2ed;
   box-shadow: none;
+}
+
+.readingShell :global(.article-block-callout--warning .article-block-rich-content strong),
+.readingShell :global(.article-block-callout--warning > strong) {
+  color: #934619;
 }
 
 .readingShell :global(.article-block-table-wrap) {

@@ -1310,7 +1310,7 @@
 .topicStageGrid .featuredContentList > :first-child [data-article-title] {
   color: var(--forest-dark);
   font-family: var(--ps-font-heading);
-  font-size: clamp(1.18rem, 2vw, 1.55rem);
+  font-size: clamp(1.239rem, 2.1vw, 1.6275rem);
   line-height: 1.2;
 }
 @media (min-width: 901px) {

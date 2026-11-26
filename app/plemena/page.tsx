@@ -3,6 +3,7 @@ import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { BreedBrowser } from "@/components/breed-browser";
 import { BreedArticleCollection } from "@/components/breed-article-collection";
 import { getPublishedArticleSummaries, getPublishedBreedArticleGroupTeasers } from "@/lib/article-store";
@@ -103,6 +104,7 @@ export default async function BreedsPage({ searchParams }: Props) {
               }
             />
           </UnifiedSectionHeroShell>
+          <AffiliateRotatingBanner placement="horizontal" />
           <section className="page-body">
             <PublicContentShell variant="listing">
             <BreedBrowser key={breedAtlasHref(initialFilters)} breeds={breeds} groups={fciGroups} groupArticles={groupArticles} initialFilters={initialFilters} hidePrimarySearch actions={breedSection ? (

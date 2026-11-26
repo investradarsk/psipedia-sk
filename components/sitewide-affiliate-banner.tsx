@@ -9,18 +9,9 @@ import styles from "./sitewide-affiliate-banner.module.css";
 export function SitewideAffiliateBanner() {
   const pathname = usePathname();
   if (!canShowGlobalAffiliateBanner(pathname)) return null;
-  // Full-width map and partner workspaces keep their normal horizontal fallback.
-  const allowRightRail = pathname != null && !/^\/(?:mapa|partner)(?:\/|$)/.test(pathname);
   return (
-    <>
-      {allowRightRail ? (
-        <div className={styles.rail} data-sitewide-affiliate-banner data-sitewide-affiliate-rail>
-          <AffiliateRotatingBanner placement="sidebar" sitewide />
-        </div>
-      ) : null}
-      <div className={styles.wrapper} data-sitewide-affiliate-banner>
-        <AffiliateRotatingBanner placement="horizontal" sitewide />
-      </div>
-    </>
+    <div className={styles.wrapper} data-sitewide-affiliate-banner>
+      <AffiliateRotatingBanner placement="horizontal" sitewide />
+    </div>
   );
 }

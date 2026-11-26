@@ -2695,7 +2695,13 @@
 
   .homeV2 :global(.home-magazine-side) {
     display: flex;
+    flex-direction: column;
     align-items: stretch;
+  }
+
+  .homeV2 :global(.home-magazine-side > .home-magazine-sidebar-block) {
+    flex: 1;
+    min-width: 0;
   }
 
   .homeV2 :global(.home-magazine-sidebar-block) {

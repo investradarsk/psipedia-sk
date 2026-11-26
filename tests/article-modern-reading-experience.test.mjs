@@ -597,7 +597,7 @@ test("ARTICLE-READING-EDITORIAL-2 keeps original editor blocks and makes two-col
     styles,
     /article-block-table-wrap\[data-columns="2"\] td:first-child\)[^{]*\{[^}]*font-weight:\s*700;/s,
   );
-  assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*background:\s*#fff6ed;/s);
+  assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*background:\s*#fcebdc;/s);
   assert.match(
     styles,
     /article-blocks h2\),[\s\S]*article-blocks h3\)[^{]*\{[^}]*font-family:\s*var\(--ps-font-heading\)/,
@@ -620,7 +620,7 @@ test("ARTICLE-READING-COMPACT-3 reduces only prose and paragraph spacing without
   );
   assert.match(
     styles,
-    /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s,
+    /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fcebdc;/s,
   );
   assert.match(
     styles,
@@ -679,4 +679,22 @@ test("PUBLIC-MOBILE-GUTTER-1 keeps titles and prose aligned with the homepage mo
   );
   assert.match(styles, /color:\s*var\(--ps-reading-color\);/);
   assert.doesNotMatch(mobile, /margin-inline:\s*-8px;/);
+});
+
+test("editorial callouts and tables retain subtle contrast and existing geometry", () => {
+  assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*border: 1px solid #ead1b8;[^}]*background: #fcebdc;/s);
+  assert.match(styles, /article-block-callout--tip\)[^{]*\{[^}]*background: #eaf3ec;/s);
+  const globalStyles = readFileSync("app/globals.css", "utf8");
+  assert.match(globalStyles, /\.article-block-table-wrap th\s*\{[^}]*background: #e1ebe3;/s);
+  assert.match(globalStyles, /\.article-block-table-wrap tbody tr:nth-child\(even\)/);
+});
+
+test("shared compact article titles are five percent larger at each breakpoint", () => {
+  const base = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
+  const card = readFileSync("components/public-visual-system/public-article-card.module.css", "utf8");
+  const section = readFileSync("components/editorial-section.module.css", "utf8");
+  assert.match(base, /\.articleListTitle\s*\{[^}]*font-size: clamp\(1\.05rem, 1\.5225vw, 1\.26rem\)/s);
+  assert.match(card, /\.row \[data-article-title\]\s*\{[^}]*font-size: 1\.155rem;/s);
+  assert.match(card, /\.row\.stacked \[data-article-title\]\s*\{[^}]*font-size: clamp\(1\.2075rem, 1\.575vw, 1\.47rem\)/s);
+  assert.match(section, /\.featuredContentList > :first-child \[data-article-title\]\s*\{[^}]*font-size: clamp\(1\.239rem, 2\.1vw, 1\.6275rem\)/s);
 });

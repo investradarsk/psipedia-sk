@@ -185,3 +185,16 @@ test("original partner creatives are not restyled or rebuilt", () => {
   assert.match(ads, /original\.src/);
   assert.match(ads, /Reklama · affiliate/);
 });
+
+test("both themes and every banner size place CTA beneath copy, not in a right column", () => {
+  const css = read("app/banner-visuals.css");
+  assert.doesNotMatch(css, /fit-content\(36%\)/);
+  assert.doesNotMatch(css, /justify-self:\s*end;/);
+  const canonical = css.slice(css.indexOf("/* Canonical CTA position:"));
+  assert.match(canonical, /\[data-public-banner-content\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important;/);
+  assert.match(canonical, /\[data-public-banner-content\] > a\s*\{[^}]*justify-self:\s*start !important;/);
+  assert.match(canonical, /\[class\*="calloutLayout"\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important;/);
+  assert.match(canonical, /justify-content:\s*flex-start !important;/);
+  assert.match(read("components/content-hub-cta.tsx"), /data-public-banner-actions/);
+  assert.match(read("components/editorial-section.tsx"), /data-public-banner-actions/);
+});

@@ -21,7 +21,7 @@ export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
         {cta.lead && <p className={styles.lead}>{cta.lead}</p>}
         <p className={styles.text}>{cta.text}</p>
       </div>
-      <div className={styles.actions}>
+      <div className={styles.actions} data-public-banner-actions>
         {cta.actions.map((action) => (
           <PublicActionLink href={action.href} appearance="context"
             variant={action.role === "primary" ? "primary" : "secondary"}

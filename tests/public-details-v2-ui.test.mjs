@@ -139,6 +139,8 @@ test(
           : [1440, 320]) {
           const context = await browser.newContext({ viewport: { width, height: 960 } });
           const page = await context.newPage();
+          page.setDefaultTimeout(15000);
+          page.setDefaultNavigationTimeout(20000);
           const writes = [];
           let rejectInquiry = true;
           const errors = [];
@@ -207,17 +209,31 @@ test(
           assert.match(typography.heading, /Psipedia Newsreader/, name + " V2 headline");
           assert.match(typography.body, /Psipedia Inter/, name + " V2 body");
           assert.ok(typography.loaded, name + " V2 local font files loaded");
-          await page.locator("main img").evaluateAll((imgs) =>
-            Promise.all(
-              imgs.map((i) =>
-                i.complete
-                  ? null
-                  : new Promise((r) => {
-                      i.onload = r;
-                      i.onerror = r;
-                    }),
-              ),
-            ),
+          // Affiliate creatives are lazy and may be hidden at this viewport.
+          // They must not hold the profile-media fixture open. The separate
+          // affiliate regression tests cover ad loading and placement.
+          await page.locator("main img").evaluateAll(
+            (imgs) => Promise.all(imgs.filter((img) => !img.closest("[data-affiliate-rotating-banner]")).map((img) => {
+              if (img.complete) return;
+              // Resolve even on failed external media; the real fallback and
+              // decoded nonzero dimensions are asserted below.
+              return new Promise((resolve, reject) => {
+                const cleanup = () => {
+                  clearTimeout(timer);
+                  img.removeEventListener("load", done);
+                  img.removeEventListener("error", done);
+                };
+                const done = () => { cleanup(); resolve(); };
+                const timer = setTimeout(() => {
+                  cleanup();
+                  reject(new Error("Profile image did not settle: " + img.getAttribute("src")));
+                }, 15000);
+                img.addEventListener("load", done, { once: true });
+                img.addEventListener("error", done, { once: true });
+                img.loading = "eager";
+                if (img.complete) done();
+              });
+            })),
           );
           assert.deepEqual(errors, [], name + " console");
           const overflow = await page.evaluate(

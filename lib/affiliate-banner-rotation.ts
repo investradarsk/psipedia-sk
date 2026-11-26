@@ -81,7 +81,7 @@ export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerF
   ).filter(({ creative }) => creative.width > 0 && creative.height > 0 && (
     placement === "horizontal" ? creative.width > creative.height :
     placement === "mobile" ? creative.width === creative.height :
-    creative.width <= creative.height
+    creative.width <= creative.height && creative.height <= creative.width * 1.5
   ));
 }
 

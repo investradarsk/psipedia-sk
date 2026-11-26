@@ -319,8 +319,8 @@
 }
 @media (min-width: 821px) {
   .bannerContent {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 18px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
   .compact .bannerContent {
     grid-template-columns: minmax(0, 1fr);

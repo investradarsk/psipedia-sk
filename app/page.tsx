@@ -116,53 +116,55 @@ async function HomeBelowHero({
         articles={articleSelection.latest}
         sidebar={
           <>
-          <HomeMagazineSidebar
-            title="Najbližšie podujatia"
-            href="/podujatia"
-            actionLabel="Celý kalendár"
-          >
-            {nextEvents.length ? (
-              <div className="home-event-list home-side-list" data-home-events>
-                {nextEvents.map((event) => (
-                  <article className="home-event-item" key={event.id} data-home-event>
-                    <HomeSidebarRow
-                      href={eventHref(event)}
-                      media={
-                        <EventImage
-                          imageUrl={event.imageUrl}
-                          eventId={event.id}
-                          eventType={event.eventType}
-                          mode={event.imageDisplay}
-                          config={event.thumbnailImageDisplay}
-                          alt={`Obrázok k podujatiu ${event.title}`}
-                          sizes="76px"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      }
-                      eyebrow={<time dateTime={event.startDate}>{formatEventDate(event)}</time>}
-                      title={event.title}
-                      description={publicLocationValue(event.city, "city")}
-                    />
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <PublicEmptyState
-                variant="context"
-                className="home-editorial-empty"
-                data-home-events-empty
-              >
-                <strong>Pozri si kalendár podujatí</strong>
-                <p>Aktuálne termíny a všetky kategórie nájdeš v kalendári.</p>
-              </PublicEmptyState>
-            )}
-          </HomeMagazineSidebar>
-          <AffiliateRotatingBanner placement="sidebar" />
+            <HomeMagazineSidebar
+              title="Najbližšie podujatia"
+              href="/podujatia"
+              actionLabel="Celý kalendár"
+            >
+              {nextEvents.length ? (
+                <div className="home-event-list home-side-list" data-home-events>
+                  {nextEvents.map((event) => (
+                    <article className="home-event-item" key={event.id} data-home-event>
+                      <HomeSidebarRow
+                        href={eventHref(event)}
+                        media={
+                          <EventImage
+                            imageUrl={event.imageUrl}
+                            eventId={event.id}
+                            eventType={event.eventType}
+                            mode={event.imageDisplay}
+                            config={event.thumbnailImageDisplay}
+                            alt={`Obrázok k podujatiu ${event.title}`}
+                            sizes="76px"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        }
+                        eyebrow={<time dateTime={event.startDate}>{formatEventDate(event)}</time>}
+                        title={event.title}
+                        description={publicLocationValue(event.city, "city")}
+                      />
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <PublicEmptyState
+                  variant="context"
+                  className="home-editorial-empty"
+                  data-home-events-empty
+                >
+                  <strong>Pozri si kalendár podujatí</strong>
+                  <p>Aktuálne termíny a všetky kategórie nájdeš v kalendári.</p>
+                </PublicEmptyState>
+              )}
+            </HomeMagazineSidebar>
+            <AffiliateRotatingBanner placement="sidebar" />
           </>
         }
       />
-      <AffiliateRotatingBanner placement="horizontal" />
+      <div data-affiliate-stacked-fallback>
+        <AffiliateRotatingBanner placement="horizontal" />
+      </div>
       <div className="home-desktop-interlude">
         <PublicHelpPhotoBanner
           promo={lostFoundSubmitPromo}

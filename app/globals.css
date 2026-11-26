@@ -8880,8 +8880,9 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 }
 .article-block-table-wrap {
   overflow-x: auto;
-  border: 1px solid #d8e1da;
+  border: 1px solid #becfc3;
   border-radius: 12px;
+  background: var(--paper);
 }
 .article-block-table-wrap table {
   width: 100%;
@@ -8896,7 +8897,11 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 }
 .article-block-table-wrap th {
   color: #234b3a;
-  background: #f0f5f1;
+  background: #e1ebe3;
+  border-bottom-color: #becfc3;
+}
+.article-block-table-wrap tbody tr:nth-child(even) {
+  background: #f1f5f1;
 }
 .article-block-source,
 .article-block-related {

@@ -1325,6 +1325,7 @@
 }
 .page .compactRelated {
   margin-block: 14px;
+  margin-inline: auto;
 }
 .page .contentLayout .compactRelated {
   margin-block: 0;

@@ -632,8 +632,8 @@ export function EventCalendar({
         </section>
       </div>
       )}
-            <AffiliateRotatingBanner placement="sidebar" />
             <div data-events-popularity>{sidebar}</div>
+            <AffiliateRotatingBanner placement="sidebar" />
           </>}
         />
     </div>

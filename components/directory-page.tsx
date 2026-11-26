@@ -224,7 +224,9 @@ export async function DirectoryPage({
                   />
                 </div>
 
-            <AffiliateRotatingBanner placement="horizontal" />
+            <div data-affiliate-stacked-fallback>
+              <AffiliateRotatingBanner placement="horizontal" />
+            </div>
             <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
               <PublicFilterPanel
                 title="Filtrovať služby"
@@ -295,7 +297,6 @@ export async function DirectoryPage({
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <AffiliateRotatingBanner placement="sidebar" />
                 {priorityLinks.length > 0 ? (
                   <section className={styles.sidebarCard} aria-labelledby="category-priority-links">
                     <h2 id="category-priority-links">Tipy z adresára</h2>
@@ -315,6 +316,7 @@ export async function DirectoryPage({
                     </section>
                   )}
                 </div>}
+                <AffiliateRotatingBanner placement="sidebar" />
               </aside>
             </PublicFilterLayout>
           </PublicContentShell>

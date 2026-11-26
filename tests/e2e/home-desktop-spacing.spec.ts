@@ -47,3 +47,32 @@ test("mobile editorial action remains after the contextual rail", async ({ page 
     expect(action!.y).toBeGreaterThanOrEqual(side!.y + side!.height);
   }
 });
+
+for (const width of [1280, 1440, 1920]) {
+  test(`homepage affiliate keeps the full event rail width at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 960 });
+    await page.route(/https:\/\/(?:api\.app\.dognet\.com|visibility\.postaffiliatepro\.com)\//, (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350"><rect width="100%" height="100%" fill="green"/></svg>',
+      }),
+    );
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const rail = page.locator("[data-home-latest] .home-magazine-side");
+    const events = rail.locator(".home-magazine-sidebar-block");
+    const ad = rail.locator('[data-affiliate-rotating-banner="sidebar"]');
+    await events.scrollIntoViewIfNeeded();
+    await expect(ad).toBeAttached();
+    await ad.scrollIntoViewIfNeeded();
+    await expect(ad).toBeVisible();
+    await expect(events).toBeVisible();
+    const railBox = (await rail.boundingBox())!;
+    const eventBox = (await events.boundingBox())!;
+    const adBox = (await ad.boundingBox())!;
+    expect(eventBox.width).toBeGreaterThanOrEqual(railBox.width - 2);
+    expect(eventBox.width).toBeGreaterThanOrEqual(258);
+    expect(adBox.x).toBeGreaterThanOrEqual(railBox.x - 1);
+    expect(adBox.x + adBox.width).toBeLessThanOrEqual(railBox.x + railBox.width + 1);
+    expect(adBox.y).toBeGreaterThanOrEqual(eventBox.y + eventBox.height);
+  });
+}

@@ -79,10 +79,10 @@ test("only original Dognet images appear in compatible placements", () => {
 
   assert.deepEqual(horizontal.map((item) => item.id), ["zoohit"]);
   assert.deepEqual(mobile.map((item) => item.id), ["abc-zoo"]);
-  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit", "abc-zoo", "abc-zoo", "abc-zoo"]);
+  assert.deepEqual(sidebar.map((item) => item.id), ["abc-zoo", "abc-zoo"]);
   assert.ok(horizontal.every(({ creative }) => creative.width > creative.height));
   assert.ok(mobile.every(({ creative }) => creative.width === creative.height));
-  assert.ok(sidebar.every(({ creative }) => creative.width <= creative.height));
+  assert.ok(sidebar.every(({ creative }) => creative.width <= creative.height && creative.height <= creative.width * 1.5));
   assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES.fera, undefined);
 
   assert.deepEqual(
@@ -95,10 +95,6 @@ test("only original Dognet images appear in compatible placements", () => {
       {
         src: "https://api.app.dognet.com/files/t/00f/00fd437025798c026a889b20e1f19ec0f6bf45f8.png",
         width: 1080, height: 1350,
-      },
-      {
-        src: "https://api.app.dognet.com/files/t/027/027698d3980d5d99f5d9dab9e67530ead4c2cbcd.png",
-        width: 1080, height: 1920,
       },
     ],
   );
@@ -117,7 +113,7 @@ test("only original Dognet images appear in compatible placements", () => {
   assert.deepEqual(nextAffiliateRotation(2, 3), { selected: 2, next: 0 });
 });
 
-test("mobile uses square originals and sidebar uses tall or square originals", () => {
+test("mobile uses square originals and sidebar uses compact portrait or square originals", () => {
   const component = source("components/affiliate-rotating-banner.tsx");
   const css = source("components/affiliate-rotating-banner.module.css");
   assert.match(component, /matchMedia/);
@@ -142,7 +138,7 @@ test("single-column article shows one compatible banner after introduction, not 
   assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
   assert.match(articleCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
-  assert.match(footerCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-shop\]\)/);
+  assert.match(footerCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-rotating-banner\]\)/);
   assert.match(footerCSS, /display:\s*none;/);
   assert.match(article, /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
 });
@@ -170,12 +166,12 @@ test("an unavailable external artwork never leaves a blank affiliate label", () 
   assert.doesNotMatch(component, /styles\.placeholder/);
 });
 
-test("sitewide fallback reuses the existing component and yields to loaded contextual ads", () => {
+test("sitewide fallback reuses the existing component and yields to contextual ads", () => {
   const sitewide = source("components/sitewide-affiliate-banner.tsx");
   const css = source("components/sitewide-affiliate-banner.module.css");
   assert.match(sitewide, /<AffiliateRotatingBanner placement="horizontal" sitewide\s*\/>/);
   assert.match(sitewide, /canShowGlobalAffiliateBanner\(pathname\)/);
-  assert.match(css, /\[data-affiliate-rotating-banner="sidebar"\]\[data-affiliate-shop\]/);
+  assert.match(css, /\[data-affiliate-rotating-banner="sidebar"\]/);
   assert.match(css, /:not\(\[data-sitewide-affiliate-banner\] \*\)/);
 });
 
@@ -212,7 +208,7 @@ test("empty slots collapse and stacked article layouts never show portrait sideb
   assert.match(article, /\.mobileAffiliateBanner:has\(:global\(\[data-affiliate-rotating-banner\]\)\)/);
 });
 
-test("portrait placements are in right columns, never in stacked content or footer", () => {
+test("sidebar ads follow existing panel content; no external advertising rail", () => {
   const article = source("components/article-detail.tsx");
   const home = source("app/page.tsx");
   const directory = source("components/directory-page.tsx");
@@ -220,12 +216,17 @@ test("portrait placements are in right columns, never in stacked content or foot
   const sitewide = source("components/sitewide-affiliate-banner.tsx");
   const css = source("components/affiliate-rotating-banner.module.css");
   const railCSS = source("components/sitewide-affiliate-banner.module.css");
-  assert.match(article, /className=\{styles\.sidebarSticky\}>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  const detail = source("components/detail-primitives/detail-primitives.tsx");
+  assert.match(article, /className=\{styles\.sidebarSticky\}>[\s\S]*?<ArticlePopularitySidebar[\s\S]*?<AffiliateRotatingBanner placement="sidebar"\s*\/>\s*<\/div>/);
   assert.match(home, /<\/HomeMagazineSidebar>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
-  assert.match(directory, /className=\{styles\.directorySidebar\}[^>]*>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
-  assert.match(calendar, /<AffiliateRotatingBanner placement="sidebar"\s*\/>\s*<div data-events-popularity>/);
-  assert.match(sitewide, /data-sitewide-affiliate-rail>\s*<AffiliateRotatingBanner placement="sidebar" sitewide\s*\/>/);
+  assert.match(source("app/home-v2.module.css"), /\.home-magazine-side\)\s*\{\s*display: flex;\s*flex-direction: column;/);
+  assert.match(directory, /data-directory-popular-content[\s\S]*?<AffiliateRotatingBanner placement="sidebar"\s*\/>\s*<\/aside>/);
+  assert.match(calendar, /<div data-events-popularity>\{sidebar\}<\/div>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  assert.match(detail, /\{aside\}\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  assert.match(source("app/plemena/page.tsx"), /<\/UnifiedSectionHeroShell>\s*<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
+  assert.doesNotMatch(sitewide, /data-sitewide-affiliate-rail|placement="sidebar"/);
+  assert.doesNotMatch(railCSS, /position:\s*absolute|\.rail\s*\{/);
   assert.match(css, /@media \(max-width: 1199px\)\s*\{\s*\.sidebar\s*\{\s*display: none;/);
-  assert.match(railCSS, /@media \(min-width: 1600px\)/);
-  assert.match(railCSS, /left: calc\(50% \+/);
+  assert.match(css, /\.sidebar \.image\s*\{\s*max-height: 360px/);
+  assert.doesNotMatch(source("components/affiliate-rotating-banner.tsx"), /Math\.random/);
 });
