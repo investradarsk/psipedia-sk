@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS notion_unified_field_state (
   notion_page_id TEXT NOT NULL,
   field_key TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+  baseline_version TEXT,
   baseline_json TEXT CHECK (baseline_json IS NULL OR json_valid(baseline_json)),
   notion_json TEXT CHECK (notion_json IS NULL OR json_valid(notion_json)),
   psipedia_json TEXT CHECK (psipedia_json IS NULL OR json_valid(psipedia_json)),
