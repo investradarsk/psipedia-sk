@@ -1,3 +1,5 @@
+import { commitHelpCaseV2AdminEdit } from "@/lib/notion-help-case-v2-contract";
+import { nextHelpV2Revision } from "@/lib/notion-help-v2-admin-receipts";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
@@ -7,6 +9,7 @@ import { deleteManagedHelpCase, getManagedHelpCaseById, isHelpCaseConflict, upda
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
+function unifiedHelpEnabled(){return (env as unknown as TargetedNotionSaveBindings).NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";}
 type UploadBindings = { BUCKET?: R2Bucket };
 
 async function numericId(params: Props["params"]) { const value = Number.parseInt((await params).id, 10); return Number.isSafeInteger(value) && value > 0 ? value : null; }
@@ -19,12 +22,17 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if(auth.response||!auth.user)return auth.response??unauthorizedAdminResponse();
+  const user=auth.user;
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID prípadu." }, { status: 400 });
   try {
     const before = await getManagedHelpCaseById(id); if (!before) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
-    const item = await updateManagedHelpCase(id, await request.json() as ManagedHelpCaseInput, user.email, before); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
+    const payload = await request.json() as ManagedHelpCaseInput & {expectedUpdatedAt?:unknown};
+    if(unifiedHelpEnabled()&&(typeof payload.expectedUpdatedAt!=="string"||payload.expectedUpdatedAt!==before.updatedAt))
+      return Response.json({error:"Prípad sa medzičasom zmenil. Obnov stránku."},{status:409});
+    const item = await updateManagedHelpCase(id, payload, user.email, before, unifiedHelpEnabled()?before.updatedAt:undefined); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(before.imageKey).catch(() => undefined); }
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"help",id,item.status);
@@ -69,11 +77,13 @@ export async function PATCH(request: Request, { params }: Props) {
   if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
   try {
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
-    const row = await db.prepare(`UPDATE help_cases
+    const now=unifiedHelpEnabled()?nextHelpV2Revision(input.expectedUpdatedAt):new Date().toISOString();
+    const statement = db.prepare(`UPDATE help_cases
       SET title=?1,excerpt=?2,updated_at=?3,updated_by=?4
       WHERE id=?5 AND updated_at=?6 AND category=?7 AND ${HELP_ADMIN_DOMAIN_SQL}
-      RETURNING id`).bind(title, excerpt, new Date().toISOString(), auth.user.email,
-        id, input.expectedUpdatedAt, input.expectedCategory).first<{ id: number }>();
+      RETURNING id`).bind(title, excerpt, now, auth.user.email,
+        id, input.expectedUpdatedAt, input.expectedCategory);
+    const row=unifiedHelpEnabled()?(await commitHelpCaseV2AdminEdit(db,statement,{id,expectedRevision:input.expectedUpdatedAt,nextRevision:now,editor:auth.user.email})).results?.[0] as {id:number}|undefined:await statement.first<{id:number}>();
     if (!row) return Response.json({ error: "Prípad sa zmenil alebo nepatrí do tejto kategórie. Obnov tabuľku." }, { status: 409 });
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
     return Response.json({ item: await getManagedHelpCaseById(id), notionFieldSync },
