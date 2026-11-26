@@ -38,12 +38,15 @@ function searchAfter(before:ManagedBreed,field:string,value:unknown) {
 export async function saveBreedNotionField(input:{
   database:D1Database;breedId:number;field:string;value:unknown;
   actor?:string;
+  expectedRevision?:string;
 }):Promise<{updated:boolean;breed:ManagedBreed}> {
   if (!Number.isSafeInteger(input.breedId) || input.breedId<1)
     throw Error("BREED_EVENT_PSI_ID_INVALID");
   for (let attempt=0;attempt<4;attempt++) {
     const before=await getManagedBreed(input.breedId);
     if (!before) throw Error("BREED_EVENT_PROFILE_NOT_FOUND");
+    if (input.expectedRevision !== undefined && before.updatedAt !== input.expectedRevision)
+      throw Error("BREED_UNIFIED_REVISION_CHANGED");
     const previous=input.field==="fciNumber"
       ?before.fciNumber
       :(breedFieldSnapshot(before) as Record<string,unknown>)[input.field];
