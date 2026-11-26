@@ -73,12 +73,13 @@ export async function writeUnifiedFieldState(
         "INSERT INTO notion_unified_field_state " +
         "(agenda,entity_id,notion_page_id,field_key,baseline_version,baseline_json,notion_json,psipedia_json," +
         "notion_edit_json,psipedia_edit_json,status,reason,updated_at) " +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING version",
-      ).bind(...key(id), ...values).first<{version: number}>()
+        "SELECT ?,?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=?) ON CONFLICT DO NOTHING RETURNING version",
+      ).bind(...key(id), ...values,id.agenda,id.entityId).first<{version: number}>()
     : await db.prepare(
         "UPDATE notion_unified_field_state SET baseline_version=?,baseline_json=?,notion_json=?,psipedia_json=?," +
         "notion_edit_json=?,psipedia_edit_json=?,status=?,reason=?,updated_at=?,version=version+1 " +
-        "WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? AND version=? RETURNING version",
+        "WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? AND version=? " +
+        "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=notion_unified_field_state.agenda AND f.entity_id=notion_unified_field_state.entity_id) RETURNING version",
       ).bind(...values, ...key(id), expectedVersion).first<{version: number}>();
   return row?.version ?? null;
 }
