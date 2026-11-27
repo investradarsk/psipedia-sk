@@ -24,8 +24,9 @@ test("contextual banner geometry references the existing common radius", () => {
   const banner = read("components/public-visual-system/public-context-banner.module.css");
   const tokens = read("app/design-system.css");
   assert.match(tokens, /--ps-radius-filter: 18px;/);
-  assert.match(banner, /--ps-banner-radius: var\(--ps-radius-filter, 18px\);/);
-  assert.match(banner, /border-radius: var\(--ps-banner-radius, 18px\);/);
+  const shared = read("app/banner-visuals.css");
+  assert.match(shared, /border-radius: var\(--ps-bnr-radius\)/);
   assert.match(banner, /\.inline > \.copy/);
-  assert.match(banner, /min-height: 48px;/);
+  assert.doesNotMatch(banner, /grid-template-columns:/);
+  assert.match(shared, /min-height: 48px;/);
 });
