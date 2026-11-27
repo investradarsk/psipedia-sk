@@ -119,15 +119,12 @@ test("approved editorial art reuses the soft framed brand palette and article ra
   const css = read("app/banner-visuals.css");
   const sharedStart = css.indexOf(".ps-public-banner-frame[data-banner-visual][data-banner-size] {");
   const shared = css.slice(sharedStart, css.indexOf("}", sharedStart));
-  // Admin preview retains its legacy fallback; public V9 overrides it.
-  assert.match(shared, /border-radius:\s*0\s*!important/);
-  const premium = css.slice(css.indexOf("/* V2-04"));
-  assert.match(premium, /border-left-width:\s*var\(--ps-premium-accent-width\)\s*!important/);
-  assert.match(premium, /border-left-color:\s*var\(--ps-premium-accent\)\s*!important/);
-  assert.match(premium, /border-radius:\s*var\(--ps-bnr-radius\)\s*!important/);
-  assert.match(premium, /--ps-bnr-gradient:\s*var\(--ps-premium-gradient\)/);
-  assert.match(premium, /--ps-bnr-radius:\s*var\(--ps-radius-banner-small\)/);
-  assert.match(premium, /--ps-bnr-radius:\s*var\(--ps-radius-banner-large\)/);
+  assert.match(shared, /border-left-width:\s*4px\s*!important/);
+  assert.match(shared, /border-left-color:\s*var\(--ps-bnr-accent\)\s*!important/);
+  assert.match(shared, /border-radius:\s*var\(--ps-bnr-radius\)\s*!important/);
+  assert.match(css, /--ps-bnr-gradient:\s*var\(--ps-bnr-dark-gradient\)/);
+  assert.match(css, /--ps-bnr-radius:\s*16px/);
+  assert.match(css, /--ps-bnr-radius:\s*18px/);
   assert.match(css, /psipedia-banner-dog-outline\.svg/);
   assert.match(css, /data-banner-semantic="urgent"/);
   const detailCss = read("components/article-detail.module.css");
@@ -148,7 +145,7 @@ test("all editorial hub callouts use the same S/M/L banner frame", () => {
   assert.match(section, /size=\{subpage \? "medium" : "large"\}/);
   assert.match(section, /data-banner-semantic=\{config\.urgent \? "urgent" : undefined\}/);
   assert.match(section, /<PublicBannerContent[\s\S]*?actions=\{config\.actions\.map/);
-  assert.match(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after/);
+  assert.match(css, /\[data-ps-banner-art\]::after/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(art, /viewBox="0 0 772 545"/);
   assert.match(art, /fill-rule="evenodd"/);
@@ -166,10 +163,11 @@ test("banner artwork stays inside a real responsive child and outside CTA lanes"
   assert.match(dark, /viewBox="0 0 2172 724"/);
   assert.match(dog, /viewBox="0 0 772 545"/);
   assert.match(frame, /<i data-ps-banner-art aria-hidden="true" \/>/, "art must be a descendant of the container");
-  assert.match(css, /@container ps-editorial-banner \(min-width: 821px\)/);
-  assert.match(css, /@container ps-editorial-banner \(max-width: 820px\)/);
+  assert.match(css, /@container ps-editorial-banner \(min-width: 521px\)/);
+  assert.match(css, /@container ps-editorial-banner \(max-width: 520px\)/);
   assert.match(css, /width: 72% !important;/, "CTA region excludes the illustrated right lane");
-  assert.match(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after\s*\{\s*display: none;/);
+  assert.doesNotMatch(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after\s*\{\s*display: none;/);
+  assert.match(css, /@container ps-editorial-banner \(max-width: 520px\)[\s\S]*?height: 44px;/);
   assert.match(css, /\[data-banner-semantic="urgent"\] \[data-ps-banner-art\]\s*\{\s*display: none !important;/);
   assert.match(css, /psipedia-banner-waves-light\.svg/);
   assert.match(css, /psipedia-banner-waves-dark\.svg/);
@@ -227,4 +225,17 @@ test("banner layout has one canonical grid and no competing contextual CTA colum
   assert.equal((shared.match(/grid-template-columns:\s*minmax\(0, 1fr\) !important;/g) ?? []).length, 1);
   assert.doesNotMatch(contextual, /grid-template-columns:|grid-column:|grid-row:/);
   assert.doesNotMatch(magazine, /\.bannerContent\s*\{[^}]*grid-template-columns:/);
+});
+
+
+test("non-urgent internal banner actions use one opaque branded visual and typography", () => {
+  const css = read("app/banner-visuals.css");
+  const common = css.slice(css.indexOf("/* All non-urgent internal promo copy"));
+  assert.match(common, /background: var\(--ps-bnr-button-bg\) !important/);
+  assert.match(common, /background-image: none !important/);
+  assert.match(common, /box-shadow: none !important/);
+  assert.match(common, /border-radius: 9px !important/);
+  assert.match(common, /font: 650 0\.875rem/);
+  assert.doesNotMatch(css, /--ps-glass-dark-cta|--ps-glass-sheen/);
+  assert.match(css, /--ps-bnr-heading-font: "Psipedia Newsreader"/);
 });
