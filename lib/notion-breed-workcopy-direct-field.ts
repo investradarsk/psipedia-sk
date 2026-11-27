@@ -1,3 +1,4 @@
+import { breedOwnedMediaKey } from "./notion-breed-structured-authority.mjs";
 import { breedAdminFieldReceipt } from "./notion-breed-admin-receipts.ts";
 import { getManagedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { normalizeBreedSearchText } from "@/lib/breed-fci";
@@ -81,6 +82,13 @@ export async function saveBreedNotionField(input:{
     const sqlOnlyObjectField=/^(?:fciStandard|editorial|seo)\./.test(input.field);
     const assignments=sqlOnlyObjectField?[]:patch.assignments;
     const params=sqlOnlyObjectField?[]:patch.params;
+    if(input.authorityReservation?.profileAuthority===true&&input.field==="image"){
+      const key=input.value===""?null:breedOwnedMediaKey(input.value);
+      if(input.value!==""&&!key)throw Error("BREED_MEDIA_REVIEW_REQUIRED");
+      const index=assignments.indexOf("image_key=NULL");
+      if(index<0)throw Error("BREED_MEDIA_SQL_MAPPING_MISSING");
+      assignments[index]="image_key=?";params.push(key);
+    }
     const authority=input.authorityReservation?.profileAuthority===true;
     const guard=authority
       ? " AND status<>'archived' AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='BREED' AND entity_id=managed_breeds.id)"+
