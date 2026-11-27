@@ -102,6 +102,14 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const countGroup=(g:string)=>areaItems.filter(x=>g==="all"||x.field_group===g).length;
   const shown=areaItems.filter(x=>(group==="all"||x.field_group===group)&&
     x.profile_label.toLocaleLowerCase("sk").includes(profileFilter.trim().toLocaleLowerCase("sk")));
+  const hiddenEdit = editingProposalId !== null && !shown.some(p => p.id === editingProposalId);
+  const editedProposal = hiddenEdit ? items.find(p => p.id === editingProposalId) : undefined;
+
+  function cancelCorrection() {
+    setEditingProposalId(null);
+    setCorrectedValue("");
+  }
+
   async function manualRequest(payload:Record<string,unknown>):Promise<ManualQualityResponse> {
     const response=await fetch("/api/admin/data-quality/missing/manual",{
       method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload),
@@ -173,7 +181,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     finally{setBusy(null)}
   }
   async function rejectVisible(ids:number[]) {
-    if(!ids.length||busy!==null||bulkBusy||manualBusy)return;
+    if(!ids.length||busy!==null||bulkBusy||manualBusy||editingProposalId!==null)return;
     setBulkBusy(true);setNotice("");setNoticeError(false);
     try{
       const rejected:number[]=[];
@@ -328,6 +336,17 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       </div>
       <AdminFormFeedback error={noticeError?notice:undefined} message={!noticeError?notice:undefined} className={styles.notice}/>
       <p className={styles.subtle}>Filtre a vyhľadávanie profilu pracujú s načítanou stránkou (najviac 100 nálezov).</p>
+      {hiddenEdit && <div className={styles.draftNotice}>
+        <span>{editedProposal
+          ? `Rozpísaná úprava: ${editedProposal.profile_label} · ${editedProposal.field_label}`
+          : "Upravovaný návrh už na tejto strane nie je dostupný."}</span>
+        {editedProposal && <button type="button" className={styles.reject} onClick={() => {
+          setArea(editedProposal.area);
+          setGroup(editedProposal.field_group);
+          setProfileFilter(editedProposal.profile_label);
+        }}>Pokračovať v úprave</button>}
+        <button type="button" className={styles.reject} disabled={busy !== null} onClick={cancelCorrection}>Zrušiť úpravu</button>
+      </div>}
       {shown.length===0?<div className={styles.empty}>
         {areaItems.length ? <>Žiadny návrh nezodpovedá výberu.{" "}
           <button type="button" className={styles.reject} onClick={()=>{setGroup("all");setProfileFilter("");}}>Zrušiť filtre</button>
@@ -355,7 +374,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                     {editingProposalId===p.id?
                       <div className={styles.inlineCorrection}>
                         <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>
-                        <input id={"quality-correction-"+p.id} type="text"
+                        <input id={"quality-correction-"+p.id} type="text" autoFocus
                           value={correctedValue} maxLength={2048} disabled={busy!==null||bulkBusy||manualBusy}
                           onChange={event=>setCorrectedValue(event.target.value)} />
                         <small>Uloženie zároveň schváli nález a doplní údaj do profilu. Pôvodný nález: {p.value}</small>
@@ -386,7 +405,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                   <AdminActionButton variant="primary" className={styles.accept} disabled={busy!==null||bulkBusy||manualBusy||!correctedValue.trim()}
                     onClick={()=>void decide(p,"accept",correctedValue)}>Schváliť upravený údaj</AdminActionButton>
                   <button type="button" className={styles.reject} disabled={busy!==null}
-                    onClick={()=>{setEditingProposalId(null);setCorrectedValue("");}}>Zrušiť</button>
+                    onClick={cancelCorrection}>Zrušiť</button>
                 </>:<>
                   {["web","social","phone","email"].includes(p.field_group)&&<button type="button" className={styles.desktopEdit} disabled={busy!==null||bulkBusy||manualBusy||editingProposalId!==null}
                     onClick={()=>{setEditingProposalId(p.id);setCorrectedValue(p.value);}}>Upraviť v tabuľke</button>}
@@ -399,7 +418,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
             </article>)}
           </div>
           <div className={styles.footer}>
-            <AdminActionButton variant="destructive" className={styles.rejectAll} onClick={()=>setPendingRejectIds(shown.map(p=>p.id))} disabled={bulkBusy||busy!==null||manualBusy}>
+            <AdminActionButton variant="destructive" className={styles.rejectAll} onClick={()=>setPendingRejectIds(shown.map(p=>p.id))} disabled={bulkBusy||busy!==null||manualBusy||editingProposalId!==null}>
               {bulkBusy?"Zamietam…":`Zamietnuť všetky zobrazené (${shown.length})`}
             </AdminActionButton>
           </div>
