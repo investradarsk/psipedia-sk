@@ -1,0 +1,196 @@
+name: Notion sync, typecheck and quality contracts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/ci/notion-quality-suites.json"
+      - ".github/workflows/notion-article-sync-ci.yml"
+      - ".github/workflows/notion-conflict-quality-ci.yml"
+      - ".github/workflows/notion-cross-batch-ci.yml"
+      - ".github/workflows/notion-events-help-sync-ci.yml"
+      - ".github/workflows/notion-quality-ci.yml"
+      - "app/admin/kvalita/**"
+      - "app/admin/nastroje/notion-audit/**"
+      - "app/admin/nastroje/page.tsx"
+      - "app/api/admin/articles/[id]/route.ts"
+      - "app/api/admin/breeds/[id]/route.ts"
+      - "app/api/admin/data-quality/**"
+      - "app/api/admin/events/**"
+      - "app/api/admin/events/[id]/route.ts"
+      - "app/api/admin/events/bulk/route.ts"
+      - "app/api/admin/notion-breeds-sync/**"
+      - "app/api/admin/notion-data-quality-audit/**"
+      - "app/api/admin/notion-data-quality-audit/route.ts"
+      - "app/api/admin/notion-events-help-sync/**"
+      - "app/api/admin/notion-events-sync/**"
+      - "app/api/admin/notion-sync/**"
+      - "components/admin-data-quality-dashboard.tsx"
+      - "components/admin-event-editor.tsx"
+      - "components/admin-notion-data-quality-audit*"
+      - "components/admin-notion-data-quality-audit.tsx"
+      - "docs/notion-conflict-quality-01.md"
+      - "docs/notion-cross-batch-diagnostics.md"
+      - "docs/proposals/notion_article_editorial_outbox_UNNUMBERED_PROPOSAL.sql"
+      - "drizzle/0044_notion_article_sync.sql"
+      - "drizzle/0045_notion_breed_sync.sql"
+      - "drizzle/0047_notion_event_sync.sql"
+      - "drizzle/0098_directory_notion_bidirectional_sync.sql"
+      - "drizzle/0099_media_source_quality.sql"
+      - "drizzle/0108_notion_events_help_bidirectional_sync.sql"
+      - "drizzle/0138_article_editorial_outbox.sql"
+      - "lib/article-publish-notion-reconciliation.ts"
+      - "lib/article-subsection-taxonomy.ts"
+      - "lib/data-quality-store.ts"
+      - "lib/directory-store.ts"
+      - "lib/media-source-monitor.ts"
+      - "lib/notion-article-content-plan.ts"
+      - "lib/notion-article-image-source.ts"
+      - "lib/notion-article-related-publication.ts"
+      - "lib/notion-article-sync.ts"
+      - "lib/notion-bidirectional-reconciliation.ts"
+      - "lib/notion-breed-sync.ts"
+      - "lib/notion-bulk-backfill.ts"
+      - "lib/notion-bulk-sources.ts"
+      - "lib/notion-canonical-target.ts"
+      - "lib/notion-conflict-quality-triage.ts"
+      - "lib/notion-data-quality-audit-v2.ts"
+      - "lib/notion-data-quality-audit.ts"
+      - "lib/notion-data-quality-cross-batch.ts"
+      - "lib/notion-data-quality-recovery.ts"
+      - "lib/notion-directory-sync.ts"
+      - "lib/notion-directory-update-safety.ts"
+      - "lib/notion-event-contact-fields.ts"
+      - "lib/notion-event-field-*.ts"
+      - "lib/notion-event-sync.ts"
+      - "lib/notion-events-help-*.ts"
+      - "lib/notion-geo-mirror.ts"
+      - "lib/notion-sync-shared.ts"
+      - "lib/notion-targeted-admin-help.ts"
+      - "lib/notion-targeted-admin-save.ts"
+      - "lib/notion-webhook-dispatch.ts"
+      - "migration-safety.baseline.json"
+      - "scripts/check-config-contract.mjs"
+      - "scripts/check-migration-safety.mjs"
+      - "scripts/ci-offline-scope.mjs"
+      - "tests/article-publish-notion-reconciliation.test.mjs"
+      - "tests/ci-v2-notion-quality.test.mjs"
+      - "tests/config-contract.test.mjs"
+      - "tests/media-source-quality.test.mjs"
+      - "tests/notion-article-content-writeback.test.mjs"
+      - "tests/notion-article-editorial-retry.test.mjs"
+      - "tests/notion-article-image-source.test.mjs"
+      - "tests/notion-article-related-publication.test.mjs"
+      - "tests/notion-article-sync.test.mjs"
+      - "tests/notion-breed-sync.test.mjs"
+      - "tests/notion-conflict-quality-triage.test.mjs"
+      - "tests/notion-data-quality-audit-v2.test.mjs"
+      - "tests/notion-data-quality-cross-batch.test.mjs"
+      - "tests/notion-data-quality-recovery.test.mjs"
+      - "tests/notion-directory-apply-sql-r2-integration.test.mjs"
+      - "tests/notion-directory-sync.test.mjs"
+      - "tests/notion-event-contact-sync.test.mjs"
+      - "tests/notion-event-field-contract.test.mjs"
+      - "tests/notion-event-sync.test.mjs"
+      - "tests/notion-events-help-bidirectional.test.mjs"
+      - "tests/notion-geo-mirror.test.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notion-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  notion-quality:
+    name: Notion sync and quality contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Select Notion suites
+        id: scope
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-offline-scope.mjs notion-quality
+      - name: Install locked dependencies once
+        run: npm ci
+      - name: Record exact revision
+        run: git rev-parse HEAD
+      - name: "Notion contract 1: npm run test:config"
+        if: steps.scope.outputs.notion_article_sync_ci == 'true'
+        run: "npm run test:config"
+      - name: "Notion contract 2: npm run test:migration-safety"
+        if: steps.scope.outputs.notion_article_sync_ci == 'true' || steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npm run test:migration-safety"
+      - name: "Notion contract 3: node --test tests/notion-article-sync.test.mjs"
+        if: steps.scope.outputs.notion_article_sync_ci == 'true'
+        run: "node --test tests/notion-article-sync.test.mjs tests/notion-article-content-writeback.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs"
+      - name: "Notion contract 4: node --experimental-strip-types --test"
+        if: steps.scope.outputs.notion_article_sync_ci == 'true'
+        run: "node --experimental-strip-types --test tests/notion-article-image-source.test.mjs tests/notion-article-related-publication.test.mjs"
+      - name: "Notion contract 5: node --experimental-strip-types --test"
+        if: steps.scope.outputs.notion_article_sync_ci == 'true'
+        run: "node --experimental-strip-types --test tests/notion-article-content-writeback.test.mjs tests/notion-article-editorial-retry.test.mjs"
+      - name: "Notion contract 6: npx tsc --noEmit"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck lib/notion-bidirectional-reconciliation.ts"
+      - name: "Notion contract 7: npx tsc --noEmit"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npx tsc --noEmit --strict --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types @cloudflare/workers-types,node lib/notion-data-quality-audit-v2.ts"
+      - name: "Notion contract 8: npm run test:notion-data-quality-audit"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true' || steps.scope.outputs.notion_conflict_quality_ci == 'true' || steps.scope.outputs.notion_cross_batch_ci == 'true'
+        run: "npm run test:notion-data-quality-audit"
+      - name: "Notion contract 9: npm run test:breed-concurrency"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npm run test:breed-concurrency"
+      - name: "Notion contract 10: npm run test:notion-events-help-sync"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npm run test:notion-events-help-sync"
+      - name: "Notion contract 11: npm run test:notion-bulk-backfill"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npm run test:notion-bulk-backfill"
+      - name: "Notion contract 12: node --experimental-strip-types --experimental-loader"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-directory-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-event-contact-sync.test.mjs tests/notion-event-field-contract.test.mjs"
+      - name: "Notion contract 13: node --experimental-strip-types --experimental-loader"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-directory-apply-sql-r2-integration.test.mjs"
+      - name: "Notion contract 14: node --experimental-strip-types --experimental-loader"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/help-organization-publication.test.mjs tests/adoption-foundation.test.mjs"
+      - name: "Notion contract 15: npm run test:lost-found"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true'
+        run: "npm run test:lost-found"
+      - name: "Notion contract 16: node --check tests/notion-conflict-quality-triage.test.mjs"
+        if: steps.scope.outputs.notion_conflict_quality_ci == 'true'
+        run: "node --check tests/notion-conflict-quality-triage.test.mjs"
+      - name: "Notion contract 17: node --experimental-strip-types --test"
+        if: steps.scope.outputs.notion_conflict_quality_ci == 'true'
+        run: "node --experimental-strip-types --test tests/notion-conflict-quality-triage.test.mjs tests/notion-data-quality-cross-batch.test.mjs"
+      - name: "Notion contract 18: npx tsc --noEmit"
+        if: steps.scope.outputs.notion_conflict_quality_ci == 'true'
+        run: "npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@cloudflare/workers-types lib/notion-conflict-quality-triage.ts"
+      - name: "Notion contract 19: npx tsc --noEmit"
+        if: steps.scope.outputs.notion_cross_batch_ci == 'true'
+        run: "npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@cloudflare/workers-types lib/notion-data-quality-cross-batch.ts"
+      - name: "Notion contract 20: node --experimental-strip-types --test"
+        if: steps.scope.outputs.notion_cross_batch_ci == 'true'
+        run: "node --experimental-strip-types --test tests/notion-data-quality-cross-batch.test.mjs"
+      - name: "Shared lint"
+        if: steps.scope.outputs.notion_events_help_sync_ci == 'true' || steps.scope.outputs.notion_conflict_quality_ci == 'true' || steps.scope.outputs.notion_cross_batch_ci == 'true'
+        run: "npm run lint"
+      - name: "Shared Notion build"
+        if: steps.scope.outputs.notion_article_sync_ci == 'true' || steps.scope.outputs.notion_events_help_sync_ci == 'true' || steps.scope.outputs.notion_conflict_quality_ci == 'true' || steps.scope.outputs.notion_cross_batch_ci == 'true'
+        run: "npm run build"

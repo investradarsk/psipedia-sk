@@ -134,8 +134,7 @@ for (const name of [
   "map-production-launch-ci.yml",
   "map-public-ui-ci.yml",
   "map-read-api-ci.yml",
-  "notion-article-sync-ci.yml",
-  "notion-events-help-sync-ci.yml",
+  "notion-quality-ci.yml",
   "organization-profile-e2e.yml",
   "section-hero-v2-ci.yml",
   "sitewide-ai-entity-surface-ci.yml",
@@ -185,8 +184,7 @@ assert.ok(pullRequestPaths(automationV2)?.includes(".github/workflows/data-autom
 // unrelated domain workflows. The two required checks still run on every PR.
 const workerDomainSuites = [
   "data-automation-ci.yml",
-  "notion-article-sync-ci.yml",
-  "notion-events-help-sync-ci.yml",
+  "notion-quality-ci.yml",
   "services-v3-hourly-auto-sync.yml",
   "sitemap-edge-resilience.yml",
 ];
@@ -403,7 +401,7 @@ assert.ok(!packageScriptOnly.scopes.includes("DATABASE_MIGRATIONS"));
 
 const pr579 = classifyChangedFiles([
   ".env.example",
-  ".github/workflows/notion-events-help-sync-ci.yml",
+  ".github/workflows/notion-quality-ci.yml",
   ".github/workflows/production-d1-migrate.yml",
   "app/api/admin/notion-events-help-sync/route.ts",
   "config/runtime-env.ts",
@@ -709,7 +707,7 @@ const coverage4 = [
   ["homepage", ["app/page.tsx"], [], []],
   ["name-days", ["lib/dog-name-day-calendar.ts"], [], ["homepage-name-days-ci.yml"]],
   ["articles", ["components/article-detail.tsx"], ["ARTICLES"], ["article-ux-ci.yml"]],
-  ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-article-sync-ci.yml"]],
+  ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-quality-ci.yml"]],
   ["admin", ["components/admin-article-editor.tsx"], ["ADMIN", "ARTICLES"], ["article-admin-ci.yml"]],
   ["documentation", ["README.md", "docs/ci-usage.md"], [], []],
   ["production-migration", ["drizzle/0125_live_schema.sql"], ["DATABASE_MIGRATIONS"], ["clean-d1-migration-validation.yml"]],

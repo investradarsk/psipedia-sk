@@ -3,7 +3,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const CONTROL = new Set([".github/workflows/offline-contracts.yml", ".github/ci/offline-suites.json", "scripts/ci-offline-scope.mjs", "tests/ci-v2-offline-scope.test.mjs"]);
+const CONTROL = new Set([".github/workflows/notion-quality-ci.yml", ".github/ci/notion-quality-suites.json", "tests/ci-v2-notion-quality.test.mjs",".github/workflows/offline-contracts.yml", ".github/ci/offline-suites.json", "scripts/ci-offline-scope.mjs", "tests/ci-v2-offline-scope.test.mjs"]);
 
 export function selectOfflineSuites(suites, files, { event = "pull_request", baseRef = "main", trusted = true } = {}) {
   const all = event !== "pull_request" || !trusted || !files.length || files.some(f => CONTROL.has(f));
@@ -24,7 +24,10 @@ export function resolveOfflineRange({base, head, git = args => execFileSync("git
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const suites = JSON.parse(readFileSync(new URL("../.github/ci/offline-suites.json", import.meta.url), "utf8"));
+  const mode = process.argv[2] ?? "offline";
+  if (!["offline", "notion-quality"].includes(mode)) throw new Error("Unknown CI suite manifest");
+  const manifest = mode === "notion-quality" ? "../.github/ci/notion-quality-suites.json" : "../.github/ci/offline-suites.json";
+  const suites = JSON.parse(readFileSync(new URL(manifest, import.meta.url), "utf8"));
   const event = process.env.GITHUB_EVENT_NAME;
   const range = event === "pull_request" ? resolveOfflineRange({base:process.env.CI_BASE_SHA, head:process.env.CI_HEAD_SHA}) : {files:[],trusted:false};
   const selected = selectOfflineSuites(suites, range.files, {event,baseRef:process.env.GITHUB_BASE_REF,trusted:range.trusted});
