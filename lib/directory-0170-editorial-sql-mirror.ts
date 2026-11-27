@@ -19,7 +19,7 @@ export type Directory0170SqlStatement = Readonly<{
   bindings: readonly (string | number)[];
 }>;
 
-function guard(input: { profileId: number; category: ServiceFilterCategory; updatedAt: string; actor: string }) {
+function guard(input: { profileId: number; category: ServiceFilterCategory; updatedAt: string; actor: string; allowSecondary?:boolean }) {
   const { profileId, category, updatedAt, actor } = input;
   if (!Number.isSafeInteger(profileId) || profileId <= 0)
     throw new Error("DIRECTORY_0170_MIRROR_INVALID_ID");
@@ -27,6 +27,7 @@ function guard(input: { profileId: number; category: ServiceFilterCategory; upda
     throw new Error("DIRECTORY_0170_MIRROR_INVALID_CATEGORY");
   if (!actor.trim() || !updatedAt || !Number.isFinite(Date.parse(updatedAt)))
     throw new Error("DIRECTORY_0170_MIRROR_INVALID_REVISION");
+  if(input.allowSecondary)return {where:"EXISTS (SELECT 1 FROM directory_profiles p WHERE p.id=? AND (p.category=? OR EXISTS(SELECT 1 FROM directory_profile_additional_categories s WHERE s.profile_id=p.id AND s.category=?)) AND p.updated_at=? AND p.status<>'archived')",params:[profileId,category,category,updatedAt] as const};
   return {
     where: "EXISTS (SELECT 1 FROM directory_profiles WHERE id=? AND category=? " +
       "AND updated_at=? AND status<>'archived')",
@@ -85,7 +86,7 @@ export function planDirectory0170FilterSqlMirror(input: {
   profileId: number; category: ServiceFilterCategory;
   /** null is an explicit cleared Notion select; omitted IDs are unchanged. */
   values: Readonly<Record<string,string | null>>;
-  updatedAt: string; actor: string;
+  updatedAt: string; actor: string; allowSecondary?:boolean;
 }): readonly Directory0170SqlStatement[] {
   const scope = guard(input);
   const entries = Object.entries(input.values);

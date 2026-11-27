@@ -1,3 +1,4 @@
+import { isDirectoryPublicMetadataField } from "./directory-public-facts.ts";
 import { getDirectoryFilterDefinition } from "./directory-filter-contract.ts";
 import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
 import { breedWorkcopyPhysicalProperty } from "./breed-notion-workcopy-field-contract.mjs";
@@ -22,13 +23,17 @@ const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
     !["editorial.heroTraits","editorialComplete"].includes(entry.id)).map(entry=>entry.id),
     ...breedControlledKeys.map((key:string)=>"controlled."+key)],
   events:["title","eventType","startDate","endDate","startTime","endTime","organizer","excerpt","description","practicalInfo","contactPhone","contactEmail","admissionFee","websiteUrl","registrationUrl","imageAlt","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
-  organizations:["Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram"],
+  organizations:["Zdroj dát","Mesto","Okres","Kraj","Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram"],
   adoptions:["Plemeno","Organizácia","Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
   "lost-found":["Plemeno","Naposledy videný","Zdroj URL","Meno psa","Pohlavie","Farba","Vek","Veľkosť","Krátky popis","Popis","Rozlišovacie znaky","Obojok","Čip","Dátum udalosti","Kraj","Okres","Mesto"],
   "help-cases":["Názov","Perex","Popis","Pes","Plemeno","Vek","Mesto","Kraj","Miesto","Dátum hlásenia","Deadline","CTA text","CTA URL","Cieľ","Vyzbierané","Urgentné"],
   eshops:["name","websiteUrl","description","sourceUrl","focusTags","logoUrl"],
 };
 export function profileAuthorityTextFieldAllowed(identity:FieldIdentity):boolean {
+  if(identity.agenda==="directory"&&identity.field.startsWith("meta:")){
+    const field=identity.field.slice(5);
+    return isDirectoryPublicMetadataField(field)&&!["Plemeno","Plemená","FCI skupina","Zastrešujúca organizácia"].includes(field);
+  }
   if(identity.agenda==="directory"&&identity.field.startsWith("facet:")){
     const parts=identity.field.split(":");
     return parts.length===3&&getDirectoryFilterDefinition(parts[2])?.category===parts[1];

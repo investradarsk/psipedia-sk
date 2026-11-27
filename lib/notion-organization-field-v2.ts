@@ -97,10 +97,11 @@ async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,r
   if(result.meta.changes!==1)throw Error("ORGANIZATION_V2_WRITE_CONFLICT");
 }
 
-async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown,observed:Awaited<ReturnType<typeof observe>>) {
-  if(!isOrganizationLocationV2Field(field) || typeof value!=="string" || !value.trim())throw Error("ORGANIZATION_V2_LOCATION_INVALID");
+async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown,observed:Awaited<ReturnType<typeof observe>>,reservation?:FieldReservation) {
+  if(!isOrganizationLocationV2Field(field) || typeof value!=="string" || (!value.trim()&&!reservation?.profileAuthority))throw Error("ORGANIZATION_V2_LOCATION_INVALID");
   if(observed.location?.google_current)throw Error("ORGANIZATION_V2_GOOGLE_LOCATION_LOCKED");
   const {database,entityId,pageId}=input;
+  const authority=helpAuthorityWriteGuard(reservation,"organizations",entityId,pageId,field);
   const column=ORGANIZATION_LOCATION_V2_COLUMNS[field];
   const loc=observed.location;
   const desired=normalizeOrganizationLocationAdminInput({
@@ -115,8 +116,8 @@ async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown
     "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ORGANIZATION' AND entity_id=help_organizations.id) "+
     "AND NOT "+partnerReviewOwnerSql("ORGANIZATION","help_organizations.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=help_organizations.id) "+
-    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)")
-    .bind(nextOrganizationEditRevision(observed.revision,new Date()),ACTOR,entityId,observed.revision,pageId);
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"+authority.sql)
+    .bind(nextOrganizationEditRevision(observed.revision,new Date()),ACTOR,entityId,observed.revision,pageId,...authority.params);
   const update=loc ? database.prepare("UPDATE organization_locations SET "+column+"=? "+
     "WHERE id=? AND organization_id=? AND id=("+selectedLocationSql+") "+
     "AND role IS ? AND label IS ? AND address IS ? AND city IS ? AND district IS ? AND region IS ? "+
@@ -173,7 +174,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
           JSON.stringify(fresh.location)!==JSON.stringify(observation.location))
           throw Error("ORGANIZATION_V2_SOURCE_CHANGED");
         if(reservation)await assertUnifiedReservationCurrent(database,reservation);
-        if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh);
+        if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh,reservation??undefined);
         else await pullScalar(input,field,value,observation.revision,reservation??undefined);
         pulled++;
       }else{

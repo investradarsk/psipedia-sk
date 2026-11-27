@@ -1668,6 +1668,7 @@ export async function savePilotDirectoryMetadataField(input: {
   adminReceiptActor?: string;
   expectedRevision?: string;
   fromNotion?: boolean;
+  reservation?:FieldReservation;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !isDirectoryPublicMetadataField(input.field))
@@ -1709,12 +1710,13 @@ export async function savePilotDirectoryMetadataField(input: {
   const actor = input.adminReceiptActor ?? SYSTEM_ACTOR;
   // Explicit field-level D1 SQL write: the compatibility JSON must not be
   // recreated by an Admin or Notion metadata edit after legacy retirement.
+  const authority=input.reservation?.profileAuthority?directoryAuthorityWriteGuard(input.reservation,input.profileId,"meta:"+input.field):{sql:"",params:[]};
   const canonical = input.database.prepare(
     "UPDATE directory_profiles SET updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
-    "AND updated_at = ? RETURNING id"
+    "AND updated_at = ?"+authority.sql+" RETURNING id"
   ).bind(now, actor,
-    input.profileId, input.category, current.updatedAt);
+    input.profileId, input.category, current.updatedAt,...authority.params);
   const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
   const isHours = input.field === "Ordinačné hodiny";
   const mirrorIdentity = {kind:"id" as const,profileId:input.profileId,
@@ -2065,18 +2067,18 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       local = readDirectoryPublicMetadataValue(profile.importData, key);
     } else {
       const def = getDirectoryFilterDefinition(item.field);
-      if (!def || def.category !== profile.category) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+      if (!def || (def.category !== profile.category && !(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text" && profile.additionalCategories?.includes(def.category)))) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
       key = breederFacetNotionProperties[item.field];
       if (!key || !directoryUnifiedRawPropertyPresent(page, key) || !Object.hasOwn(property(page, key) ?? {}, "select"))
         throw Error("DIRECTORY_UNIFIED_FILTER_SCHEMA");
-      fieldKey = "facet:" + profile.category + ":" + item.field;
+      fieldKey = "facet:" + def.category + ":" + item.field;
       const selected = propertyText(page, key);
       const normalized = selected ? normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected)) : null;
       if (normalized && normalized.status !== "known") throw Error("DIRECTORY_UNIFIED_FILTER_VALUE");
       remote = normalized?.status === "known" ? normalized.value : null;
       const row = await database.prepare(
         "SELECT value_text FROM directory_profile_filter_values WHERE profile_id=? AND category=? AND filter_id=?",
-      ).bind(profileId, profile.category, item.field).first<{value_text:string}>();
+      ).bind(profileId, def.category, item.field).first<{value_text:string}>();
       local = row?.value_text ?? null;
     }
     const fresh = await getManagedDirectoryProfileById(profileId, database);
@@ -2110,16 +2112,21 @@ async function syncUnifiedDirectoryOperationalFields(input: {
           if (typeof live.notion.value !== "string") throw Error("DIRECTORY_UNIFIED_METADATA_VALUE");
           await savePilotDirectoryMetadataField({ database, profileId, category: live.profile.category,
             field: field.field, value: live.notion.value, expectedValue: live.psipedia.value ?? "",
-            expectedRevision: live.profile.updatedAt, fromNotion: true });
+            expectedRevision: live.profile.updatedAt, fromNotion: true, reservation });
         } else {
           const previous = Date.parse(live.profile.updatedAt);
           const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
           const guard=reservation.profileAuthority?directoryAuthorityWriteGuard(reservation,profileId,live.identity.field):{sql:"",params:[]};
+          const facetCategory=getDirectoryFilterDefinition(field.field)?.category;
+          if(!facetCategory)throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+          const secondary=facetCategory!==live.profile.category;
+          if(secondary&&!reservation.profileAuthority)throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+          const membership=secondary?" AND EXISTS(SELECT 1 FROM directory_profile_additional_categories s WHERE s.profile_id=directory_profiles.id AND s.category=?)":"";
           const canonical = database.prepare(
-            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+" RETURNING id",
-          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt,...guard.params);
+            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+membership+" RETURNING id",
+          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt,...guard.params,...(secondary?[facetCategory]:[]));
           const mirror = planDirectory0170FilterSqlMirror({ profileId,
-            category: live.profile.category as ServiceFilterCategory,
+            category: facetCategory,allowSecondary:secondary,
             values: { [field.field]: live.notion.value }, updatedAt: now, actor: SYSTEM_ACTOR });
           if (await directoryProfileNotionSyncLocked(database, profileId)) throw Error("DIRECTORY_UNIFIED_LOCKED");
           const result = await database.batch([canonical, ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings))]);
@@ -2238,12 +2245,14 @@ async function syncBreederEvent(input: {
     const relationFields = ["chovatelske-stanice", "chovatelske-kluby"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds)
           .filter(field => input.profile.category !== "chovatelske-kluby" || field === "breedIds") : [];
-    const facetFields = isDirectoryFieldEventCategory(input.profile.category)
+    const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const facetFields = staged || isDirectoryFieldEventCategory(input.profile.category)
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
-          .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
+          .filter(id => {const category=getDirectoryFilterDefinition(id)?.category;
+            return category===input.profile.category||(staged&&!!category&&input.profile.additionalCategories?.includes(category));})
       : [];
     const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
-    const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category)
+    const pilotMetaFields = staged || isDirectoryFieldEventCategory(input.profile.category)
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
     if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
       return "unchanged";
@@ -3015,6 +3024,14 @@ async function syncMappedPage(input: {
   // canonical Directory data source. Never PATCH an unrelated Notion page.
   if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
+  }
+
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(propertyText(page,"Psipedia ID")!==String(profile.id)||page.archived||page.in_trash)
+      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_AUTHORITY_IDENTITY_MISMATCH");
+    if(input.breederWebhookPropertyIds===undefined)return "unchanged" as const;
+    return syncBreederEvent({database:input.database,bindings:input.bindings,page,profile,
+      changedPropertyIds:input.breederWebhookPropertyIds});
   }
 
   // A historical missing-baseline marker is obsolete if and only if both
@@ -4446,7 +4463,7 @@ export async function recoverDirectoryV2Field(database:D1Database,bindings:Notio
   if(field.startsWith("facet:")){
     const [,category,key]=field.split(":");
     const profile=await getManagedDirectoryProfileById(id,database);
-    if(!profile||profile.category!==category||!key)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
+    if(!profile||!key||getDirectoryFilterDefinition(key)?.category!==category||(profile.category!==category&&!(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&profile.additionalCategories?.some(c=>c===category))))throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
     await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction,fields:[{kind:"facet",field:key}]});return;
   }
   if(field==="relation:breedIds"||field==="relation:clubIds"){
