@@ -56,7 +56,7 @@ export async function readProfileAuthorityOwner(db:D1Database,identity:FieldIden
     "FROM "+spec.table+" p JOIN "+spec.map+" m ON m."+spec.id+"=p.id "+
     "WHERE p.id=?1 AND m."+spec.page+"=?5"+
     (spec.map==="notion_agenda_sync"?" AND m.agenda=?3":"")+
-    (identity.agenda==="breeds"?" AND m.status='ACTIVE'":"")
+    (identity.agenda==="breeds"?" AND m.status='ACTIVE' AND COALESCE(m.work_last_error_code,'')<>'INBOUND_ID_PENDING'":"")
   ).bind(id,spec.kind,identity.agenda,identity.entityId,identity.pageId).first<{status:string;removed:number;fenced:number}>();
   if(!row||row.removed||String(row.status).toLowerCase()==="archived")return "admin";
   if(row.fenced)return "unlocking";
