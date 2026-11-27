@@ -417,3 +417,37 @@ test("puppy equipment stores progress, filters missing items and resets only aft
     await expectNoHorizontalOverflow(page, "Výbava pre šteniatko " + width);
   }
 });
+
+test("dog health calendar stores separate dog profiles, completed weights and planned appointments", async ({page})=>{
+  await page.goto("/starostlivost/zdravotny-kalendar");
+  const tool=page.locator("[data-dog-health-calendar]");
+  await expect(tool).toBeVisible();
+  const name=tool.getByLabel("Meno psa",{exact:true});
+  await expect(name).toBeEnabled();
+  await name.fill("Neo");await tool.getByRole("button",{name:"Pridať psa",exact:true}).click();
+  await name.fill("Luna");await tool.getByRole("button",{name:"Pridať psa",exact:true}).click();
+  await tool.getByRole("button",{name:"Pridať záznam",exact:true}).click();
+  const editor=tool.getByRole("region",{name:"Úprava zdravotného záznamu"});
+  await editor.getByLabel("Druh záznamu").selectOption("weight");
+  await editor.getByLabel("Hmotnosť (kg)").fill("12,5");
+  await editor.getByRole("button",{name:"Uložiť záznam",exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  await expect(tool.getByText(/12,5 kg/).first()).toBeVisible();
+  await tool.getByRole("button",{name:"Pridať záznam",exact:true}).click();
+  await editor.getByLabel("Druh záznamu").selectOption("vet");
+  await editor.getByLabel("Názov (nepovinný)").fill("Kontrola Luna");
+  await editor.getByRole("button",{name:"Uložiť záznam",exact:true}).click();
+  await page.reload();
+  await expect(tool.getByText("Kontrola Luna",{exact:true}).first()).toBeVisible();
+  const filter=tool.getByLabel("Zobraziť psa");
+  const neo=await filter.locator("option").filter({hasText:"Neo"}).getAttribute("value");
+  await filter.selectOption(neo!);
+  await expect(tool.getByText("Kontrola Luna",{exact:true})).toHaveCount(0);
+  await filter.selectOption("all");
+  await expect(tool.getByText("Kontrola Luna",{exact:true}).first()).toBeVisible();
+  await expect(tool.getByRole("button",{name:"Export budúcich termínov (.ics)"})).toBeEnabled();
+  for(const width of [1440,390,320]){
+    await page.setViewportSize({width,height:900});
+    await expectNoHorizontalOverflow(page,"Zdravotný kalendár "+width);
+  }
+});

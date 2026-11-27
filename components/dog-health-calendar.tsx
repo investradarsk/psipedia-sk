@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { PublicActionButton } from "@/components/public-visual-system";
 import { PublicTextInput, PublicSelect, PublicTextarea, PublicChoiceInput } from "@/components/public-visual-system/public-form-controls";
 import { DOG_HEALTH_STORAGE_KEY, DOG_HEALTH_TYPES, MAX_DOGS, MAX_ENTRIES, parseHealthData, localHealthDate, validHealthDate, healthEntryTitle, healthMonthDays, moveHealthMonth, removeHealthDog, type HealthData, type HealthEntry, type HealthType } from "@/lib/dog-health-calendar";
@@ -38,10 +38,16 @@ export function DogHealthCalendar(){
   const [draft,setDraft]=useState<Draft|null>(null);
   const [confirmation,setConfirmation]=useState<{kind:"dog"|"entry";id:string}|null>(null);
   const [error,setError]=useState("");
+  const [entryError,setEntryError]=useState("");
   const [notice,setNotice]=useState("");
   const [reminder,setReminder]=useState(false);
   const [history,setHistory]=useState(false);
   const [day,setDay]=useState("");
+  const editorRef=useRef<HTMLElement>(null);
+  const confirmationRef=useRef<HTMLDivElement>(null);
+  const draftOpen=Boolean(draft), confirmationOpen=Boolean(confirmation);
+  useEffect(()=>{if(draftOpen)editorRef.current?.focus();},[draftOpen]);
+  useEffect(()=>{if(confirmationOpen)confirmationRef.current?.focus();},[confirmationOpen]);
   const filtered=data.entries.filter(e=>filter==="all"||e.dogId===filter);
   const sorted=[...filtered].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
   const pending=sorted.filter(e=>!e.done&&e.type!=="weight");
@@ -68,23 +74,23 @@ export function DogHealthCalendar(){
     setName("");setNotice("Profil psa uložený.");
   }
   function openDraft(date=today){
-    setError("");setNotice("");setDraft(newDraft(filter==="all"?data.dogs[0]?.id??"":filter,date));
+    setEntryError("");setNotice("");setDraft(newDraft(filter==="all"?data.dogs[0]?.id??"":filter,date));
   }
   function saveEntry(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();setError("");setNotice("");if(!draft)return;
+    event.preventDefault();setEntryError("");setNotice("");if(!draft)return;
     const current=latest();
-    if(!current.dogs.some(d=>d.id===draft.dogId)||!validHealthDate(draft.date)){setError("Vyber psa a platný dátum.");return;}
+    if(!current.dogs.some(d=>d.id===draft.dogId)||!validHealthDate(draft.date)){setEntryError("Vyber psa a platný dátum.");return;}
     const weight=Number(draft.weight.replace(",","."));
-    if(draft.type==="weight"&&(!Number.isFinite(weight)||weight<=0||weight>200||draft.date>today)){setError("Zadaj nameranú hmotnosť (viac ako 0, najviac 200 kg) a dnešný alebo minulý dátum.");return;}
-    if(draft.type!=="weight"&&draft.done&&draft.date>today){setError("Budúci termín nemôže byť označený ako vykonaný.");return;}
-    if(draft.id&&!current.entries.some(e=>e.id===draft.id)){setError("Záznam už nie je dostupný.");return;}
-    if(!draft.id&&current.entries.length>=MAX_ENTRIES){setError("Dosiahol si limit 2 000 záznamov.");return;}
+    if(draft.type==="weight"&&(!Number.isFinite(weight)||weight<=0||weight>200||draft.date>today)){setEntryError("Zadaj nameranú hmotnosť (viac ako 0, najviac 200 kg) a dnešný alebo minulý dátum.");return;}
+    if(draft.type!=="weight"&&draft.done&&draft.date>today){setEntryError("Budúci termín nemôže byť označený ako vykonaný.");return;}
+    if(draft.id&&!current.entries.some(e=>e.id===draft.id)){setEntryError("Záznam už nie je dostupný.");return;}
+    if(!draft.id&&current.entries.length>=MAX_ENTRIES){setEntryError("Dosiahol si limit 2 000 záznamov.");return;}
     const record:HealthEntry={id:draft.id??crypto.randomUUID(),dogId:draft.dogId,type:draft.type,date:draft.date,title:draft.title.trim(),notes:draft.notes.trim(),done:draft.type==="weight"||draft.done,...(draft.type==="weight"?{weight}:{})};
     save({...current,entries:[...current.entries.filter(e=>e.id!==record.id),record]});
     if(filter!=="all")setSelected(record.dogId);
     setMonth(record.date.slice(0,7));setDay("");setDraft(null);setNotice("Záznam uložený.");
   }
-  function edit(entry:HealthEntry){setError("");setNotice("");setDraft({...entry,weight:entry.weight===undefined?"":String(entry.weight)});}
+  function edit(entry:HealthEntry){setEntryError("");setNotice("");setDraft({...entry,weight:entry.weight===undefined?"":String(entry.weight)});}
   function finish(entry:HealthEntry){
     const current=latest();if(entry.date>today||entry.type==="weight")return;
     save({...current,entries:current.entries.map(e=>e.id===entry.id?{...e,done:!e.done}:e)});
@@ -124,7 +130,7 @@ export function DogHealthCalendar(){
         <div className={styles.dogs}>{data.dogs.filter(d=>filter==="all"||filter===d.id).map(d=><div key={d.id}><strong>{d.name}</strong><button type="button" className={styles.textButton} onClick={()=>{setRenaming(d.id);setName(d.name);}}>Premenovať</button><button type="button" className={styles.textButton} onClick={()=>setConfirmation({kind:"dog",id:d.id})}>Odstrániť psa</button></div>)}</div></>}
       {!data.dogs.length&&<p>Pridaj prvého psa a vytvor si vlastný prehľad.</p>}
       {error&&<p role="alert" className={styles.error}>{error}</p>}{notice&&<p role="status" className={styles.note}>{notice}</p>}
-      {confirmation&&<div role="group" aria-label="Potvrdenie odstránenia" className={styles.confirm}><p>{confirmation.kind==="dog"?"Odstrániť psa aj všetky jeho zdravotné záznamy?":"Odstrániť tento záznam?"}</p><PublicActionButton variant="secondary" onClick={remove}>Áno, odstrániť</PublicActionButton><PublicActionButton variant="secondary" onClick={()=>setConfirmation(null)}>Zrušiť</PublicActionButton></div>}
+      {confirmation&&<div ref={confirmationRef} tabIndex={-1} role="group" aria-label="Potvrdenie odstránenia" className={styles.confirm}><p>{confirmation.kind==="dog"?"Odstrániť psa aj všetky jeho zdravotné záznamy?":"Odstrániť tento záznam?"}</p><PublicActionButton variant="secondary" onClick={remove}>Áno, odstrániť</PublicActionButton><PublicActionButton variant="secondary" onClick={()=>setConfirmation(null)}>Zrušiť</PublicActionButton></div>}
     </div>
     <noscript><p>Na evidenciu a export potrebuješ JavaScript.</p></noscript>
     {ready&&data.dogs.length>0&&<>
@@ -137,7 +143,7 @@ export function DogHealthCalendar(){
         <ul className={styles.list}>{monthEntries.filter(e=>!day||e.date===day).map(renderEntry)}</ul>
         {!monthEntries.some(e=>!day||e.date===day)&&<p className={styles.note}>Žiadne záznamy v tomto období.</p>}
       </div>
-      {draft&&<section className={styles.panel} aria-label="Úprava zdravotného záznamu">
+      {draft&&<section ref={editorRef} tabIndex={-1} className={styles.panel} aria-label="Úprava zdravotného záznamu">
         <h2>{draft.id?"Upraviť záznam":"Nový záznam"}</h2>
         <form className={styles.form} onSubmit={saveEntry}>
           <label>Pes<PublicSelect value={draft.dogId} onChange={e=>setDraft({...draft,dogId:e.target.value})}>{data.dogs.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</PublicSelect></label>
@@ -147,8 +153,8 @@ export function DogHealthCalendar(){
           <label>Názov (nepovinný)<PublicTextInput maxLength={100} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label>
           <label className={styles.wide}>Poznámka (nepovinná)<PublicTextarea rows={3} maxLength={500} value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})}/></label>
           {draft.type!=="weight"&&<label className={styles.choice}><PublicChoiceInput checked={draft.done} onChange={e=>setDraft({...draft,done:e.target.checked})}/> Už vykonané</label>}
-          {error&&<p role="alert" className={styles.error}>{error}</p>}
-          <div className={styles.actions}><PublicActionButton type="submit">Uložiť záznam</PublicActionButton><PublicActionButton variant="secondary" onClick={()=>{setDraft(null);setError("");}}>Zrušiť</PublicActionButton></div>
+          {entryError&&<p role="alert" className={styles.error}>{entryError}</p>}
+          <div className={styles.actions}><PublicActionButton type="submit">Uložiť záznam</PublicActionButton><PublicActionButton variant="secondary" onClick={()=>{setDraft(null);setEntryError("");}}>Zrušiť</PublicActionButton></div>
         </form>
       </section>}
       <section className={styles.panel}><h2>Najbližšie a zmeškané termíny</h2><ul className={styles.list}>{[...overdue,...upcoming].slice(0,20).map(renderEntry)}</ul>{!pending.length&&<p className={styles.note}>Nemáš žiadne otvorené termíny.</p>}{pending.length>20&&<p className={styles.note}>Zobrazených prvých 20 termínov. Ďalšie nájdeš v príslušnom mesiaci.</p>}

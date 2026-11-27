@@ -9,6 +9,7 @@ import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import { PuppyEquipmentLink } from "@/components/puppy-equipment-page";
 import { DogHealthCalendarLink } from "@/components/dog-health-calendar-page";
+import { getManagedPortalSection } from "@/lib/section-store";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   PublicActionLink,
@@ -805,6 +806,7 @@ export async function EditorialSectionTopic({
   const topicArticles = orderedArticles(section, articles, subpage);
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const isHealthLanding = sectionSlug === "starostlivost" && subpage.slug === "zdravie";
+  const healthCalendarSection = sectionSlug === "steniatka" && subpage.slug === "ockovanie-a-zdravie" ? await getManagedPortalSection("starostlivost") : null;
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
     name: `${subpage.label} – ${section.label}`,
@@ -866,6 +868,7 @@ export async function EditorialSectionTopic({
           </div>
           {sectionSlug === "steniatka" && ["pred-kupou-psa", "prve-dni"].includes(subpage.slug) && <PuppyEquipmentLink section={section} />}
           {sectionSlug === "starostlivost" && ["zdravie", "vyziva"].includes(subpage.slug) && <DogHealthCalendarLink section={section} />}
+          {healthCalendarSection?.visible && <DogHealthCalendarLink section={healthCalendarSection} />}
           <section
             className={styles.relatedSection}
             aria-labelledby="topic-related-heading"
