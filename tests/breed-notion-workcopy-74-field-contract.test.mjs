@@ -112,3 +112,51 @@ test("new breed properties are encoded against actual schema types without a rem
  assert.throws(()=>encode({schema,properties,fieldId:"status",value:"published"}),/FIELD_NOT_EDITABLE/);
  assert.throws(()=>encode({schema,properties,fieldId:"name",value:null}),/TEXT_REQUIRED/);
 });
+
+
+test("a new Notion breed can be an incomplete private draft without fabricated ratings",async()=>{
+  const {readInboundBreedDraft,readInboundBreedIdentity}=await import("../lib/notion-breed-inbound-draft.mjs");
+  const page={properties:Object.fromEntries(Object.entries(notion).map(([name,definition])=>{
+    const type=definition.type==="text"?"rich_text":definition.type;
+    return [name,{type,[type]:["title","rich_text","multi_select"].includes(type)?[]:type==="checkbox"?false:null}];
+  }))};
+  page.properties["Odkontrolované"]={type:"checkbox",checkbox:false};
+  const rich=(value,type="rich_text")=>({type,[type]:[{type:"text",plain_text:value,text:{content:value}}]});
+  page.properties["Názov plemena"]=rich("Nové skúšobné plemeno","title");
+  page.properties["Energia"]={type:"number",number:4};
+  page.properties["Krajiny pôvodu"]={type:"multi_select",multi_select:[{name:"Kazachstan"}]};
+  const draft=readInboundBreedDraft(page,BREED_NOTION_SCHEMA);
+  assert.equal(draft.payload.slug,"nove-skusobne-plemeno");
+  assert.equal(draft.payload.status,"draft");
+  assert.equal(draft.payload.editorialComplete,false);
+  assert.equal(draft.payload.fciNumber,null);
+  assert.equal(draft.payload.fciGroup,0);
+  assert.equal(draft.payload.energy,4);
+  assert.equal(draft.payload.trainability,0);
+  assert.equal(draft.payload.children,0);
+  assert.equal(draft.payload.family,0);
+  assert.equal(draft.controlled.fciGroupSelect,null);
+  assert.deepEqual(draft.controlled.originCountries,["Kazachstan"]);
+  assert.deepEqual(readInboundBreedIdentity(page),{id:"",source:null,reviewed:false});
+  const missing=structuredClone(page);
+  delete missing.properties["Energia"].number;
+  assert.throws(()=>readInboundBreedDraft(missing,BREED_NOTION_SCHEMA),/PROPERTY_MISSING/);
+  const invalid=structuredClone(page);
+  invalid.properties["Energia"].number=6;
+  assert.throws(()=>readInboundBreedDraft(invalid,BREED_NOTION_SCHEMA),/RATING_INVALID/);
+  const old=structuredClone(page);
+  old.properties["Psipedia ID"]=rich("42");
+  assert.throws(()=>readInboundBreedDraft(old,BREED_NOTION_SCHEMA),/IDENTITY_REVIEW/);
+  const original=structuredClone(page);
+  original.properties["Zdrojový profil Notion"]={type:"url",url:"https://www.notion.so/old"};
+  assert.throws(()=>readInboundBreedDraft(original,BREED_NOTION_SCHEMA),/IDENTITY_REVIEW/);
+  const checked=structuredClone(page);
+  checked.properties["Odkontrolované"].checkbox=true;
+  assert.throws(()=>readInboundBreedDraft(checked,BREED_NOTION_SCHEMA),/IDENTITY_REVIEW/);
+  const badSlug=structuredClone(page);
+  badSlug.properties["URL profil / slug"]=rich("../old");
+  assert.throws(()=>readInboundBreedDraft(badSlug,BREED_NOTION_SCHEMA),/SLUG_INVALID/);
+  const untitled=structuredClone(page);
+  untitled.properties["Názov plemena"]={type:"title",title:[]};
+  assert.equal(readInboundBreedDraft(untitled,BREED_NOTION_SCHEMA),null);
+});
