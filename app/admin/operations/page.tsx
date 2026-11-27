@@ -64,7 +64,7 @@ async function AdminOperationsContent({
   return (
     <>
       <section className={styles.hubGrid} aria-label="Rýchly prehľad upozornení">
-        <a className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
+        <a className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations?view=pending#centrum-pozornosti">
           <span className={styles.hubKicker}>Na vybavenie</span>
           <div className={styles.hubMetric}>
             <strong>{attention.availability === "UNAVAILABLE" ? "—" : attention.summary.active}</strong>
@@ -72,7 +72,7 @@ async function AdminOperationsContent({
           </div>
           <h2>Aktívne upozornenia</h2>
           <p>Žiadosti, moderácia, partneri a adopcie. Zobrazené sú len aktuálne úlohy, ktoré ešte treba vyriešiť.</p>
-          <span className={styles.hubOpen}>Prejsť na upozornenia ↓</span>
+          <span className={styles.hubOpen}>Otvoriť úlohy na vybavenie</span>
         </a>
 
 
@@ -120,7 +120,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       user={user}
       eyebrow="Admin"
       title="Upozornenia"
-      description="Veci, pri ktorých treba niečo skontrolovať, schváliť, zamietnuť alebo vyriešiť. Technické nástroje a mapové operácie sú oddelené v hlavnej navigácii."
+      description="Žiadosti, podania a ďalšie úlohy na kontrolu."
       attentionSummaryPromise={attentionSummaryPromise}
     >
       <Suspense fallback={

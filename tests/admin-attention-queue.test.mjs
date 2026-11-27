@@ -487,7 +487,7 @@ test("attention source count chips filter the queue directly", () => {
   assert.doesNotMatch(page, /Automatické udalosti — história behov/);
   assert.match(component, /aria-current=\{selected \? "page" : undefined\}/);
   assert.doesNotMatch(page, /href="\/admin\/operations\?source=AUTOMATION_ACTION#centrum-pozornosti"/);
-  assert.match(page, /Prejsť na upozornenia ↓/);
+  assert.ok(page.includes('href="/admin/operations?view=pending#centrum-pozornosti"'));
 });
 
 

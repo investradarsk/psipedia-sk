@@ -45,6 +45,14 @@ function stateClass(state: AdminAttentionState) {
   return styles.stateDismissed;
 }
 
+const emptyViewLabels = {
+  unread: "Žiadne neprečítané upozornenia",
+  pending: "Žiadne upozornenia na vybavenie",
+  snoozed: "Žiadne odložené upozornenia",
+  history: "História je prázdna",
+  all: "Žiadne upozornenia",
+};
+
 const helpSourceStateLabels: Record<string, string> = {
   POSSIBLE_CHANGE: "Možná zmena stavu",
   UNCERTAIN: "Nedá sa potvrdiť",
@@ -80,8 +88,7 @@ export function AdminAttentionQueue({
 }) {
   const unavailable = page.sourceAvailability.filter((source) => source.state === "UNAVAILABLE");
   const hasFilters = (filters.sourceType && filters.sourceType !== "all")
-    || (filters.priority && filters.priority !== "all")
-    || (filters.view && filters.view !== "unread");
+    || (filters.priority && filters.priority !== "all");
   const selectedSource = filters.sourceType && filters.sourceType !== "all"
     ? page.sourceAvailability.find((source) => source.sourceType === filters.sourceType)
     : undefined;
@@ -106,13 +113,6 @@ export function AdminAttentionQueue({
 
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
-      <section className="admin-stats" aria-label="Súhrn upozornení">
-        <div><span>Neprečítané</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.unread}</strong></div>
-        <div><span>Na vybavenie</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.active}</strong></div>
-        <div><span>Odložené</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.snoozed}</strong></div>
-        <div><span>História</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.history}</strong></div>
-      </section>
-
       <nav aria-label="Zobrazenie upozornení" className={styles.sourceCounts}>
         {inboxViews.map((view) => (
           <Link key={view.value} href={queueHref({ ...filters, view: view.value })}
@@ -120,6 +120,7 @@ export function AdminAttentionQueue({
             {view.label} · {page.availability === "UNAVAILABLE" ? "—" : view.count}
           </Link>
         ))}
+        <Link href={queueHref({ ...filters, view: "all" })} aria-current={currentView === "all" ? "page" : undefined}>Všetko</Link>
       </nav>
       <p>Prečítanie alebo odloženie upozornenia nikdy neschváli ani neuzavrie moderované podanie.</p>
       {page.pagination.invalidCursor && (
@@ -137,7 +138,6 @@ export function AdminAttentionQueue({
       {page.availability === "UNAVAILABLE" && (
         <div className="admin-flash" role="alert">
           <strong>Upozornenia sa momentálne nepodarilo načítať.</strong>{" "}
-          Žiadny zdroj sa netvári ako prázdny; stav je označený ako nedostupný.{" "}
           <Link href={queueHref(filters)}>Skúsiť znova</Link>
         </div>
       )}
@@ -160,17 +160,7 @@ export function AdminAttentionQueue({
       </ul>
 
       <form className={styles.filters} method="get" action="/admin/operations" role="search" aria-label="Filtrovať upozornenia" data-admin-list-filters>
-        <label>
-          <span>Zobrazenie</span>
-          <select name="view" defaultValue={filters.view ?? "unread"}>
-            <option value="unread">Neprečítané</option>
-            <option value="pending">Na vybavenie</option>
-            <option value="snoozed">Odložené</option>
-            <option value="history">História</option>
-            <option value="active">Aktívne (starší odkaz)</option>
-            <option value="all">Všetko</option>
-          </select>
-        </label>
+        <input type="hidden" name="view" value={currentView} />
         <label>
           <span>Zdroj</span>
           <select name="source" defaultValue={filters.sourceType ?? "all"}>
@@ -188,13 +178,13 @@ export function AdminAttentionQueue({
           </select>
         </label>
         <button type="submit">Filtrovať</button>
-        {hasFilters && <Link href="/admin/operations#centrum-pozornosti">Vyčistiť filtre</Link>}
+        {hasFilters && <Link href={queueHref({ view: currentView })}>Vyčistiť filtre</Link>}
       </form>
 
-      <p role="status" data-admin-list-results>
+      {page.availability !== "UNAVAILABLE" && <p role="status" data-admin-list-results>
         {page.availability === "PARTIAL" ? "Nájdené v dostupných zdrojoch" : "Nájdené"}: <strong>{page.resultCount}</strong>
         {" · "}Zobrazené: <strong>{page.items.length}</strong>
-      </p>
+      </p>}
 
       {page.items.length ? (
         <section className={styles.list} aria-label="Položky upozornení">
@@ -251,11 +241,11 @@ export function AdminAttentionQueue({
           <h2>{selectedUnavailable
             ? "Zvolený zdroj je momentálne nedostupný"
             : selectedEmpty ? "Zvolený zdroj nemá otvorené položky"
-              : hasFilters ? "Pre zvolený filter sa nič nenašlo" : "Žiadne aktívne upozornenia"}</h2>
+              : hasFilters ? "Pre zvolený filter sa nič nenašlo" : emptyViewLabels[currentView]}</h2>
           <p>{selectedUnavailable
-            ? "Skús načítanie zopakovať; nedostupný zdroj sa nezobrazuje ako zavádzajúca nula."
-            : selectedEmpty ? "Dotaz prešiel úspešne a zdroj je skutočne prázdny."
-              : hasFilters ? "Vyčisti filtre alebo zvoľ inú kombináciu." : "Všetky dostupné canonical workflowy sú bez otvorených položiek."}</p>
+            ? "Skúste načítať upozornenia znova."
+            : hasFilters ? <Link href={queueHref({ view: currentView })}>Zobraziť všetky zdroje a priority</Link>
+              : currentView === "unread" && page.summary.active > 0 ? <Link href={queueHref({ view: "pending" })}>Otvoriť upozornenia na vybavenie</Link> : null}</p>
         </div>
       )}
 
