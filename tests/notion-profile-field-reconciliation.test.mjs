@@ -1497,3 +1497,55 @@ test("V2 instant offset validator accepts real timezone offsets rather than lite
     assert.equal(expected.test(input),true);
   assert.equal(expected.test("2026-10-19"),false);
 });
+
+test("V2 recovery can fill confirmed blank Notion fields without inventing a receipt", async()=>{
+  const {isConfirmedBlankPush,UNIFIED_SYNC_AGENDAS}=await import("../lib/notion-unified-field-sync.ts");
+  const p=value=>({present:true,value});
+  for(const agenda of UNIFIED_SYNC_AGENDAS){
+    const identity={agenda,entityId:"1",pageId:"p",field:"sample"};
+    const check=(base,n,a)=>isConfirmedBlankPush({identity,baseline:{value:base,version:"v"},notion:p(n),psipedia:p(a)});
+    for(const value of ["https://example.com/photo.webp",false,0,["a"]])assert.equal(check("","",value),true);
+    for(const values of [["","remote","local"],["old","","local"],["old","old","local"],["","",""],["",null,"local"],["","",{}]])assert.equal(check(...values),false);
+    assert.equal(isConfirmedBlankPush({identity,baseline:null,notion:p(""),psipedia:p("local")}),false);
+    assert.equal(isConfirmedBlankPush({identity,baseline:{value:"",version:"v"},notion:{present:false},psipedia:p("local")}),false);
+  }
+});
+test("V2 confirmed-blank recovery marker requires fresh pair, stable scope and no edit receipt",async()=>{
+  const {reserveUnifiedField,confirmUnifiedField}=await import("../lib/notion-unified-field-transfer.ts");
+  const {readUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    for(const f of ["0178_notion_unified_field_state.sql","0179_notion_unified_admin_edits.sql"]){
+      if(f.startsWith("0179"))db.exec("CREATE TABLE managed_events(id INTEGER PRIMARY KEY, updated_at TEXT, updated_by TEXT); CREATE TABLE event_notion_sync(event_id INTEGER,notion_page_id TEXT,content_hash TEXT);");
+      db.exec(await readFile(new URL("../drizzle/"+f,import.meta.url),"utf8"));
+    }
+    const adapter={prepare(sql){return{bind(...args){return{async first(){return db.prepare(sql).get(...args)??null;}};}};}};
+    const p=value=>({present:true,value});
+    const key=id=>({agenda:"organizations",entityId:String(id),pageId:"p",field:"Facebook"});
+    const reserve=(id,n,a,direction,baseline="")=>reserveUnifiedField({database:adapter,identity:key(id),historicalBaseline:{value:baseline,version:"v"},notion:p(n),psipedia:p(a),direction});
+    const mark=async id=>{
+      await reserve(id,"","url","observe");
+      assert.equal((await readUnifiedFieldState(adapter,key(id))).reason,"RECOVERY_DIRECTION_REQUIRED");
+      await reserve(id,"","url","observe");
+      assert.equal((await readUnifiedFieldState(adapter,key(id))).reason,"CONFIRMED_BLANK_PUSH");
+    };
+    await mark(1);
+    const claim=await reserve(1,"","url","push");
+    assert.equal(claim.value,"url");
+    await confirmUnifiedField(adapter,claim,p("url"),p("url"));
+    assert.equal((await readUnifiedFieldState(adapter,key(1))).status,"SYNCED");
+    await mark(2);
+    await assert.rejects(reserve(2,"","changed","push"),/CONFIRMED_BLANK_CHANGED/);
+    await mark(3);
+    await assert.rejects(reserve(3,"remote","url","push"),/CONFIRMED_BLANK_CHANGED/);
+    await mark(4);
+    db.exec("INSERT INTO notion_unified_scope_invalidation VALUES('organizations','4','now')");
+    await assert.rejects(reserve(4,"","url","push"),/CONFIRMED_BLANK_CHANGED/);
+    await mark(5);
+    db.exec("INSERT INTO notion_unified_manual_fence(agenda,entity_id,owner_token,started_at) VALUES('organizations','5','owner','now')");
+    await assert.rejects(reserve(5,"","url","push"),/UNIFIED_FIELD_CONCURRENT_RESERVATION/);
+    await mark(6);
+    db.prepare("INSERT INTO notion_unified_admin_field_edits(agenda,entity_id,notion_page_id,field_key,edit_id,baseline_version,canonical_revision,observed_at,value_json,explicit_clear) VALUES(?,?,?,?,?,?,?,?,?,?)").run("organizations","6","p","Facebook","edit","v","rev","2026-11-27T08:00:00.000Z",JSON.stringify("url"),0);
+    await assert.rejects(reserve(6,"","url","push"),/CONFIRMED_BLANK_CHANGED/);
+  }finally{db.close();}
+});
