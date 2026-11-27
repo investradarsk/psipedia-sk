@@ -270,7 +270,7 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-blocks");
-  const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string; blockId?: string } | null>(null);
+  const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [qaBlockFocusRequest, setQaBlockFocusRequest] = useState<{ blockId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
@@ -293,7 +293,6 @@ export function AdminArticleEditor({
     const panel = document.getElementById(qaFocusRequest.sectionId);
     if (panel?.hidden) return;
     panel?.focus({ preventScroll: true });
-    if (qaFocusRequest.blockId) setQaBlockFocusRequest({ blockId: qaFocusRequest.blockId });
   }, [activeArticleSection, qaFocusRequest]);
 
   const focusResult = () => window.requestAnimationFrame(() => {
@@ -577,7 +576,8 @@ export function AdminArticleEditor({
           const targetSectionId = targetId === "article-content" ? "article-basics" : targetId;
           const visibleTargetId = targetSectionId === "article-basics" ? "article-blocks" : targetSectionId;
           chooseArticleSection(visibleTargetId);
-          setQaFocusRequest({ sectionId: visibleTargetId, blockId: firstBlocker?.blockId });
+          setQaFocusRequest({ sectionId: visibleTargetId });
+          setQaBlockFocusRequest(firstBlocker?.blockId ? { blockId: firstBlocker.blockId } : null);
         }
         throw new Error(data.error || "Článok sa nepodarilo uložiť.");
       }
@@ -864,7 +864,8 @@ export function AdminArticleEditor({
                   {block && <small>Blok {blockIndex + 1} · {articleBlockLabels[block.type]}</small>}
                   {item.blockId && <button type="button" onClick={() => {
                     chooseArticleSection("article-blocks");
-                    setQaFocusRequest({ sectionId: "article-blocks", blockId: item.blockId });
+                    setQaFocusRequest({ sectionId: "article-blocks" });
+                    if (item.blockId) setQaBlockFocusRequest({ blockId: item.blockId });
                   }}>Prejsť na problém</button>}
                 </li>;
               })}
