@@ -28,6 +28,7 @@ export function lifecyclePublicPaths(kind:string, slug:string, category:string):
       const base=cleanCategory==="FOUND"?"najdene-psy":"stratene-psy";
       paths=[`/pomoc-psom/${base}/${cleanSlug}`,`/pomoc-psom/${base}`,"/pomoc-psom"];break;
     }
+    case "eshops": paths=[`/recenzie/eshopy/${cleanSlug}`,"/recenzie/eshopy","/recenzie"];break;
     case "organizations": paths=[`/organizacie/${cleanSlug}`,"/organizacie","/pomoc-psom/utulky"];break;
     default: paths=[];
   }
