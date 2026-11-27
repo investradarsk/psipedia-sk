@@ -142,11 +142,12 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
       const work=await db.prepare(
         "SELECT original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id "+
         "FROM breed_notion_workcopy_links WHERE breed_id=? LIMIT 1")
-        .bind(id).first<{original_notion_page_id:string;work_notion_page_id:string;original_data_source_id:string;work_data_source_id:string}>();
+        .bind(id).first<{original_notion_page_id:string|null;work_notion_page_id:string;original_data_source_id:string|null;work_data_source_id:string}>();
       if(work) {
         originalSource=clean(work.original_data_source_id);
-        targets.push({pageId:work.original_notion_page_id,sourceId:originalSource},
-          {pageId:work.work_notion_page_id,sourceId:clean(work.work_data_source_id)});
+        if(Boolean(work.original_notion_page_id)!==Boolean(originalSource))throw Error("NOTION_MAPPING_INVALID");
+        if(work.original_notion_page_id)targets.push({pageId:work.original_notion_page_id,sourceId:originalSource});
+        targets.push({pageId:work.work_notion_page_id,sourceId:clean(work.work_data_source_id)});
       }
     }
     if(present.has("breed_notion_sync")) {
