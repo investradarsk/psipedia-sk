@@ -709,7 +709,8 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
       // A whole-record hash is usable only when it proves the exact snapshot.
       const baseline=stored??(!structural&&await snapshotHash(first.canonical)===input.mapping.content_hash?first.canonical:null);
       const reservation=structural?null:await reserveUnifiedField({
-        database:input.database,identity,notion:first.notion,psipedia:first.psipedia,direction,
+        database:input.database,identity,authorityBindings:input.bindings,
+        authorityProperty:first.page.properties?.[field === "description" ? "Popis" : ""],notion:first.notion,psipedia:first.psipedia,direction,
         historicalBaseline:baseline&&Object.hasOwn(baseline,field)?{value:baseline[field as keyof EditableSnapshot],version:input.mapping.content_hash}:null,
         psipediaEdit:await readUnifiedAdminEdit(input.database,identity,first.shop.updatedAt),
       });
