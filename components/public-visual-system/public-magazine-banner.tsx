@@ -176,7 +176,7 @@ export function PublicMagazineBanner({
   );
 }
 
-/** The shared text, CTA and spacing contract for magazine and context banners. */
+/** Canonical text and action structure for internal editorial promotions. */
 export function PublicBannerContent({
   eyebrow,
   title,
@@ -189,6 +189,10 @@ export function PublicBannerContent({
   icon,
   className,
   actionVariant = "primary",
+  headingAs = "h2",
+  headingClassName,
+  copyClassName,
+  actionsClassName,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -201,16 +205,21 @@ export function PublicBannerContent({
   icon?: ReactNode;
   className?: string;
   actionVariant?: "primary" | "secondary";
+  /** Semantic level is independent of the common banner visual. */
+  headingAs?: "h2" | "h3";
+  headingClassName?: string;
+  copyClassName?: string;
+  actionsClassName?: string;
 }) {
   return (
     <div
       className={[styles.bannerContent, className].filter(Boolean).join(" ")}
       data-public-banner-content
     >
-      <div className={styles.bannerCopy}>
+      <div className={[styles.bannerCopy, copyClassName].filter(Boolean).join(" ")} data-public-banner-copy>
         {icon}
         {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
-        <PublicHeading role="section" as="h2" id={headingId}>
+        <PublicHeading role="section" as={headingAs} id={headingId} className={headingClassName}>
           {title}
         </PublicHeading>
         {description ? (
@@ -220,7 +229,7 @@ export function PublicBannerContent({
         ) : null}
       </div>
       {actions ? (
-        <div data-public-banner-actions>{actions}</div>
+        <div className={actionsClassName} data-public-banner-actions>{actions}</div>
       ) : links?.length ? (
         <nav className={styles.links} aria-label="Užitočné odkazy">
           {links.map((link) => (
