@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
@@ -150,6 +151,7 @@ export function AdminEshopEditor({ shop,initialReview=null }: { shop: ManagedEsh
         </div>}
         actions={<EditorActionBar
           secondary={<div className={styles.actionLinks}>
+            {review&&<AdminRecordLifecycleActions kind="eshops" recordId={shop.id} status={status} disabled={saving||dirty} returnHref="/admin/recenzie/eshopy" onUnpublished={(next,revision)=>{setStatus(next as ManagedEshop["status"]);if(revision)setPersistedRevision(revision);setSavedSignature(signature=>JSON.stringify({...JSON.parse(signature),status:next}));}}/>}
             <Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>
             {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}
           </div>}
