@@ -1,4 +1,6 @@
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 "use client";
+
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
@@ -78,8 +80,10 @@ type BreedControlledValues=Record<string,string|number|string[]|null>;
 type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];rejectedKeys?:string[];error?:string};
 const subscribeToHydration=()=>()=>{};
 
-export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { breed?: ManagedBreed; options: BreedEditorOptions; returnHref?: string }) {
+export function AdminBreedEditor({ breed, initialReview=null, returnHref = "/admin/plemena" }: { breed?: ManagedBreed; initialReview?:{reviewed:boolean;reviewedAt:string}|null; options: BreedEditorOptions; returnHref?: string }) {
   const router = useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setCanonicalForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
@@ -225,11 +229,18 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()||item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys}:{})})
+        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()||item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys,...(review?{reviewOnSave:!review.reviewed&&lockWithSave,expectedControlledRevision:controlledRevision,controlledChanges:submittedControlled}:{})}:{})})
       });
-      const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string}};
+      const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string};review?:{reviewed:boolean;reviewedAt:string}|null;controlled?:BreedControlledResponse|null};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
+      if(data.review)setReview(data.review);
+      if(review&&data.controlled){
+        const saved=data.controlled;
+        setControlledRevision(saved.revision);setControlledPendingKeys(saved.pendingKeys??[]);
+        if(formEditRevisionRef.current===submittedRevision){setControlled(saved.values);setControlledDirtyKeys([]);}
+        setControlledError("");
+      }
       const rejectedDirtyFields=data.rejectedDirtyFields??[];
       if (rejectedDirtyFields.length) {
         // Never mark an unsuccessful field clean. All successfully saved fields
@@ -250,8 +261,8 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       } else baseFormRef.current=submittedForm;
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
-      let controlledHasPending=controlledPendingKeys.length>0;
-      if (breed && submittedControlledKeys.length) {
+      let controlledHasPending=!review&&controlledPendingKeys.length>0;
+      if (breed && submittedControlledKeys.length && !review) {
         if (controlledRevision===null) {
           controlledSaveFailed=true;
           setControlledError("Kontrolované údaje neboli načítané. Ostatné údaje sú uložené.");
@@ -470,6 +481,8 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
     >
     <form id="breed-canonical-editor-form" inert={saving} aria-busy={saving} noValidate className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
+    {review&&breed&&<AdminReviewCheckbox key={String(review.reviewed)+review.reviewedAt} entityType="BREED" entityId={breed.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate disabled={saving||dirty} onReviewChange={setReview}/>}
+    {review&&!review.reviewed&&<div role="status"><p>Neodkontrolované plemeno: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
     <div className={styles.editorTopbar}>
       <div>
         <strong>{breed ? "Plemeno #" + breed.id : "Nový profil plemena"}</strong>
