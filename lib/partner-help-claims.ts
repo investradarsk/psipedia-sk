@@ -1,4 +1,4 @@
-import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
+import { partnerAdminReviewStatement, preservePartnerReviewBeforeRevoke } from "./admin-notion-review-lock";
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import { appendPartnerAuditEvent } from "./partner-platform";
 import { normalizePartnerClaimText } from "./partner-claims";
@@ -259,6 +259,12 @@ export async function decidePartnerHelpClaimAdmin(input:{id:string;action:"APPRO
         }),
       ]);
       result=decision;
+    }else if(revoke){
+      const results=await database.batch([
+        ...preservePartnerReviewBeforeRevoke(database,{scope:{kind:"claim",id:input.id},nowIso:iso,actorRef:actor}),
+        transition,
+      ]);
+      result=results.at(-1)!;
     }else result=await transition.run();
   }catch(error){
     if(error instanceof Error && /UNIQUE constraint failed|partner_help_claims_.*manager/i.test(error.message))
