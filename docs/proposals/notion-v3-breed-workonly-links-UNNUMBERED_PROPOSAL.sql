@@ -1,6 +1,12 @@
 -- UNNUMBERED PROPOSAL. Do not apply without owner approval, D1 bookmark,
 -- dependency/schema inventory and offline verification in one atomic transaction.
 -- New work-only breeds have no historical Notion original; never fabricate one.
+-- Refuse to rebuild if any deployed table has an incoming foreign key.
+-- Do not disable foreign keys or rely on cascades during a schema migration.
+SELECT CASE WHEN NOT EXISTS (
+ SELECT 1 FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) fk
+ WHERE m.type='table' AND fk."table" IN ('breed_notion_workcopy_links')
+) THEN 1 ELSE json_extract('V3_SCHEMA_INCOMING_FK','$') END;
 DROP TRIGGER unified_scope_breed_notion_workcopy_links_insert;
 DROP TRIGGER unified_scope_breed_notion_workcopy_links_delete;
 DROP TRIGGER unified_scope_breed_notion_workcopy_links_update;
