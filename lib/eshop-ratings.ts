@@ -395,6 +395,7 @@ export async function createManagedEshop(
 export async function updateEshopV2NotionField(input:{
   database:D1Database;id:number;pageId:string;revision:string;field:EshopV2Field;value:unknown;
   logo?:{imageUrl:string|null;imageKey:string|null};
+  authorityReservation?: import("./notion-unified-field-transfer.ts").FieldReservation;
 }) {
   const {database,id,pageId,revision,field,value}=input;
   let assignments:string, args:unknown[];
@@ -418,9 +419,17 @@ export async function updateEshopV2NotionField(input:{
   }
   if(field!=="focusTags"&&field!=="logoUrl"&&(typeof args[0]!=="string"||args[0].replace(/\r\n?/g,"\n").trim()!==value))
     throw Error("ESHOP_V2_NORMALIZATION_REVIEW");
+  const authority=input.authorityReservation?.profileAuthority===true;
+  const guard=authority
+    ? " AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ESHOP' AND entity_id=managed_eshops.id)"+
+      " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='eshops' AND record_id=managed_eshops.id)"+
+      " AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='eshops' AND entity_id=CAST(managed_eshops.id AS TEXT))"+
+      " AND EXISTS(SELECT 1 FROM notion_unified_field_state WHERE agenda='eshops' AND entity_id=CAST(managed_eshops.id AS TEXT) AND notion_page_id=? AND field_key=? AND version=? AND status='PENDING')"
+    : "";
   const result=await database.prepare("UPDATE managed_eshops SET "+assignments+",updated_at=?,updated_by=? "+
     "WHERE id=? AND updated_at=? AND status<>'archived' "+
-    "AND EXISTS(SELECT 1 FROM eshop_notion_sync WHERE eshop_id=managed_eshops.id AND notion_page_id=?)")
-    .bind(...args,nextHelpV2Revision(revision),"notion-eshop-sync@psipedia.sk",id,revision,pageId).run();
+    "AND EXISTS(SELECT 1 FROM eshop_notion_sync WHERE eshop_id=managed_eshops.id AND notion_page_id=?)"+guard)
+    .bind(...args,nextHelpV2Revision(revision),"notion-eshop-sync@psipedia.sk",id,revision,pageId,
+      ...(authority?[input.authorityReservation!.identity.pageId,input.authorityReservation!.identity.field,input.authorityReservation!.version]:[])).run();
   if(result.meta.changes!==1)throw Error("ESHOP_V2_WRITE_CONFLICT");
 }
