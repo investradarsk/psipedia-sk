@@ -739,7 +739,7 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
         }
         if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
         await updateEshopV2NotionField({database:input.database,id:first.shop.id,pageId:first.page.id,
-          revision:first.shop.updatedAt,field,value,logo});
+          revision:first.shop.updatedAt,field,value,logo,authorityReservation:reservation??undefined});
       }else{
         const all=notionProperties(fresh.shop,"",new Date().toISOString()) as Record<string,unknown>;
         const names=field==="slug"?["Slug","URL Psipedia"]:field==="status"?["Psipedia stav"]:
