@@ -1,4 +1,3 @@
-import { isAdminNotionSyncLocked } from "./admin-notion-review-lock.ts";
 import { isLegacyBreedDuplicate } from "./notion-breed-legacy-duplicates.mjs";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
@@ -517,14 +516,14 @@ export async function inspectManualBreedWorkCopyProfile(input: {
  * without baseline, receipts or invalidation. A failed write remains PENDING
  * for ordinary observed-state recovery, never blind replay. */
 async function repairLegacyBreedDuplicate(database:D1Database,bindings:BreedWorkCopyBindings,link:ShadowLink,field:string){
-  if(await isAdminNotionSyncLocked(database,"breeds",link.breed_id))return false;
   const identity={agenda:"breeds" as const,entityId:String(link.breed_id),pageId:link.work_notion_page_id,field};
   const old=await readUnifiedFieldState(database,identity);
   if(!old||old.status!=="REVIEW"||old.reason!=="BASELINE_UNAVAILABLE"||old.baseline!==undefined||old.baselineVersion||old.notionEdit||old.psipediaEdit)return false;
   const guarded=async()=>{
     const invalid=await database.prepare("SELECT 1 AS n FROM notion_unified_scope_invalidation WHERE agenda=? AND entity_id=?").bind(identity.agenda,identity.entityId).first();
     const receipt=await database.prepare("SELECT 1 AS n FROM notion_unified_admin_field_edits WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=?").bind(identity.agenda,identity.entityId,identity.pageId,field).first();
-    return !invalid&&!receipt&&!(await isAdminNotionSyncLocked(database,"breeds",link.breed_id));
+    const current=await getActiveLink(database,link.breed_id);
+    return !invalid&&!receipt&&current?.work_notion_page_id===link.work_notion_page_id&&!(await notionPageIsTombstoned(database,link.work_notion_page_id));
   };
   if(!await guarded())return false;
   const live=await observeUnifiedBreedField(database,bindings,link,field);
