@@ -34,7 +34,7 @@ export async function GET(_request:Request,context:Context) {
   const {db,bindings}=dbBinding();
   if(!db)return json({error:"D1_UNAVAILABLE"},503);
   try{
-    if(!await lifecycleSchemaReady(db))return json({error:"LIFECYCLE_MIGRATION_0164_REQUIRED"},503);
+    if(!await lifecycleSchemaReady(db,target.kind))return json({error:target.kind==="eshops"?"LIFECYCLE_ESHOPS_SCHEMA_REQUIRED":"LIFECYCLE_MIGRATION_0164_REQUIRED"},503);
     const preview=await recordLifecyclePreview(db,bindings,target.kind,target.id);
     return preview?json(preview):json({error:"RECORD_NOT_FOUND"},404);
   }catch(error){
@@ -58,7 +58,7 @@ export async function POST(request:Request,context:Context) {
     body=parsed as Record<string,unknown>;
   }catch{return json({error:"INVALID_JSON"},400);}
   try{
-    if(!await lifecycleSchemaReady(db))return json({error:"LIFECYCLE_MIGRATION_0164_REQUIRED"},503);
+    if(!await lifecycleSchemaReady(db,target.kind))return json({error:target.kind==="eshops"?"LIFECYCLE_ESHOPS_SCHEMA_REQUIRED":"LIFECYCLE_MIGRATION_0164_REQUIRED"},503);
     const preview=await recordLifecyclePreview(db,bindings,target.kind,target.id);
     if(!preview)return json({error:"RECORD_NOT_FOUND"},404);
     if(body.action==="unpublish") {
