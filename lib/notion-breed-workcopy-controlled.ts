@@ -84,6 +84,7 @@ async function commitControlledShadow(args:{
   incomingNotion:boolean;
   expectedBreedRevision?:string;
   recordAdminReceipts?:boolean;
+  authorityReservation?:import("./notion-unified-field-transfer.ts").FieldReservation;
 }):Promise<void>{
   const breed=await args.database.prepare(
     "SELECT updated_at FROM managed_breeds WHERE id=?"
@@ -103,12 +104,19 @@ async function commitControlledShadow(args:{
   const params=args.incomingNotion?
     [JSON.stringify(args.values),JSON.stringify(args.notion),now,args.breedId,args.row.revision]:
     [JSON.stringify(args.values),now,args.breedId,args.row.revision];
+  const authority=args.incomingNotion&&args.authorityReservation?.profileAuthority===true;
+  const guard=authority?
+    " AND status<>\'archived\' AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=\'BREED\' AND entity_id=managed_breeds.id)"+
+    " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind=\'breeds\' AND record_id=managed_breeds.id)"+
+    " AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=\'breeds\' AND entity_id=CAST(managed_breeds.id AS TEXT))"+
+    " AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=managed_breeds.id AND status=\'ACTIVE\' AND work_notion_page_id=?)"+
+    " AND EXISTS(SELECT 1 FROM notion_unified_field_state WHERE agenda=\'breeds\' AND entity_id=CAST(managed_breeds.id AS TEXT) AND notion_page_id=? AND field_key=? AND version=? AND status=\'PENDING\')":"";
   const statements=[
     args.database.prepare(sql).bind(...params),
     breedSqlV2CasGuard(args.database),
     args.database.prepare(
-      "UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=?"
-    ).bind(next,args.breedId,breed.updated_at),
+      "UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=?"+guard
+    ).bind(next,args.breedId,breed.updated_at,...(authority?[args.authorityReservation!.identity.pageId,args.authorityReservation!.identity.pageId,args.authorityReservation!.identity.field,args.authorityReservation!.version]:[])),
     breedSqlV2CasGuard(args.database),
     ...breedSqlV2ControlledStatements(args.database,args.breedId,args.changes),
     ...(args.recordAdminReceipts ? Object.entries(args.changes).flatMap(([key,value]) =>
@@ -261,8 +269,13 @@ export async function receiveBreedControlledNotionEdit(args:{
         const value=pilot.reservation.value;
         const values={...parseBreedControlledValues(pilot.row.values_json),[key]:value};
         const notion={...parseBreedControlledValues(pilot.row.notion_values_json),[key]:value};
+        if(pilot.reservation.profileAuthority){
+          const latest=await observeControlledV2(args.database,args.bindings,link,key);
+          if(latest.revision!==pilot.revision||latest.row.revision!==pilot.row.revision||!eq(latest.notion,pilot.notion)||latest.page.last_edited_time!==pilot.page.last_edited_time)throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
+          await assertUnifiedReservationCurrent(args.database,pilot.reservation);
+        }
         await commitControlledShadow({database:args.database,breedId:link.breed_id,row:pilot.row,
-          values,notion,changes:{[key]:value},incomingNotion:true,expectedBreedRevision:pilot.revision});
+          values,notion,changes:{[key]:value},incomingNotion:true,expectedBreedRevision:pilot.revision,authorityReservation:pilot.reservation});
         const fresh=await observeControlledV2(args.database,args.bindings,link,key);
         await confirmUnifiedField(args.database,pilot.reservation,fresh.notion,fresh.psipedia);
         updated=true;
@@ -446,7 +459,7 @@ export async function recoverControlledBreedV2Field(database:D1Database,bindings
     if(fresh.revision!==planned.revision||fresh.row.revision!==planned.row.revision||!eq(fresh.notion,planned.notion))throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
     await assertUnifiedReservationCurrent(database,planned.reservation);
     const value=planned.reservation.value;
-    await commitControlledShadow({database,breedId:id,row:planned.row,values:{...parseBreedControlledValues(planned.row.values_json),[key]:value},notion:{...parseBreedControlledValues(planned.row.notion_values_json),[key]:value},changes:{[key]:value},incomingNotion:true,expectedBreedRevision:planned.revision});
+    await commitControlledShadow({database,breedId:id,row:planned.row,values:{...parseBreedControlledValues(planned.row.values_json),[key]:value},notion:{...parseBreedControlledValues(planned.row.notion_values_json),[key]:value},changes:{[key]:value},incomingNotion:true,expectedBreedRevision:planned.revision,authorityReservation:planned.reservation});
     const verified=await observeControlledV2(database,bindings,link,key);
     await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
   }
