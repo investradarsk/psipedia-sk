@@ -1681,11 +1681,11 @@ test("authority reservation across all eight mapped agendas rejects missing raw 
       CREATE TABLE partner_help_claims(status TEXT,adoption_dog_id INTEGER,lost_found_report_id INTEGER,help_case_id INTEGER);
       CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT);
       CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT);
-      CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER,work_notion_page_id TEXT,status TEXT);
+      CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER,work_notion_page_id TEXT,status TEXT,work_last_error_code TEXT);
       CREATE TABLE event_notion_sync(event_id INTEGER,notion_page_id TEXT);
       CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT);
       INSERT INTO directory_notion_sync VALUES(1,'p');
-      INSERT INTO breed_notion_workcopy_links VALUES(1,'p','ACTIVE');
+      INSERT INTO breed_notion_workcopy_links VALUES(1,'p','ACTIVE',NULL);
       INSERT INTO event_notion_sync VALUES(1,'p');
       INSERT INTO eshop_notion_sync VALUES(1,'p');
     `);
@@ -1903,7 +1903,7 @@ test("V3 breed work-only proposal keeps historical originals and rejects partial
   const db=new DatabaseSync(":memory:");
   const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
   try{
-    db.exec("PRAGMA foreign_keys=ON; CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY); INSERT INTO managed_breeds VALUES(1),(2),(3)");
+    db.exec("PRAGMA foreign_keys=ON; CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY,status TEXT DEFAULT 'draft',fci_group INTEGER DEFAULT 0,energy INTEGER DEFAULT 0,trainability INTEGER DEFAULT 0,family INTEGER DEFAULT 0,children INTEGER DEFAULT 0,other_dogs INTEGER DEFAULT 0,apartment INTEGER DEFAULT 0,grooming INTEGER DEFAULT 0,shedding INTEGER DEFAULT 0,prey_drive INTEGER DEFAULT 0); INSERT INTO managed_breeds(id) VALUES(1),(2),(3)");
     db.exec(await read("drizzle/0178_notion_unified_field_state.sql"));
     db.exec("CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT)");
     db.exec(await read("drizzle/0159_breed_notion_workcopy_links.sql"));
@@ -1916,6 +1916,12 @@ test("V3 breed work-only proposal keeps historical originals and rejects partial
     assert.deepEqual(db.prepare("SELECT * FROM breed_notion_workcopy_links WHERE breed_id=1").get(),old);
     db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,work_notion_page_id,work_data_source_id,canonical_slug,status,activated_at) VALUES(2,'work2','work','breed2','ACTIVE','now')");
     assert.equal(db.prepare("SELECT original_notion_page_id FROM breed_notion_workcopy_links WHERE breed_id=2").get().original_notion_page_id,null);
+    assert.throws(()=>db.exec("UPDATE managed_breeds SET status='published' WHERE id=2"),/BREED_DRAFT_REQUIRED_VALUES/);
+    db.exec("UPDATE managed_breeds SET fci_group=1,energy=1,trainability=1,family=1,children=1,other_dogs=1,apartment=1,grooming=1,shedding=1,prey_drive=1 WHERE id=2");
+    db.exec("UPDATE breed_notion_workcopy_links SET work_last_error_code='INBOUND_ID_PENDING' WHERE breed_id=2");
+    assert.throws(()=>db.exec("UPDATE managed_breeds SET status='published' WHERE id=2"),/BREED_DRAFT_REQUIRED_VALUES/);
+    db.exec("UPDATE breed_notion_workcopy_links SET work_last_error_code=NULL WHERE breed_id=2");
+    db.exec("UPDATE managed_breeds SET status='published' WHERE id=2");
     assert.throws(()=>db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,original_notion_page_id,work_notion_page_id,work_data_source_id,canonical_slug,status,activated_at) VALUES(3,'fake','work3','work','breed3','ACTIVE','now')"),/CHECK constraint/);
     assert.equal(db.prepare("SELECT COUNT(*) n FROM notion_unified_scope_invalidation WHERE agenda='breeds' AND entity_id='2'").get().n,1);
     assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
