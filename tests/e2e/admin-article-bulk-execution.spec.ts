@@ -67,10 +67,9 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(page.getByText("Vybrané: 1")).toBeVisible();
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog", { name: "Publikovať 1 článkov?" });
+    const dialog = page.getByRole("dialog", { name: "Publikovať 1 článok?" });
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("1 výsledkov / 1 eligible / 0 by boli preskočené");
+    await expect(dialog).toContainText("Zmení sa: 1 · Preskočí sa: 0");
     await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
     await expect(dialog).toContainText("Výber bol vyčistený");
@@ -109,9 +108,8 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    let dialog = page.getByRole("dialog", { name: "Publikovať 2 článkov?" });
-    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("2 výsledkov / 1 eligible / 1 by boli preskočené");
+    let dialog = page.getByRole("dialog", { name: "Publikovať 2 články?" });
+    await expect(dialog).toContainText("Zmení sa: 1 · Preskočí sa: 1");
     await expect(dialog).toContainText("už sú v cieľovom stave");
     await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
@@ -125,9 +123,8 @@ test.describe("ADMIN-2E article bulk execution", () => {
       await page.getByLabel(`Vybrať článok ${title}`).check();
       await expect(page.getByText("Vybrané: 1")).toBeVisible();
       await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
-      dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 1 článkov?" });
-      await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-      await expect(dialog).toContainText("1 výsledkov / 1 eligible / 0 by boli preskočené");
+      dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 1 článok?" });
+      await expect(dialog).toContainText("Zmení sa: 1 · Preskočí sa: 0");
       await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
       await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
       await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
@@ -167,9 +164,9 @@ test.describe("ADMIN-2E article bulk execution", () => {
     expect(toolbarScan.violations).toEqual([]);
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog", { name: "Publikovať 1 článkov?" });
+    const dialog = page.getByRole("dialog", { name: "Publikovať 1 článok?" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Spustiť preflight" })).toBeFocused();
+    await expect(dialog.getByRole("heading")).toBeFocused();
 
     const dialogScan = await new AxeBuilder({ page }).include("dialog").analyze();
     expect(dialogScan.violations).toEqual([]);

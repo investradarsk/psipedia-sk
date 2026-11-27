@@ -143,9 +143,8 @@ test.describe("admin directory v2", () => {
     await expect(page.getByText("Vybrané: 2")).toBeVisible();
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    let dialog = page.getByRole("dialog", { name: "Publikovať 2 profilov?" });
-    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("2 výsledkov / 1 eligible / 1 by boli preskočené");
+    let dialog = page.getByRole("dialog", { name: "Publikovať 2 profily?" });
+    await expect(dialog).toContainText("Zmení sa: 1 · Preskočí sa: 1");
     await dialog.getByRole("button", { name: /Potvrdiť a vykonať: publikovať/i }).click();
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
@@ -153,9 +152,8 @@ test.describe("admin directory v2", () => {
     await expect(page.locator("[data-testid='admin-record-row']").filter({ hasText: "Bulk Fixture Draft" })).toContainText("Publikované");
     await page.getByLabel("Vybrať všetky profily na tejto strane").check();
     await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
-    dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 profilov?" });
-    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
+    dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 profily?" });
+    await expect(dialog).toContainText("Zmení sa: 2 · Preskočí sa: 0");
     await dialog.getByRole("button", { name: /Potvrdiť a vykonať: presunúť do konceptov/i }).click();
     await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
