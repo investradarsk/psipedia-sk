@@ -2803,17 +2803,24 @@ async function observeUnifiedDirectoryCategories(
       propertyText(page, "Psipedia ID") !== String(profileId) ||
       propertyText(page, "Kategória") !== profile.category)
     throw Error("DIRECTORY_UNIFIED_IDENTITY_MISMATCH");
-  const raw = property(page, "Ďalšie kategórie")?.multi_select;
+  const cell = property(page, "Ďalšie kategórie");
+  const raw = cell?.multi_select;
   if (!Array.isArray(raw) || raw.some(option => !option || typeof option !== "object" ||
       !directoryCategories.some(c => c.slug === (option as {name?: unknown}).name ||
         c.label === (option as {name?: unknown}).name)))
+    throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
+  const slugs=raw.map(option=>directoryCategories.find(c=>c.slug===(option as {name?:unknown}).name||c.label===(option as {name?:unknown}).name)!.slug);
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&
+    (cell?.type!=="multi_select"||cell.has_more===true||raw.length>=25||new Set(slugs).size!==slugs.length||slugs.includes(profile.category)))
     throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
   const current = await getManagedDirectoryProfileById(profileId, database);
   if (!current || current.updatedAt !== profile.updatedAt ||
       await directoryProfileNotionSyncLocked(database, profileId))
     throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
   return { mapping, profile, page,
-    notion: { present: true as const, value: normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category) },
+    // Strictly validated registry mapping above converts display labels to canonical slugs.
+    authorityProperty:{type:"multi_select",multi_select:slugs.map(name=>({name}))},
+    notion: { present: true as const, value: bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?normalizeAdditionalDirectoryCategories(slugs,profile.category):normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category) },
     psipedia: { present: true as const, value: normalizeAdditionalDirectoryCategories(profile.additionalCategories ?? [], profile.category) },
   };
 }
@@ -2829,7 +2836,7 @@ async function reserveUnifiedDirectoryCategories(
   });
   const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
   const reservation = await reserveUnifiedField({
-    database, identity, direction, authorityBindings: bindings,
+    database, identity, direction, authorityBindings: bindings,authorityProperty:observed.authorityProperty,
     historicalBaseline: baseline ? {
       value: normalizeAdditionalDirectoryCategories(baseline.additionalCategories ?? [], observed.profile.category),
       version: observed.mapping.content_hash,
@@ -2876,14 +2883,26 @@ async function applyNotionAdditionalCategories(input: {
   const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
   // The current D1 SQL category relation is authoritative. Notion only
   // triggers an explicit SQL edit; no JSON copy or confirmation flag.
+  const authority=planned?.reservation?.profileAuthority===true;
+  if(authority){
+    const fresh=await observeUnifiedDirectoryCategories(input.database,input.bindings,profile.id,page.id);
+    if(fresh.profile.updatedAt!==planned!.profile.updatedAt||fresh.page.last_edited_time!==planned!.page.last_edited_time||JSON.stringify(fresh.notion)!==JSON.stringify(planned!.notion))throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+    await assertUnifiedReservationCurrent(input.database,planned!.reservation!);
+  }
   const canonical = input.database.prepare(`
     UPDATE directory_profiles
     SET updated_at = ?, updated_by = ?
     WHERE id = ? AND category = ? AND status <> 'archived'
       AND updated_at = ?
+      ${authority?`AND NOT EXISTS(SELECT 1 FROM directory_profile_review_state s WHERE s.profile_id=directory_profiles.id AND (length(trim(COALESCE(s.reviewed_at,\'\')))>0 OR s.unlock_pending=1))
+      AND NOT EXISTS(SELECT 1 FROM partner_resources r JOIN partner_memberships m ON m.resource_id=r.id WHERE r.entity_type=\'DIRECTORY_PROFILE\' AND r.directory_profile_id=directory_profiles.id AND m.revoked_at IS NULL)
+      AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=\'directory\' AND t.record_id=directory_profiles.id)
+      AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=\'directory\' AND f.entity_id=CAST(directory_profiles.id AS TEXT))
+      AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id AND m.notion_page_id=?)
+      AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda=\'directory\' AND s.entity_id=CAST(directory_profiles.id AS TEXT) AND s.notion_page_id=? AND s.field_key=\'additionalCategories\' AND s.version=? AND s.status=\'PENDING\')`:``}
     RETURNING id
   `).bind(now, SYSTEM_ACTOR,
-    profile.id, profile.category, profile.updatedAt);
+    profile.id, profile.category, profile.updatedAt,...(authority?[page.id,page.id,planned!.reservation!.version]:[]));
   const mirror = planDirectorySecondaryCategorySqlMirror({
     profileId:profile.id,primaryCategory:profile.category,submitted:desired,
     updatedAt:now,actor:SYSTEM_ACTOR,
