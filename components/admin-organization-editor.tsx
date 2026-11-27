@@ -187,14 +187,15 @@ export function AdminOrganizationEditor({
       let organizationId = organization?.id ?? createdOrganizationId.current;
       // Avoid touching an unchanged organization row just to save its address.
       // In particular, this preserves its updated_at and Notion mirror.
-      const reviewOnSave=Boolean(organizationId&&review&&!review.reviewed&&lockWithSave&&!addressChanged);
-      if (!organizationId || organizationChanged || reviewOnSave) {
+      const combinedAddress=organizationId&&review&&addressChanged?{expected:location,payload:{role:location?.role??"SITE",label:location?.label??"",...addressDraft,countryCode:addressDraft.countryCode||"SK",isPrimary:location?.isPrimary??true,sortOrder:location?.sortOrder??0}}:undefined;
+      const reviewOnSave=Boolean(organizationId&&review&&!review.reviewed&&lockWithSave);
+      if (!organizationId || organizationChanged || reviewOnSave || combinedAddress) {
         const response = await fetch(organizationId ? "/api/admin/organizations/" + organizationId : "/api/admin/organizations", {
           method: organizationId ? "PUT" : "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(organizationId ? { payload: draft, expectedUpdatedAt,reviewOnSave } : draft),
+          body: JSON.stringify(organizationId ? { payload: draft, expectedUpdatedAt,reviewOnSave,combinedAddress } : draft),
         });
-        const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string;review?:{reviewed:boolean;reviewedAt:string}|null };
+        const body = await response.json() as { item?: OrganizationPublicationAdminItem & {combinedLocation?:OrganizationLocationAdminRecord|null;addressGeoPending?:boolean}; error?: string;review?:{reviewed:boolean;reviewedAt:string}|null };
         if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
         organizationId = body.item.id;
         if (!organization) createdOrganizationId.current = organizationId;
@@ -206,11 +207,19 @@ export function AdminOrganizationEditor({
         setSavedSnapshot(JSON.stringify(persistedDraft));
         // Do not overwrite a newer automation change accepted during the request.
         setDraft((current) => JSON.stringify(current) === submittedSnapshot ? persistedDraft : current);
+        if(combinedAddress){
+          if(!body.item.combinedLocation)throw Error("Údaje sú uložené, adresu treba znovu načítať.");
+          setLocation(body.item.combinedLocation);
+          const savedAddress=organizationAddressDraftFromLocation(null,body.item.combinedLocation);
+          setSavedAddressSnapshot(JSON.stringify(savedAddress));
+          setAddressDraft(current=>JSON.stringify(current)===submittedAddressSnapshot?savedAddress:current);
+          if(body.item.addressGeoPending)setError("Adresa je uložená, mapové údaje ešte čakajú na aktualizáciu.");
+        }
         organizationSaved = true;
       setSyncRevision(v=>v+1);
       }
 
-      if (addressChanged) {
+      if (addressChanged && !combinedAddress) {
         savingAddress = true;
         if (!organizationId) throw new Error("Pred uložením adresy musí existovať organizácia.");
         const payload: OrganizationLocationAdminInput = {
@@ -280,7 +289,7 @@ export function AdminOrganizationEditor({
           onNavigate={setActiveOrganizationSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora organizácie" ready={hydrated} />
         <div className={styles.content}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
-          {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaná organizácia: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave&&!addressDirty} disabled={saving||addressDirty} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label>{addressDirty&&<small>Pri zmene adresy najprv ulož adresu. Odkontrolovanie je dostupné po jej uložení.</small>}</div>}
+          {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaná organizácia: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
           <div className="admin-event-fields">
       {automationSuggestionsPromise
         ? <AdminOrganizationSuggestions promise={automationSuggestionsPromise} onAccepted={applyAutomationUpdate} />
