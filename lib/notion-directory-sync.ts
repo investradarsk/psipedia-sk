@@ -749,6 +749,7 @@ async function writeProfileToNotion(input: {
   ownerUnlock?: boolean;
 }) {
   async function assertWritePermitted() {
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!input.ownerUnlock)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
     if (input.ownerUnlock) {
       if (!input.pageId ||
           !await directoryProfileOwnerUnlockPending(input.database, input.profile.id)) {
@@ -1196,6 +1197,7 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
   desiredOverride?: EditableDirectorySnapshot;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
@@ -1424,8 +1426,8 @@ async function acknowledgeStagedDirectoryDraft(database:D1Database,bindings:Noti
   await acknowledgeInboundProfileIdentity({database,bindings,agenda:"directory",id:profile.id,pageId,sourceId,revision:profile.updatedAt,
     desired:Object.fromEntries(["Psipedia ID","Slug","URL Psipedia"].map(name=>[name,all[name]]))});
 }
-async function createStagedDirectoryCopy(database:D1Database,bindings:NotionDirectorySyncBindings,dataSourceId:string,profileId:number){
-  return ensureFirstProfileNotionCopy({database,bindings,agenda:"directory",id:profileId,sourceId:dataSourceId,
+async function createStagedDirectoryCopy(database:D1Database,bindings:NotionDirectorySyncBindings,dataSourceId:string,profileId:number,allowCreate=true){
+  return ensureFirstProfileNotionCopy({database,bindings,agenda:"directory",id:profileId,sourceId:dataSourceId,allowCreate,
     async snapshot(schema){
       const profile=await getManagedDirectoryProfileById(profileId,database);
       if(!profile||profile.status==="archived")throw Error("DIRECTORY_FIRST_CREATE_MISSING");
@@ -3757,6 +3759,10 @@ export async function ensureDirectoryProfileInNotion(input: {
   if (!dataSourceId || !input.bindings.NOTION_API_TOKEN?.trim())
     throw new Error("GEMINI_NOTION_CONFIG_MISSING");
   if (!(await schemaReady(input.database))) throw new Error("GEMINI_NOTION_MAPPING_SCHEMA_MISSING");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const result=await createStagedDirectoryCopy(input.database,input.bindings,dataSourceId,input.profileId,input.allowCreate);
+    return {notionPageId:result.pageId,created:result.created};
+  }
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || profile.status !== "draft" || profile.reviewed ||
       await directoryProfileNotionSyncLocked(input.database, input.profileId))
@@ -4285,7 +4291,7 @@ export async function runNotionDirectorySyncSweep(input: {
           await syncBreederEvent({database:input.database,bindings:input.bindings,page:current,profile:live,
             changedPropertyIds:[...Object.values(breederFacetNotionProperties),...Object.values(BREEDER_NOTION_RELATION_FIELDS),...PILOT_DIRECTORY_METADATA_FIELDS]});
           await syncRelation(page.id,created.id);
-          summary.createdFromNotion++;await recordDirectoryTransfer(input.database,"directory:"+created.category,"NOTION_TO_ADMIN",1);continue;
+          summary.createdFromNotion++;await recordDirectoryTransfer(input.database,created.id,"NOTION_TO_ADMIN");continue;
         }
         // Optional Notion write-back/catalog mirroring cannot revoke the private editor.
         try {

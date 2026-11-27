@@ -362,6 +362,7 @@ async function writeShopToNotion(input: {
   shop: ManagedEshop;
   pageId?: string | null;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const syncedAt = new Date().toISOString();
   const hash = await snapshotHash(profileSnapshot(input.shop));
   const properties = notionProperties(input.shop, hash, syncedAt);
@@ -563,6 +564,7 @@ async function applyNotionToShop(input: {
   shop: ManagedEshop;
   desiredOverride?: EditableSnapshot;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const logo = await prepareLogo(input.bindings, desired.logoUrl, input.shop);
   try {

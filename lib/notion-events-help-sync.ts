@@ -617,6 +617,7 @@ async function writeSourceToNotion(input: {
   pageId?: string | null;
   existingPage?: NotionPage;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const syncedAt = new Date().toISOString();
   const properties = encodeProperties(
     {
@@ -1395,6 +1396,8 @@ async function syncAgenda(input: {
         summary.pushedToNotion++;
         continue;
       }
+      // In authority mode no mapped profile may fall through to a legacy record-wide merge.
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){summary.unchanged++;continue;}
       const extensionFields = notionSeoSchemaExtensionFields(input.definition.key);
 
       if (
@@ -2535,6 +2538,19 @@ export async function ensureManagedEventInNotion(input: {
     definition:canonicalTargetDefinition(definition),allowCreate:false,persist:true,
   });
   if(!target.dataSourceId)throw new Error("GEMINI_EVENT_NOTION_TARGET_MISSING");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const result=await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda:"events",id:input.eventId,sourceId:target.dataSourceId,allowCreate:input.allowCreate,
+      async snapshot(schema){
+        const current=(await loadNotionBulkEvents(input.database)).find(row=>Number(row.id)===input.eventId);
+        const revision=await canonicalUpdatedAt("events",input.eventId,input.database);
+        if(!current||!revision)throw Error("PROFILE_FIRST_CREATE_CANONICAL_MISSING");
+        const values={...current.properties,...systemProperties(current,revision)};
+        const properties=encodeProperties(values,schema);
+        if(agendaEditableFields.events.some(name=>!Object.hasOwn(values,name)||!Object.hasOwn(properties,name)))throw Error("PROFILE_FIRST_CREATE_SCHEMA_INCOMPLETE");
+        return {revision,hash:await snapshotHash("events",editableSnapshot("events",current.properties,schema)),properties,reviewed:await isAdminNotionSyncLocked(input.database,"events",input.eventId)};
+      }});
+    return {notionPageId:result.pageId};
+  }
   const dataSource=await fetchDataSource(input.bindings,target.dataSourceId);
   const schema=dataSource.properties ?? {};
   if(!["Názov","Psipedia ID","URL Psipedia"].every(name=>Boolean(schema[name])))

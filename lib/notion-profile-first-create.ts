@@ -23,6 +23,7 @@ type Snapshot={revision:string;hash:string;properties:Record<string,unknown>;rev
 export async function ensureFirstProfileNotionCopy(input:{
   database:D1Database;bindings:NotionSyncBindings;agenda:Agenda;id:number;sourceId:string;
   snapshot:(schema:Record<string,{type?:string}>)=>Promise<Snapshot>;
+  allowCreate?:boolean;
 }):Promise<{pageId:string;created:boolean}>{
   const {database:db,bindings,agenda,id,sourceId}=input;
   if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!Number.isSafeInteger(id)||id<1||!sourceId)
@@ -82,6 +83,7 @@ export async function ensureFirstProfileNotionCopy(input:{
   if(!Array.isArray(result.results)||result.has_more||result.results.length>1)throw Error("PROFILE_FIRST_CREATE_AMBIGUOUS");
   if(JSON.stringify(await snapshot())!==JSON.stringify(expected)||await mapping())throw Error("PROFILE_FIRST_CREATE_REVISION_CHANGED");
   const created=result.results.length===0;
+  if(created&&input.allowCreate===false){await releaseUnifiedManualFence(db,fence);throw Error("PROFILE_FIRST_CREATE_REMOTE_UNCERTAIN");}
   const page=created?await notionRequest<Page>(bindings,"/pages",{method:"POST",body:JSON.stringify({
     parent:{type:"data_source_id",data_source_id:sourceId},properties:expected.properties
   })},{retryTransient:false}):result.results[0];
