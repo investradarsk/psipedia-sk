@@ -1,3 +1,4 @@
+import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
 import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
 import { HELP_CASE_V2_PROTECTED, helpCaseV2Kind } from "./notion-help-case-v2-contract.ts";
@@ -880,6 +881,25 @@ async function syncAgenda(input: {
           logFailure(summary, { entityId, operation: "mirror_review_checkbox", error });
         }
       }
+    }
+    if(!mapping&&input.mode==="sync"&&!input.targetPageId&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const agenda=input.definition.key;
+        const created=await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda,id:entityId,sourceId:target.dataSourceId,
+          async snapshot(){
+            const current=(await input.definition.load(input.database,entityId)).find(row=>sourceId(row)===entityId);
+            if(!current)throw Error("PROFILE_FIRST_CREATE_CANONICAL_MISSING");
+            const revision=await canonicalUpdatedAt(agenda,entityId,input.database);
+            if(!revision)throw Error("PROFILE_FIRST_CREATE_REVISION_MISSING");
+            const values={...current.properties,...systemProperties(current,revision)};
+            const properties=encodeProperties(values,schema);
+            if(agendaEditableFields[agenda].some(name=>!Object.hasOwn(values,name)||!Object.hasOwn(properties,name)))throw Error("PROFILE_FIRST_CREATE_SCHEMA_INCOMPLETE");
+            return {revision,hash:await snapshotHash(agenda,editableSnapshot(agenda,current.properties,schema)),properties,
+              reviewed:await isAdminNotionSyncLocked(input.database,agenda,entityId)};
+          }});
+        if(created.created)summary.createdInNotion++;else summary.bootstrapped++;
+      }catch(error){logFailure(summary,{entityId,operation:"create_in_notion",error});}
+      continue;
     }
     // Review is an Admin/D1-owned hard lock. It blocks both Notion pull
     // and push, including targeted imports, hashes and automatic backfills.
