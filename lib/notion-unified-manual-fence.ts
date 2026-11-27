@@ -11,19 +11,24 @@ export function unifiedManualScope(link: Scope) {
 
 /** Never delete state rows (CAS versions must not reset). Invalidate prior
  * observations, proofs and historic fallback for this exact record. */
-function invalidationStatements(database: D1Database, agenda: UnifiedSyncAgenda, entityId: string) {
+function invalidationStatements(database: D1Database, agenda: UnifiedSyncAgenda, entityId: string, token: string) {
   const now = new Date().toISOString();
+  const owned = "EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=? AND owner_token=?)";
+  const owner = [agenda, entityId, token];
+  // Scope invalidation itself must be conditional on the current fence owner.
+  // A stale release must not invalidate somebody else's active reservation.
   return [
     database.prepare(
-      "INSERT INTO notion_unified_scope_invalidation(agenda,entity_id,invalidated_at) VALUES(?,?,?) " +
-      "ON CONFLICT(agenda,entity_id) DO UPDATE SET invalidated_at=excluded.invalidated_at"
-    ).bind(agenda, entityId, now),
+      "INSERT INTO notion_unified_scope_invalidation(agenda,entity_id,invalidated_at) SELECT ?,?,? WHERE " + owned +
+      " ON CONFLICT(agenda,entity_id) DO UPDATE SET invalidated_at=excluded.invalidated_at"
+    ).bind(agenda, entityId, now, ...owner),
     database.prepare(
       "UPDATE notion_unified_field_state SET baseline_version=NULL,baseline_json=NULL,notion_json=NULL,psipedia_json=NULL," +
       "notion_edit_json=NULL,psipedia_edit_json=NULL,status='REVIEW',reason='SCOPE_INVALIDATED',version=version+1," +
-      "updated_at=?,recovery_after=NULL WHERE agenda=? AND entity_id=?"
-    ).bind(now, agenda, entityId),
-    database.prepare("DELETE FROM notion_unified_admin_field_edits WHERE agenda=? AND entity_id=?").bind(agenda, entityId),
+      "updated_at=?,recovery_after=NULL WHERE agenda=? AND entity_id=? AND " + owned
+    ).bind(now, agenda, entityId, ...owner),
+    database.prepare("DELETE FROM notion_unified_admin_field_edits WHERE agenda=? AND entity_id=? AND " + owned)
+      .bind(agenda, entityId, ...owner),
   ];
 }
 
@@ -40,16 +45,16 @@ export async function acquireUnifiedManualFence(database: D1Database, link: Scop
   if (claimed?.owner_token !== token) throw Error("TRANSFER_V2_SCOPE_BUSY");
   // If invalidation fails, keep the fence. Uncertain state must not reopen
   // automatic mutations. The diagnostic panel exposes this blocker.
-  const result = await database.batch(invalidationStatements(database, agenda, entityId));
-  if (result.some(row => !row.success)) throw Error("TRANSFER_V2_INVALIDATION_FAILED");
+  const result = await database.batch(invalidationStatements(database, agenda, entityId, token));
+  if (result.some(row => !row.success) || result[0]?.meta.changes !== 1) throw Error("TRANSFER_V2_INVALIDATION_FAILED");
   return {agenda, entityId, token};
 }
 
 export async function releaseUnifiedManualFence(database: D1Database, fence: Awaited<ReturnType<typeof acquireUnifiedManualFence>>) {
   const {agenda, entityId, token} = fence;
   const result = await database.batch([
-    ...invalidationStatements(database, agenda, entityId),
+    ...invalidationStatements(database, agenda, entityId, token),
     database.prepare("DELETE FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=? AND owner_token=?").bind(agenda, entityId, token),
   ]);
-  if (result.some(row => !row.success) || result.at(-1)?.meta.changes !== 1) throw Error("TRANSFER_V2_FENCE_RELEASE_FAILED");
+  if (result.some(row => !row.success) || result[0]?.meta.changes !== 1 || result.at(-1)?.meta.changes !== 1) throw Error("TRANSFER_V2_FENCE_RELEASE_FAILED");
 }
