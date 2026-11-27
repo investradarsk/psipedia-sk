@@ -1,0 +1,147 @@
+name: Offline contracts (Admin, public, security, integrations)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-contracts-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  contracts:
+    name: Offline unit and source contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+      - name: Validate offline selection
+        run: node --test tests/ci-v2-offline-scope.test.mjs
+      - name: Select only relevant offline suites
+        id: scope
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-offline-scope.mjs
+      - name: "admin-typography-contracts: Verify safe filtered Admin return navigation"
+        if: steps.scope.outputs.admin_typography_contracts == 'true'
+        run: |
+          node --experimental-strip-types --test tests/admin-return-navigation.test.mjs
+      - name: "admin-typography-contracts: Check admin typography, community queues, content modules, mobile and 28-route inventory"
+        if: steps.scope.outputs.admin_typography_contracts == 'true'
+        run: |
+          node --test tests/admin-compact-global.test.mjs tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/admin-social-visual-step14.test.mjs tests/admin-operations-step15.test.mjs tests/admin-settings-step16.test.mjs tests/admin-knip-cleanup-step17.test.mjs tests/admin-final-visual-step18.test.mjs tests/admin-main-reconciliation.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+      - name: "admin-duplication-inventory: Validate read-only scanner and inventory"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --test tests/admin-duplication-inventory.test.mjs
+      - name: "admin-duplication-inventory: Print read-only inventory indicators"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node scripts/admin-duplication-inventory.mjs
+      - name: "admin-duplication-inventory: Verify point 2 form and confirmation contracts"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --test tests/admin-form-control-unification-point-2.test.mjs
+      - name: "admin-duplication-inventory: Verify point 3 image and editor contracts"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --experimental-strip-types --test tests/admin-media-text-unification-point-3.test.mjs tests/admin-open-source-unification.test.mjs
+      - name: "admin-duplication-inventory: Verify point 4 list and selection equivalence"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --experimental-strip-types --test tests/admin-lists-unification-point-4.test.mjs
+      - name: "public-listings-qa: Validate all public UX regression contracts"
+        if: steps.scope.outputs.public_listings_qa == 'true'
+        run: |
+          node --experimental-strip-types --test \
+            tests/public-pagination-step6.test.mjs \
+            tests/public-subcategory-paging-step7.test.mjs \
+            tests/reviews-hub-step8.test.mjs \
+            tests/public-help-overview-cta-step9.test.mjs \
+            tests/public-banners-step10.test.mjs \
+            tests/mobile-menu-grip-step11.test.mjs \
+            tests/public-final-qa-step12.test.mjs
+      - name: "directory-0176-sql-fields: Validate full SQL schema and field coverage without production access"
+        if: steps.scope.outputs.directory_0176_sql_fields == 'true'
+        run: |
+          node --test tests/directory-0176-sql-schema.test.mjs
+      - name: "services-v3-public-canonical-filter: Canonical SQL, legacy filter compatibility, no inference"
+        if: steps.scope.outputs.services_v3_public_canonical_filter == 'true'
+        run: |
+          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.node22 == 'true'
+        with:
+          node-version: '22'
+      - name: "admin-v5-mutation-origin: Syntax check"
+        if: steps.scope.outputs.admin_v5_mutation_origin == 'true'
+        run: |
+          node --check tests/admin-v5-mutation-loader.mjs
+          node --check tests/admin-v5-mutation-origin.test.mjs
+          node --experimental-strip-types --check lib/admin-mutation-origin.ts
+      - name: "admin-v5-mutation-origin: Test origin, Fetch Metadata, identity and write side effects"
+        if: steps.scope.outputs.admin_v5_mutation_origin == 'true'
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/admin-v5-mutation-loader.mjs --test tests/admin-v5-mutation-origin.test.mjs
+      - name: "admin-legacy-mutation-csrf: Syntax check"
+        if: steps.scope.outputs.admin_legacy_mutation_csrf == 'true'
+        run: |
+          node --check tests/admin-legacy-csrf-loader.mjs
+          node --check tests/admin-legacy-mutation-csrf.test.mjs
+          node --experimental-strip-types --check lib/admin-mutation-origin.ts
+      - name: "admin-legacy-mutation-csrf: Guard and route regression"
+        if: steps.scope.outputs.admin_legacy_mutation_csrf == 'true'
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/admin-legacy-csrf-loader.mjs --test tests/admin-legacy-mutation-csrf.test.mjs
+      - name: "admin-perf-url-guard: Syntax checks (no browser or application launch)"
+        if: steps.scope.outputs.admin_perf_url_guard == 'true'
+        run: |
+          node --check scripts/admin-perf-run.mjs
+          node --check scripts/admin-perf-core.mjs
+          node --check tests/admin-perf-url.test.mjs
+      - name: "admin-perf-url-guard: Offline regressions (no Playwright browser, fixture, network or secrets)"
+        if: steps.scope.outputs.admin_perf_url_guard == 'true'
+        run: |
+          node --test tests/admin-perf-url.test.mjs tests/admin-perf-tooling.test.mjs tests/admin-perf-analyze.test.mjs
+      - name: "admin-perf-comparator-v2: Syntax check"
+        if: steps.scope.outputs.admin_perf_comparator_v2 == 'true'
+        run: |
+          node --check scripts/admin-perf-analyze.mjs && node --check tests/admin-perf-analyze.test.mjs
+      - name: "admin-perf-comparator-v2: Comparator and existing V1 regressions"
+        if: steps.scope.outputs.admin_perf_comparator_v2 == 'true'
+        run: |
+          node --test tests/admin-perf-analyze.test.mjs tests/admin-perf-tooling.test.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --check scripts/gemini-notion-preflight.mjs && node --check scripts/gemini-notion-agent.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --test tests/gemini-notion-preflight.test.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --experimental-strip-types --test tests/gemini-external-dedupe.test.mjs tests/gemini-external-help-dedupe.test.mjs tests/gemini-external-quality-proposals.test.mjs tests/gemini-external-feed-quality.test.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --test tests/gemini-external-worker-offline.test.mjs
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.node22_16 == 'true'
+        with:
+          node-version: '22.16.0'
+      - name: "service-catalog-contract-ci: Validate catalog and legacy 21-facet contract"
+        if: steps.scope.outputs.service_catalog_contract_ci == 'true'
+        run: |
+          node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs tests/service-catalog-d1-foundation.test.mjs tests/service-catalog-admin-api-contract.test.mjs tests/service-catalog-admin-lifecycle.test.mjs tests/service-catalog-admin-editor.test.mjs
