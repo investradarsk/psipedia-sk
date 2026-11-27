@@ -10,6 +10,7 @@ import { NewsHub } from "@/components/news-hub";
 import { EventDetail } from "@/components/event-detail";
 import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
+import { PuppyEquipmentPage } from "@/components/puppy-equipment-page";
 import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
@@ -154,6 +155,10 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={events.events} calendarEvents={calendarEvents?.events} calendarSummaries={calendarEvents?.summaries} initialCalendarUnavailable={calendarEvents === null} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
+  if (portalTopic && section === "steniatka" && slug === "vybava") {
+    return <PuppyEquipmentPage section={portalTopic.section} subpage={portalTopic.subpage} />;
+  }
+  if (section === "steniatka" && slug === "vybava") notFound();
   if (portalTopic && section === "novinky") {
     const newsCategory = getNewsCategory(slug);
     if (newsCategory) {

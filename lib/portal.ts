@@ -122,6 +122,11 @@ export const portalSections: PortalSection[] = [
         serviceLinks: [{ label: "Chovateľské stanice", href: "/adresar/chovatelske-stanice" }],
       },
       {
+        slug: "vybava", label: "Výbava pre šteniatko", icon: "📋", description: "Interaktívny zoznam vecí a príprav pred príchodom šteniatka.",
+        seoTitle: "Výbava pre šteniatko – interaktívny zoznam",
+        metaDescription: "Čo pripraviť pred príchodom šteniatka? Odškrtávaj výbavu, sleduj pripravenosť a ulož si zoznam bez registrácie.",
+      },
+      {
         slug: "vyber-plemena", label: "Výber plemena", icon: "🐕", description: "Povaha, veľkosť, aktivita a potreby plemena podľa tvojho života.",
         intro: "Dobrý výber stojí na zhode medzi potrebami psa a tvojím bežným životom. Porovnávaj energiu, povahu, zdravie a starostlivosť, nielen veľkosť alebo vzhľad.",
         popularTopics: ["Povaha", "Energia", "Veľkosť", "Srsť a údržba"],
