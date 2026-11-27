@@ -391,7 +391,7 @@ async function writeShopToNotion(input: {
 }
 
 function readyForCreate(page: NotionPage) {
-  if (notionRichTextProperty(page, "Psipedia ID")) return false;
+  if (page.archived || page.in_trash || notionRichTextProperty(page, "Psipedia ID")) return false;
   const desired = notionSnapshot(page);
   const rawStatus = notionSelectProperty(page, "Psipedia stav");
   return Boolean(
@@ -493,13 +493,14 @@ async function importUnmappedEshop(input: {
 
     // Re-evaluate evidence under both locks, never from a stale webhook body.
     if (await loadMappingByPage(input.database, input.page.id)) return "already-mapped";
+    if (await notionPageIsTombstoned(input.database,input.page.id)) return "not-ready";
     const latest = await fetchPage(input.bindings, input.page.id);
     if (latest.id !== input.page.id ||
         !notionPageBelongsToDataSource(latest, input.dataSourceId))
       throw new Error("ESHOP_IMPORT_PAGE_UNSAFE");
     if (latest.last_edited_time !== input.page.last_edited_time)
       throw new Error("ESHOP_IMPORT_STALE_REVISION");
-    if (!readyForCreate(latest)) return "not-ready";
+    if (!readyForCreate(latest) || await notionPageIsTombstoned(input.database,latest.id)) return "not-ready";
 
     // A lost D1 create acknowledgement is ambiguous: preserve both locks,
     // rather than retrying into an accidental duplicate canonical identity.
