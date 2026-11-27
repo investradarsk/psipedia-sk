@@ -1,4 +1,4 @@
-import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
+import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
 import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
 import { HELP_CASE_V2_PROTECTED, helpCaseV2Kind } from "./notion-help-case-v2-contract.ts";
@@ -596,6 +596,13 @@ function systemProperties(
   } satisfies Record<string, ReconciliationValue>;
 }
 
+async function acknowledgeStagedEventsHelpDraft(database:D1Database,bindings:NotionEventsHelpSyncBindings,agenda:BidirectionalAgendaKey,source:CanonicalSourceRecord,sourceId:string,pageId:string,schema:Record<string,DataSourceProperty>){
+  const id=Number(source.id),revision=await canonicalUpdatedAt(agenda,id,database);
+  if(!revision)throw Error("PROFILE_INBOUND_DRAFT_MISSING");
+  const desired=encodeProperties({"Psipedia ID":source.id,"Slug":source.properties["Slug"],"URL Psipedia":source.url},schema);
+  if(Object.keys(desired).length!==3)throw Error("PROFILE_INBOUND_IDENTITY_SCHEMA");
+  await acknowledgeInboundProfileIdentity({database,bindings,agenda,id,pageId,sourceId,revision,desired});
+}
 async function writeSourceToNotion(input: {
   bindings: NotionEventsHelpSyncBindings;
   dataSourceId: string;
@@ -909,6 +916,10 @@ async function syncAgenda(input: {
       summary.unchanged += 1;
       continue;
     }
+    if(mapping&&mapping.content_hash===PROFILE_INBOUND_ID_PENDING&&input.mode==="sync"&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{await acknowledgeStagedEventsHelpDraft(input.database,input.bindings,input.definition.key,source,target.dataSourceId,mapping.notion_page_id,schema);summary.unchanged++;}catch(error){logFailure(summary,{entityId,operation:"acknowledge_inbound_identity",error});}
+      continue;
+    }
     // Existing mapped Events now use targeted field events on Admin saves and
     // signed Notion webhooks. Do not run an hourly whole-profile replay over
     // their pending/invalid individual fields. Keep new drafts/bootstrap.
@@ -1084,6 +1095,7 @@ async function syncAgenda(input: {
 
     try {
       const pageIdentity = identityPage(page);
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!input.webhookMappedOnly){summary.unchanged++;continue;}
       if (pageIdentity.psipediaId && pageIdentity.psipediaId !== source.id) {
         summary.conflicts += 1;
         appendNotionReview(summary.reviewQueue, {
@@ -2064,6 +2076,7 @@ await requireVerifiedMappedNotionWriteback({
     const operatorLegacy = Boolean(!trustedGemini && input.reviewedLegacy &&
       input.targetPageId === page.id);
     const privateImport = trustedGemini || operatorLegacy;
+    const staged=input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
     if (privateImport && !trustedGeminiSourceIsPrivateDraft(input.definition.key, values)) {
       summary.conflicts += 1;
       appendNotionReview(summary.reviewQueue, {
@@ -2125,7 +2138,7 @@ await requireVerifiedMappedNotionWriteback({
       summary.unchanged += 1;
       continue;
     }
-    if (!privateImport && !readyForCreate(input.definition.key, values)) {
+    if (!privateImport && !readyForCreate(input.definition.key, values) && !(staged&&trustedGeminiSourceIsPrivateDraft(input.definition.key,values))) {
       summary.unchanged += 1;
       continue;
     }
@@ -2206,7 +2219,7 @@ await requireVerifiedMappedNotionWriteback({
         preflightAdoptionDraft(draftValues);
       }
       importWriteStarted = true;
-      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, privateImport) as { id?: number } | null;
+      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, privateImport,staged) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
@@ -2225,7 +2238,7 @@ await requireVerifiedMappedNotionWriteback({
         agenda: input.definition.key,
         pageId: page.id,
         entityId,
-        hash,
+        hash:staged?PROFILE_INBOUND_ID_PENDING:hash,
         notionLastEditedTime: page.last_edited_time ?? null,
         psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
         syncedAt: preWriteAt,
@@ -2253,6 +2266,10 @@ await requireVerifiedMappedNotionWriteback({
         summary.createdFromNotion += 1;
         importWriteStarted = false;
         continue;
+      }
+      if(staged){
+        await acknowledgeStagedEventsHelpDraft(input.database,input.bindings,input.definition.key,source,target.dataSourceId,page.id,schema);
+        summary.createdFromNotion++;importWriteStarted=false;continue;
       }
       try {
         const written = await writeSourceToNotion({

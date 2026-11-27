@@ -1,5 +1,5 @@
 import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
-import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
+import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
@@ -350,6 +350,11 @@ async function markPageError(bindings: NotionEshopSyncBindings, pageId: string, 
   }).catch(() => undefined);
 }
 
+async function acknowledgeStagedEshopDraft(database:D1Database,bindings:NotionEshopSyncBindings,sourceId:string,shop:ManagedEshop,pageId:string){
+  const all=notionProperties(shop,"",shop.updatedAt) as Record<string,unknown>;
+  await acknowledgeInboundProfileIdentity({database,bindings,agenda:"eshops",id:shop.id,pageId,sourceId,revision:shop.updatedAt,
+    desired:Object.fromEntries(["Psipedia ID","Slug","URL Psipedia"].map(name=>[name,all[name]]))});
+}
 async function writeShopToNotion(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
@@ -528,12 +533,16 @@ async function importUnmappedEshop(input: {
     const syncedAt = new Date().toISOString();
     await saveMapping({
       database: input.database, pageId: latest.id, shopId: created.id,
-      contentHash: "", notionLastEditedTime: latest.last_edited_time ?? null,
+      contentHash: input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?PROFILE_INBOUND_ID_PENDING:"", notionLastEditedTime: latest.last_edited_time ?? null,
       psipediaUpdatedAt: null, syncedAt,
     });
     // An empty provisional hash cannot be mistaken for a verified common
     // baseline. The established syncMapped reconciler retries safe writeback.
     canonicalWriteUncertain = false;
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      await acknowledgeStagedEshopDraft(input.database,input.bindings,input.dataSourceId,created,latest.id);
+      return "created";
+    }
     await writeShopToNotion({
       database: input.database, bindings: input.bindings,
       dataSourceId: input.dataSourceId, shop: created, pageId: latest.id,
@@ -818,6 +827,7 @@ async function syncMapped(input: {
   const claimedId = notionRichTextProperty(page, "Psipedia ID");
   if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
     if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
+    if(input.mapping.content_hash===PROFILE_INBOUND_ID_PENDING){await acknowledgeStagedEshopDraft(input.database,input.bindings,input.dataSourceId,shop,page.id);return "pushed" as const;}
     await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"eshops",id:shop.id,pageId:page.id,sourceId:input.dataSourceId});
     if(await readStandaloneReviewLock(input.database,"eshops",shop.id))return "unchanged" as const;
     if(input.manualDirection||input.forcePush)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");

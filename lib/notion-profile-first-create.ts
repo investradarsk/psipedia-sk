@@ -132,3 +132,50 @@ export async function ensureFirstProfileNotionCopy(input:{
   await releaseUnifiedManualFence(db,fence);
   return {pageId:verified.id,created};
 }
+
+export const PROFILE_INBOUND_ID_PENDING="INBOUND_ID_PENDING";
+
+/** Existing mapping is the only authority to acknowledge a new draft's identity.
+ * A pending receipt is durable across lost PATCH responses. Only immutable
+ * identity fields are written, never editorial content or a sync baseline. */
+export async function acknowledgeInboundProfileIdentity(input:{
+  database:D1Database;bindings:NotionSyncBindings;agenda:Exclude<Agenda,"breeds">;
+  id:number;pageId:string;sourceId:string;revision:string;desired:Record<string,unknown>;
+}):Promise<void>{
+  const {database:db,bindings,agenda,id,pageId,sourceId,revision,desired}=input;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!Number.isSafeInteger(id)||id<1||!sourceId)
+    throw Error("PROFILE_INBOUND_SCOPE");
+  if(!Object.hasOwn(desired,"Psipedia ID")||Object.keys(desired).some(name=>!["Psipedia ID","Slug","URL Psipedia"].includes(name)))
+    throw Error("PROFILE_INBOUND_IDENTITY_ONLY");
+  const s=spec[agenda],scope=s.mapping==="notion_agenda_sync"?" AND agenda=?":"",args=scope?[agenda]:[];
+  const local=()=>db.prepare("SELECT p.updated_at FROM "+s.table+" p JOIN "+s.mapping+" m ON m."+s.key+"=p.id WHERE p.id=? AND p.updated_at=? AND lower(p.status)='draft' AND m.notion_page_id=? AND m.content_hash=?"+(scope?" AND m.agenda=?":"")+
+    " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind=? AND record_id=p.id)")
+    .bind(id,revision,pageId,PROFILE_INBOUND_ID_PENDING,...args,s.kind).first<{updated_at:string}>();
+  const read=async()=>{
+    const page=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId));
+    if(page.id!==pageId||page.archived||page.in_trash||!notionPageBelongsToDataSource(page,sourceId))throw Error("PROFILE_INBOUND_PAGE_IDENTITY");
+    for(const [name,wanted] of Object.entries(desired)){
+      const raw=page.properties?.[name] as Record<string,unknown>|undefined;
+      const type=Object.keys(wanted as Record<string,unknown>)[0];
+      if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||raw.has_more===true||
+        (Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25))throw Error("PROFILE_INBOUND_IDENTITY_PROPERTY_MISSING: "+name);
+    }
+    const raw=page.properties?.["Psipedia ID"] as {type?:string;rich_text?:Array<{type?:string;plain_text?:string}>};
+    if(raw.type!=="rich_text"||!Array.isArray(raw.rich_text)||raw.rich_text.some(p=>p.type!=="text"||typeof p.plain_text!=="string"))throw Error("PROFILE_INBOUND_ID_INVALID");
+    const claimed=raw.rich_text.map(p=>p.plain_text).join("");
+    if(claimed!==""&&claimed!==String(id))throw Error("PROFILE_INBOUND_ID_CONFLICT");
+    return page;
+  };
+  if(!await local())throw Error("PROFILE_INBOUND_MAPPING_OR_REVISION");
+  const page=await read();
+  if(!await local())throw Error("PROFILE_INBOUND_MAPPING_OR_REVISION");
+  const patch=Object.fromEntries(Object.entries(desired).filter(([name,value])=>!sameNotionProperty(page.properties?.[name],value)));
+  if(Object.keys(patch).length)await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{method:"PATCH",body:JSON.stringify({properties:patch})},{retryTransient:false});
+  const verified=await read();
+  if(!Object.entries(desired).every(([name,value])=>sameNotionProperty(verified.properties?.[name],value))||!await local())
+    throw Error("PROFILE_INBOUND_IDENTITY_UNVERIFIED");
+  const result=await db.prepare("UPDATE "+s.mapping+" SET content_hash='',notion_last_edited_time=?,psipedia_updated_at=?,updated_at=? WHERE "+s.key+"=? AND notion_page_id=? AND content_hash=?"+scope+
+    " AND EXISTS(SELECT 1 FROM "+s.table+" p WHERE p.id=? AND p.updated_at=? AND lower(p.status)='draft' AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind=? AND record_id=p.id))")
+    .bind(verified.last_edited_time??null,revision,new Date().toISOString(),id,pageId,PROFILE_INBOUND_ID_PENDING,...args,id,revision,s.kind).run();
+  if(!result.success||result.meta.changes!==1)throw Error("PROFILE_INBOUND_IDENTITY_CAS");
+}

@@ -1,5 +1,5 @@
 import { directoryAuthorityWriteGuard, profileAuthorityTextFieldAllowed } from "./notion-profile-authority.ts";
-import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
+import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, isVerifiedAuthorityProperty, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
@@ -627,6 +627,7 @@ async function saveMapping(input: {
       psipedia_updated_at=excluded.psipedia_updated_at,
       last_synced_at=excluded.last_synced_at,
       updated_at=excluded.updated_at
+    WHERE directory_notion_sync.notion_page_id=excluded.notion_page_id
   `).bind(
     input.pageId,
     input.profileId,
@@ -1043,7 +1044,7 @@ function newProfileInput(
   };
 }
 
-function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
+function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false, staged=false) {
   if (propertyText(page, "Psipedia ID")) return false;
   const editorialState = propertyText(page, "Stav");
   // Textual creator marker is never sufficient to grant automatic import.
@@ -1051,6 +1052,7 @@ function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
     return ["", "Nápad", "Na kontrolu", "Ready", "Koncept"].includes(editorialState) &&
       propertyText(page, "Psipedia stav") === "Koncept";
   if (propertyText(page, "Vytvoril") === "Gemini automatizácia") return false;
+  if(staged){const raw=property(page,"Psipedia ID");return raw?.type==="rich_text"&&Array.isArray(raw.rich_text)&&raw.rich_text.length===0&&["Nápad","Na kontrolu","Ready","Koncept","Publikované"].includes(editorialState)&&!!propertyText(page,"Názov");}
   return editorialState === "Ready" || editorialState === "Publikované";
 }
 
@@ -1112,7 +1114,7 @@ async function createProfileFromNotion(input: {
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
   let payload = newProfileInput(desired);
-  if (input.trustedGemini) {
+  if (input.trustedGemini || input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") {
     // Fail closed, regardless of unexpected Notion status/defaults.
     payload = { ...payload, status: "draft" };
   }
@@ -1414,6 +1416,11 @@ function assertStagedDirectoryEcho(page:NotionPage,expected:Record<string,unknow
       (Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25)||!sameNotionProperty(raw,wanted))
       throw Error("DIRECTORY_STRUCTURED_EXPORT_UNVERIFIED: "+name);
   }
+}
+async function acknowledgeStagedDirectoryDraft(database:D1Database,bindings:NotionDirectorySyncBindings,sourceId:string,profile:ManagedDirectoryProfile,pageId:string){
+  const all=notionProfileProperties(profile,null,"",profile.updatedAt) as Record<string,unknown>;
+  await acknowledgeInboundProfileIdentity({database,bindings,agenda:"directory",id:profile.id,pageId,sourceId,revision:profile.updatedAt,
+    desired:Object.fromEntries(["Psipedia ID","Slug","URL Psipedia"].map(name=>[name,all[name]]))});
 }
 async function createStagedDirectoryCopy(database:D1Database,bindings:NotionDirectorySyncBindings,dataSourceId:string,profileId:number){
   return ensureFirstProfileNotionCopy({database,bindings,agenda:"directory",id:profileId,sourceId:dataSourceId,
@@ -4098,7 +4105,7 @@ export async function runNotionDirectorySyncSweep(input: {
     // missing/failed Notion relation events must not strand canonical choices.
     if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(candidate, "Kategória"))) {
       const mapped = await loadMappingByPage(input.database, candidate.id);
-      if (mapped && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
+      if (mapped && mapped.content_hash!==PROFILE_INBOUND_ID_PENDING && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
         try {
           try {
             const reviewed = await syncDirectoryReviewedWithNotion({
@@ -4146,27 +4153,38 @@ export async function runNotionDirectorySyncSweep(input: {
         !trustedGemini && propertyText(page, "Vytvoril") === "Gemini automatizácia" &&
         !propertyText(page, "Psipedia ID"));
       const privateImport = trustedGemini || operatorLegacy;
+      const staged=input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
       if (privateImport || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
         // Rejected/not-yet-approved Notion-only records cannot recover a mapping
         // or create/modify a canonical profile.
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini, staged) && !operatorLegacy) continue;
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
         if (input.targetPageId && input.expectedNotionRevision && page.last_edited_time !== input.expectedNotionRevision)
           throw new Error("GEMINI_SAVED_REVISION_CHANGED");
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini, staged) && !operatorLegacy) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
       // Pilot covers existing linked IDs only: never create duplicate canonical profiles.
-      if (!mapping && isDirectoryEventPilotCategory(propertyText(page, "Kategória"))) continue;
-      if (!mapping && (notionProfileReadyForCreate(page, trustedGemini) || operatorLegacy)) {
-        if (privateImport) {
+      if (!mapping && !staged && isDirectoryEventPilotCategory(propertyText(page, "Kategória"))) continue;
+      if (!mapping && (notionProfileReadyForCreate(page, trustedGemini, staged) || operatorLegacy)) {
+        if (privateImport||staged) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
           releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
           if (!releaseImport) continue;
+        }
+        if(staged){
+          if(!release){release=await acquireGeminiNotionLock(input.database,page.id);if(!release)continue;}
+          if(await loadMappingByPage(input.database,page.id))continue;
+          const fresh=await fetchNotionPage(input.bindings,page.id);
+          if(fresh.last_edited_time!==page.last_edited_time||fresh.archived||fresh.in_trash||!notionDirectoryPageBelongsToSource(fresh,dataSourceId)||propertyText(fresh,"Psipedia ID")||propertyCheckbox(fresh,"Odkontrolované"))throw Error("DIRECTORY_INBOUND_IDENTITY_CHANGED");
+          const desired=notionSnapshot(fresh);
+          const duplicate=await input.database.prepare("SELECT id FROM directory_profiles WHERE category=? AND (slug=? OR (lower(trim(name))=lower(trim(?)) AND lower(trim(city))=lower(trim(?)))) LIMIT 1").bind(desired.category,desired.slug,desired.name,desired.city).first<{id:number}>();
+          if(duplicate)throw Error("DIRECTORY_INBOUND_DUPLICATE_REVIEW");
+          page=fresh;
         }
         const creation = await createProfileFromNotion({
           database: input.database,
@@ -4186,7 +4204,7 @@ export async function runNotionDirectorySyncSweep(input: {
           database: input.database,
           pageId: page.id,
           profileId: created.id,
-          contentHash,
+          contentHash:staged?PROFILE_INBOUND_ID_PENDING:contentHash,
           notionLastEditedTime: page.last_edited_time ?? null,
           psipediaUpdatedAt: created.updatedAt,
           syncedAt,
@@ -4252,6 +4270,21 @@ export async function runNotionDirectorySyncSweep(input: {
           await recordDirectoryTransfer(input.database, created.id, "NOTION_TO_ADMIN");
           continue;
         }
+        if(staged){
+          await acknowledgeStagedDirectoryDraft(input.database,input.bindings,dataSourceId,created,page.id);
+          // Initial structured fields use the SAME guarded existing adapters as ordinary edits.
+          const current=await fetchNotionPage(input.bindings,page.id);
+          if(additionalCategoriesEvent(current,["Ďalšie kategórie"])){
+            const linked=await loadMappingByProfile(input.database,created.id);
+            if(linked)await applyNotionAdditionalCategories({database:input.database,bindings:input.bindings,mapping:linked,page:current,dataSourceId});
+          }
+          const live=await getManagedDirectoryProfileById(created.id,input.database);
+          if(!live)throw Error("DIRECTORY_INBOUND_DRAFT_MISSING");
+          await syncBreederEvent({database:input.database,bindings:input.bindings,page:current,profile:live,
+            changedPropertyIds:[...Object.values(breederFacetNotionProperties),...Object.values(BREEDER_NOTION_RELATION_FIELDS),...PILOT_DIRECTORY_METADATA_FIELDS]});
+          await syncRelation(page.id,created.id);
+          summary.createdFromNotion++;await recordDirectoryTransfer(input.database,"directory:"+created.category,"NOTION_TO_ADMIN",1);continue;
+        }
         // Optional Notion write-back/catalog mirroring cannot revoke the private editor.
         try {
           await writeProfileToNotion({
@@ -4286,6 +4319,13 @@ export async function runNotionDirectorySyncSweep(input: {
       }
 
       if (!mapping) continue;
+      if(staged&&mapping.content_hash===PROFILE_INBOUND_ID_PENDING){
+        const local=await getManagedDirectoryProfileById(mapping.directory_profile_id,input.database);
+        if(!local)throw Error("DIRECTORY_INBOUND_DRAFT_MISSING");
+        await acknowledgeStagedDirectoryDraft(input.database,input.bindings,dataSourceId,local,page.id);
+        page=await fetchNotionPage(input.bindings,page.id);
+        mapping=await loadMappingByPage(input.database,page.id);if(!mapping)throw Error("DIRECTORY_INBOUND_MAPPING_MISSING");
+      }
       if (propertyText(page, "Psipedia ID") === String(mapping.directory_profile_id)) {
         try {
           const reviewed = await syncDirectoryReviewedWithNotion({

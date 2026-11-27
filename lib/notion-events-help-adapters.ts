@@ -632,10 +632,11 @@ export async function createCanonicalFromNotion(
   values: Record<string, ReconciliationValue>,
   database: D1Database,
   trustedGemini = false,
+  staged = false,
 ) {
   // Only the server-side provenance registry can set trustedGemini. No Notion text
   // or manually editable approval state permits bypassing the legacy Ready gate.
-  if (!trustedGemini && !readyForCreate(agenda, values)) {
+  if (!trustedGemini && !readyForCreate(agenda, values) && !(staged&&trustedGeminiSourceIsPrivateDraft(agenda,values))) {
     throw new Error("Notion záznam nie je v stave pripravenom na vytvorenie canonical Psipedia záznamu.");
   }
   if (trustedGemini) {
