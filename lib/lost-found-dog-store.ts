@@ -1,3 +1,4 @@
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitLostFoundV2AdminEdit, LOST_FOUND_V2_FIELDS, isLostFoundV2Field, lostFoundV2Value } from "./notion-lost-found-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
@@ -646,7 +647,8 @@ export async function updateAdminDogReportInlineName(
 }
 
 export async function updateAdminDogReport(id: number, input: ManagedDogReportInput, actor: string,
-  unifiedExpectedRevision?:string) {
+  unifiedExpectedRevision?:string,reviewOnSave=false) {
+  if(reviewOnSave&&unifiedExpectedRevision===undefined)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   const database = requireD1Binding();
   const existing = await getAdminDogReport(id);
   if (!existing) throw new Error("Hlásenie neexistuje.");
@@ -715,7 +717,7 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
     now,
   );
   if(unifiedExpectedRevision!==undefined)await commitLostFoundV2AdminEdit(database,publicUpdate,{
-    id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:actor,companionStatements:[privateUpsert],
+    id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:actor,companionStatements:[...(reviewOnSave?reviewOnSaveStatements(database,{type:"LOST_FOUND",id,revision:now,actor}):[]),privateUpsert],
   });
   else await database.batch([publicUpdate, privateUpsert]);
   return getAdminDogReport(id);
