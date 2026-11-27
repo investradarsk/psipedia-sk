@@ -13,14 +13,14 @@ export function profileAuthorityEnabled(bindings?: ProfileAuthorityBindings):boo
 }
 
 const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
-  directory:["excerpt","description","seo.title","seo.description"],
+  directory:["name","excerpt","description","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
   breeds:["seo.title","seo.description"],
-  events:["excerpt","description","seo.title","seo.description"],
-  organizations:["Krátky popis","Popis"],
-  adoptions:["Krátky popis","Popis"],
-  "lost-found":["Krátky popis","Popis"],
-  "help-cases":["Perex","Popis"],
-  eshops:["description"],
+  events:["title","eventType","startDate","endDate","startTime","endTime","organizer","excerpt","description","practicalInfo","contactPhone","contactEmail","admissionFee","websiteUrl","registrationUrl","imageAlt","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
+  organizations:["Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram","Zdroj dát"],
+  adoptions:["Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
+  "lost-found":["Meno psa","Pohlavie","Farba","Vek","Veľkosť","Krátky popis","Popis","Rozlišovacie znaky","Obojok","Čip","Dátum udalosti","Kraj","Okres","Mesto","Zdroj URL"],
+  "help-cases":["Názov","Perex","Popis","Organizácia","Pes","Plemeno","Vek","Mesto","Kraj","Miesto","Dátum hlásenia","Deadline","CTA text","CTA URL","Kontakt","Cieľ","Vyzbierané","Urgentné"],
+  eshops:["name","websiteUrl","description","sourceUrl","focusTags"],
 };
 export function profileAuthorityTextFieldAllowed(identity:FieldIdentity):boolean {
   return textFields[identity.agenda]?.includes(identity.field)===true;
