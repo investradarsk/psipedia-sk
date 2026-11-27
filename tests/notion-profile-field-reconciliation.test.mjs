@@ -1563,3 +1563,37 @@ test("V2 confirmed-blank recovery marker requires fresh pair, stable scope and n
     await assert.rejects(reserve(6,"","url","push"),/CONFIRMED_BLANK_CHANGED/);
   }finally{db.close();}
 });
+
+
+test("profile authority: all eight agendas use validated Notion values without a baseline", async () => {
+  const { decideUnifiedField, UNIFIED_SYNC_AGENDAS } = await import("../lib/notion-unified-field-sync.ts");
+  assert.equal(UNIFIED_SYNC_AGENDAS.length, 8);
+  assert.ok(!UNIFIED_SYNC_AGENDAS.includes("articles"));
+  const present = value => ({present:true,value});
+  for (const agenda of UNIFIED_SYNC_AGENDAS) {
+    const identity = {agenda,entityId:"42",pageId:"page",field:"description"};
+    const profileAuthority = {owner:"notion",fieldAllowed:true,notionValidated:true};
+    const input = {identity, baseline:null, notion:present("new"), psipedia:present("old"), profileAuthority};
+    const decide = patch => decideUnifiedField({...input,...patch});
+    assert.deepEqual(decide({}), {action:"pull",value:"new"}, agenda);
+    assert.deepEqual(decide({baseline:{value:"new",version:"v1"}}), {action:"pull",value:"new"});
+    assert.deepEqual(decide({psipedia:present("new")}), {action:"unchanged",value:"new"});
+    for (const value of ["",null,[],false,0]) {
+      assert.deepEqual(decide({notion:present(value)}), {action:"pull",value}, agenda);
+    }
+    for (const owner of ["admin","partner","unlocking"]) {
+      assert.deepEqual(decide({profileAuthority:{...profileAuthority,owner}}), {action:"review",reason:"LOCKED"});
+    }
+    assert.deepEqual(decide({locked:true}), {action:"review",reason:"LOCKED"});
+    assert.deepEqual(decide({protected:true}), {action:"review",reason:"PROTECTED_FIELD"});
+    assert.deepEqual(decide({profileAuthority:{...profileAuthority,fieldAllowed:false}}), {action:"review",reason:"PROTECTED_FIELD"});
+    assert.deepEqual(decide({profileAuthority:{...profileAuthority,notionValidated:false},notion:present(null)}), {action:"review",reason:"INVALID_NOTION_FIELD"});
+    assert.deepEqual(decide({profileAuthority:{...profileAuthority,notionValidated:false},psipedia:present("new")}), {action:"review",reason:"INVALID_NOTION_FIELD"});
+    for (const absent of [{present:false},present(undefined)]) {
+      assert.deepEqual(decide({notion:absent}), {action:"review",reason:"MISSING_FIELD"});
+      assert.deepEqual(decide({psipedia:absent}), {action:"review",reason:"MISSING_FIELD"});
+    }
+    assert.deepEqual(decide({profileAuthority:undefined}), {action:"review",reason:"BASELINE_UNAVAILABLE"});
+    assert.deepEqual(decide({notion:present(""),initializeEmpty:true}), {action:"pull",value:""});
+  }
+});
