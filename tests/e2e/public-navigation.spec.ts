@@ -16,6 +16,7 @@ const expectedMainNavigation = [
 const expectedSubmenus = {
   steniatka: [
     ["Pred kúpou psa", "/steniatka/pred-kupou-psa"],
+    ["Výbava pre šteniatko", "/steniatka/vybava"],
     ["Výber plemena", "/steniatka/vyber-plemena"],
     ["Výber chovateľa", "/steniatka/vyber-chovatela"],
     ["Prvé dni doma", "/steniatka/prve-dni"],
@@ -388,5 +389,30 @@ test("representative PortalHub and PortalTopic pages stay Axe-clean", async ({ p
   for (const route of uxFoundationRoutes) {
     await page.goto(route.path);
     await expectAxeClean(page, route.path);
+  }
+});
+
+test("puppy equipment stores progress, filters missing items and resets only after confirmation", async ({ page }) => {
+  await page.goto("/steniatka/vybava");
+  const checklist = page.locator("[data-puppy-equipment]");
+  await expect(checklist).toBeVisible();
+  const bed = checklist.getByRole("checkbox", { name: /Pelech alebo podložka/ });
+  await expect(bed).toBeEnabled();
+  await bed.check();
+  await expect(checklist.getByRole("status").first()).toContainText("1 z 21");
+  await page.reload();
+  await expect(bed).toBeChecked();
+  await checklist.getByRole("checkbox", { name: "Len nepripravené" }).check();
+  await expect(bed).toHaveCount(0);
+  await checklist.getByRole("button", { name: "Vynulovať zoznam" }).click();
+  await checklist.getByRole("button", { name: "Zrušiť" }).click();
+  await expect(checklist.getByRole("status").first()).toContainText("1 z 21");
+  await checklist.getByRole("button", { name: "Vynulovať zoznam" }).click();
+  await checklist.getByRole("button", { name: "Áno, vynulovať" }).click();
+  await expect(bed).not.toBeChecked();
+  await expect(checklist.getByRole("status").first()).toContainText("0 z 21");
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expectNoHorizontalOverflow(page, "Výbava pre šteniatko " + width);
   }
 });

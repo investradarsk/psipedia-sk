@@ -527,7 +527,7 @@ export async function EditorialSectionHub({
     (article) => articlePortalSection(article) === sectionSlug
       && !visibleAreaSlugs.has(articleArea(article, sectionSlug) ?? ""),
   );
-  // Four clear life-stage groups replace the 11 consecutive undifferentiated
+  // Four clear life-stage groups replace consecutive undifferentiated
   // puppy topic sections. Canonical topic URLs and all content stay intact.
   const puppyStages = [
     {

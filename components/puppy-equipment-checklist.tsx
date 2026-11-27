@@ -22,7 +22,7 @@ const serverReady = () => false;
 
 export function PuppyEquipmentChecklist() {
   const ready = useSyncExternalStore(hydrateSubscribe, clientReady, serverReady);
-  const raw = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  const raw = useSyncExternalStore<string | null | undefined>(subscribe, snapshot, serverSnapshot);
   const [session, setSession] = useState<string[] | null>(null);
   const [remainingOnly, setRemainingOnly] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);

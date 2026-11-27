@@ -70,6 +70,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     });
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
+  if (!portalTopic && section === "steniatka" && slug === "vybava") return {};
   if (portalTopic) {
     const metadata = buildListingPageMetadata({
       title: portalTopic.subpage.seoTitle || `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
