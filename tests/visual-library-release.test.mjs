@@ -53,7 +53,7 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   assert.match(atlas, /getPublishedDesktopBannerColors\("plemena:kluby"\)/);
   assert.match(home, /desktopColors=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopColors=\{breedClubBannerColors\}/);
-  assert.match(editor, /Publikovať texty, vizuál a veľkosť/);
+  assert.match(editor, /Publikovať texty a vizuál/);
   assert.match(editor, /Vrátiť publikované zmeny/);
   assert.doesNotMatch(editor, /window\.localStorage/);
 });
