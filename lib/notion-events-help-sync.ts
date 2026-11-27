@@ -2755,6 +2755,8 @@ export async function unlockReviewedEventsHelpProfile(input:{
       if(!verifiedEditedAt)return false;
       const current=await snapshot();
       if(JSON.stringify(current)!==JSON.stringify(expected))return false;
+      const remote=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(expected.content.pageId));
+      if(remote.id!==expected.content.pageId||!notionPageBelongsToDataSource(remote,expected.content.dataSourceId)||identityPage(remote).psipediaId!==String(id)||remote.last_edited_time!==verifiedEditedAt||Object.entries(expected.content.desired).some(([name,value])=>!sameNotionProperty(remote.properties?.[name],value)))return false;
       const guard="EXISTS(SELECT 1 FROM "+table+" p WHERE p.id=? AND p.updated_at=? AND lower(p.status)<>'archived')"+
         " AND EXISTS(SELECT 1 FROM "+mapTable+" WHERE "+mapId+"=? AND notion_page_id=?"+mapScope+")"+
         " AND EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=? AND owner_token=?)"+

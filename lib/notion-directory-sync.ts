@@ -615,7 +615,7 @@ async function saveMapping(input: {
   psipediaUpdatedAt?: string | null;
   syncedAt: string;
 }) {
-  await input.database.prepare(`
+  const receipt=await input.database.prepare(`
     INSERT INTO directory_notion_sync (
       notion_page_id, directory_profile_id, content_hash, notion_last_edited_time,
       psipedia_updated_at, last_synced_at, created_at, updated_at
@@ -638,6 +638,7 @@ async function saveMapping(input: {
     input.syncedAt,
     input.syncedAt,
   ).run();
+  if(!receipt.success||receipt.meta.changes!==1)throw Error("DIRECTORY_MAPPING_REASSIGNMENT_BLOCKED");
 }
 
 async function fetchNotionPage(bindings: NotionDirectorySyncBindings, pageId: string) {

@@ -1,3 +1,4 @@
+import { prepareBreedMediaProofs, physicalBreedMediaValue } from "./notion-profile-owned-media.ts";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
 import { createNotionWorkOnlyBreedDraft, type ManagedBreedInput } from "./breed-store";
 import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry";
@@ -62,11 +63,15 @@ export async function importNewBreedWorkCopy(input:{
         "UNION ALL SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND (record_slug=? OR lower(trim(record_name))=lower(trim(?)) OR (? IS NOT NULL AND record_external_key=CAST(? AS TEXT))) LIMIT 1")
         .bind(draft.slug,draft.name,draft.fciNumber,draft.fciNumber,draft.slug,draft.name,draft.fciNumber,draft.fciNumber).first<{found:number}>();
       if(duplicate)return "review-required";
+      const media=await prepareBreedMediaProofs("image",draft.image??"","",bindings);
+      const gallery=await prepareBreedMediaProofs("gallery",draft.gallery??[],[],bindings);
+      const payload={...draft,image:physicalBreedMediaValue("image",draft.image??"",media),imageKey:media[0]?.key??null,
+        gallery:physicalBreedMediaValue("gallery",draft.gallery??[],gallery)};
       const fresh=await read();
       if(fresh.last_edited_time!==page.last_edited_time)throw Error("BREED_INBOUND_REVISION_CHANGED");
       if(await notionPageIsTombstoned(db,pageId))return "review-required";
       uncertain=true;
-      const local=await createNotionWorkOnlyBreedDraft({database:db,payload:draft as ManagedBreedInput,
+      const local=await createNotionWorkOnlyBreedDraft({database:db,payload:payload as ManagedBreedInput,
         controlled:decoded.controlled,pageId:page.id,sourceId,remoteRevision:page.last_edited_time!,lockOwnerPage:releasePage.owner});
       link=await mapping();
       if(!link||link.breed_id!==local.id||link.updated_at!==local.revision||link.work_last_error_code!==pending)
