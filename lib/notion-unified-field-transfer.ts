@@ -41,7 +41,7 @@ export async function reserveUnifiedField(input: {
       const equal=decision.action==="unchanged";
       const recovered=await writeUnifiedFieldState(database,identity,old.version,{
         baselineVersion:equal?crypto.randomUUID():old.baselineVersion,
-        baseline:equal?decision.value:old.baseline,notion:old.notion,psipedia:old.psipedia,
+        baseline:equal?decision.value:old.baseline,notion:equal?decision.value:old.notion,psipedia:equal?decision.value:old.psipedia,
         notionEdit:undefined,psipediaEdit:undefined,status:equal?"SYNCED":"REVIEW",
         reason:equal?null:"RECOVERY_DIVERGED",
       });
