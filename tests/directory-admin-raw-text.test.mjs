@@ -142,7 +142,7 @@ test("literal xxx survives D1 contact encoding for every directory category", ()
   }
 });
 
-test("saving Contacts re-confirms all five D1 text values in Notion, including an unchanged xxx", () => {
+test("saving Contacts re-confirms non-empty D1 text values in Notion, including an unchanged xxx", () => {
   assert.deepEqual([...DIRECTORY_CONTACT_EDITORIAL_PATHS], [
     "websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl",
   ]);
