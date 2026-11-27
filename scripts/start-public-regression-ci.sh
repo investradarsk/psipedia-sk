@@ -5,6 +5,11 @@ if [ "${PSIPEDIA_E2E_LOCAL_BOOTSTRAP:-}" != "1" ]; then
   echo 'PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1 is required' >&2
   exit 1
 fi
+mode="${1:-build-and-start}"
+case "$mode" in
+  build-and-start|--build-only|--reuse-build) ;;
+  *) echo "Unknown public regression build mode: $mode" >&2; exit 64 ;;
+esac
 mkdir -p .e2e-artifacts/public-regression
 cat > .dev.vars <<'VARS'
 PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
@@ -12,7 +17,19 @@ PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
 VARS
-npm run build
+case "$mode" in
+  --build-only)
+    npm run build
+    node scripts/ci-build-artifact.mjs record local-e2e
+    exit 0
+    ;;
+  --reuse-build)
+    node scripts/ci-build-artifact.mjs verify local-e2e
+    ;;
+  build-and-start)
+    npm run build
+    ;;
+esac
 # These two production data migrations require adoption staging prerequisites.
 # Public directory/SEO fixtures use foundation schema, as other local CI jobs do.
 migration_backup="$(mktemp -d)"

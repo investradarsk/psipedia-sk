@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { assertArtifactIdentity, assertBuildProfile } from "../scripts/ci-build-artifact.mjs";
+import { assertArtifactIdentity, assertBuildProfile, expectedBuildRevision } from "../scripts/ci-build-artifact.mjs";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const parent = read(".github/workflows/profile-review-submission-ci.yml");
@@ -73,4 +73,35 @@ test("common review validation runs once and standalone auth retains all safety 
   assert.match(submission, /npm run test:review-author-auth/);
   assert.match(submission, /npm run test:reviews-public-read/);
   assert.match(auth, /npm run test:review-author-auth/);
+});
+
+test("explicit head revision is allowed only for the isolated local profile", () => {
+  const merge = "a".repeat(40), head = "b".repeat(40);
+  assert.equal(expectedBuildRevision("standard", {GITHUB_SHA:merge}), merge);
+  assert.equal(expectedBuildRevision("local-e2e", {GITHUB_SHA:merge,CI_BUILD_SOURCE_REVISION:head}), head);
+  assert.throws(() => expectedBuildRevision("standard", {GITHUB_SHA:merge,CI_BUILD_SOURCE_REVISION:head}), /local-E2E only/);
+  assert.throws(() => expectedBuildRevision("local-e2e", {CI_BUILD_SOURCE_REVISION:"invalid"}), /invalid/);
+});
+test("central public local profile is built once and shared with SEO", () => {
+  const source=read(".github/workflows/playwright-e2e.yml");
+  const ds=source.slice(source.indexOf("  ds-0b-focused-regression:"),source.indexOf("  required-breed-check:"));
+  const seo=source.slice(source.indexOf("  seo-recovery-e2e:"),source.indexOf("  sitemap-production-diagnostic:"));
+  const lost=source.slice(source.indexOf("  lost-found-public-e2e:"));
+  assert.match(ds,/--build-only/);
+  assert.match(ds,/--reuse-build/);
+  assert.match(ds,/actions\/upload-artifact@v4/);
+  assert.match(seo,/needs: \[validate, ds-0b-focused-regression\]/);
+  assert.match(seo,/actions\/download-artifact@v4/);
+  assert.match(seo,/--reuse-build/);
+  assert.doesNotMatch(seo,/--build-only|run: npm run build/);
+  for(const block of [ds,seo]) {
+    assert.ok(block.includes("ci-public-local-e2e-\${{ github.event.pull_request.head.sha }}".replace("\\$","$")));
+    assert.ok(block.includes("CI_BUILD_SOURCE_REVISION: \${{ github.event.pull_request.head.sha }}".replace("\\$","$")));
+  }
+  assert.match(lost,/actions\/download-artifact@v4/);
+  assert.match(lost,/Validated build fingerprint mismatch/);
+  assert.match(lost,/if: needs\.validate\.outputs\.full_core != 'true' && needs\.validate\.outputs\.bounded_core != 'true'\n        run: npm run build/);
+  const script=read("scripts/start-public-regression-ci.sh");
+  assert.match(script,/--build-only\)[\s\S]*?record local-e2e[\s\S]*?exit 0/);
+  assert.match(script,/--reuse-build\)[\s\S]*?verify local-e2e/);
 });

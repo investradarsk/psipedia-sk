@@ -154,12 +154,12 @@ jobs:
     name: PUBLIC DS-0B permanent Node and scoped directory Playwright
     if: >-
       needs.validate.result == 'success' &&
-      needs.validate.outputs.public_ds0b == 'true' &&
-      (github.event_name == 'pull_request' ||
-       (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+      ((github.event_name == 'pull_request' &&
+        (needs.validate.outputs.public_ds0b == 'true' || needs.validate.outputs.seo_recovery == 'true')) ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.validate.outputs.public_ds0b == 'true'))
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     permissions:
       contents: read
     env:
@@ -230,13 +230,13 @@ jobs:
           ].join("\n"));
           NODE
       - name: Set up Node.js
-        if: steps.ds0b_scope.outputs.node == 'true'
+        if: steps.ds0b_scope.outputs.node == 'true' || (github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true')
         uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
           cache: npm
       - name: Install dependencies
-        if: steps.ds0b_scope.outputs.node == 'true'
+        if: steps.ds0b_scope.outputs.node == 'true' || (github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true')
         run: npm ci
       - name: Execute DS-0B Node contracts (TAP assertions)
         if: steps.ds0b_scope.outputs.node == 'true'
@@ -249,6 +249,26 @@ jobs:
       - name: Execute DS-1A semantic token contracts
         if: steps.ds0b_scope.outputs.token == 'true'
         run: node --test tests/public-design-tokens.test.mjs
+      - name: Build shared exact-head public local profile
+        if: github.event_name == 'pull_request' && (steps.ds0b_scope.outputs.directory == 'true' || needs.validate.outputs.seo_recovery == 'true')
+        env:
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+          E2E_BASE_URL: http://localhost:5173
+          CI_BUILD_SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/start-public-regression-ci.sh --build-only
+      - name: Publish verified local public build from this run
+        if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-public-local-e2e-${{ github.event.pull_request.head.sha }}
+          path: |
+            dist/
+            lib/generated/component-registry.json
+            ci-v2-build-identity.json
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 2
       - name: Install Chromium for directory matrix
         if: steps.ds0b_scope.outputs.directory == 'true'
         run: npx playwright install --with-deps chromium
@@ -256,7 +276,9 @@ jobs:
         if: steps.ds0b_scope.outputs.directory == 'true'
         env:
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
-        run: bash scripts/start-public-regression-ci.sh
+          E2E_BASE_URL: http://localhost:5173
+          CI_BUILD_SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/start-public-regression-ci.sh --reuse-build
       - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
         if: steps.ds0b_scope.outputs.directory == 'true'
         env:
@@ -1058,7 +1080,7 @@ jobs:
   seo-recovery-e2e:
     name: SEO-RECOVERY-1 local indexability matrix
     if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
-    needs: validate
+    needs: [validate, ds-0b-focused-regression]
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
@@ -1078,10 +1100,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Download verified public local build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-public-local-e2e-${{ github.event.pull_request.head.sha }}
+          path: .
       - name: Prepare isolated local public regression app
         env:
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
-        run: bash scripts/start-public-regression-ci.sh
+          E2E_BASE_URL: http://localhost:5173
+          CI_BUILD_SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/start-public-regression-ci.sh --reuse-build
       - name: SEO-RECOVERY-1 Playwright against local app
         env:
           E2E_BASE_URL: http://localhost:5173
@@ -1468,7 +1497,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Build LOST-FOUND-1 PR code
+      - name: Reuse validated build from this run
+        if: needs.validate.outputs.full_core == 'true' || needs.validate.outputs.bounded_core == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: .
+      - name: Verify build revision and deployment artifact
+        if: needs.validate.outputs.full_core == 'true' || needs.validate.outputs.bounded_core == 'true'
+        run: |
+          test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"
+          npm run validate:deploy-artifact
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          const expected = readFileSync('ci-build-fingerprint.txt', 'utf8').trim();
+          if ((await fingerprintDirectory('dist')).fingerprint !== expected) throw new Error('Validated build fingerprint mismatch');
+          NODE
+      - name: Build LOST-FOUND-1 only if central scope did not produce a build
+        if: needs.validate.outputs.full_core != 'true' && needs.validate.outputs.bounded_core != 'true'
         run: npm run build
       - name: Configure isolated local submission security
         run: |

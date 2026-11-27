@@ -36,7 +36,9 @@ export function evaluateGate(mode, needs) {
     result("validate", true);
     const full = flag("validate", "full_core");
     for (const [job, name] of Object.entries(CENTRAL)) {
-      const selected = flag("validate", name);
+      const scoped = flag("validate", name);
+      // SEO uses the same exact-head local build producer as DS-0B.
+      const selected = scoped || (job === "ds-0b-focused-regression" && flag("validate", "seo_recovery"));
       // Preserve the existing bounded directory policy; broad browser coverage
       // is still manual/scheduled and is not represented as completed here.
       result(job, selected && (job !== "directory-e2e" || !full));

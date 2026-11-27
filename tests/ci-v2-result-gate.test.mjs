@@ -21,7 +21,7 @@ function centralNeeds(selected = [], full = false) {
   return {
     validate: { result: "success", outputs },
     ...Object.fromEntries(Object.entries(central).map(([job, flag]) => [
-      job, { result: selected.includes(flag) && (job !== "directory-e2e" || !full) ? "success" : "skipped" },
+      job, { result: (selected.includes(flag) || (job === "ds-0b-focused-regression" && selected.includes("seo_recovery"))) && (job !== "directory-e2e" || !full) ? "success" : "skipped" },
     ])),
   };
 }
