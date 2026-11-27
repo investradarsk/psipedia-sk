@@ -58,14 +58,13 @@ function MetricCard({
     <Link prefetch={false} className={`${styles.metricCard} ${emphasized ? styles.metricCardPrimary : ""}`} href={href}>
       <div className={styles.metricTopline}>
         <span>{title}</span>
-        <small data-status={status}>{availabilityLabel[status]}</small>
+        {(status === "PARTIAL" || status === "UNAVAILABLE") && <small data-status={status}>{availabilityLabel[status]}</small>}
       </div>
       <div className={styles.metricValue}>
         <strong>{shownValue}</strong>
         <span>{valueLabel}</span>
       </div>
       <p>{description}</p>
-      <b>Otvoriť pracovný zoznam →</b>
     </Link>
   );
 }
@@ -84,7 +83,7 @@ function QueueLink({
     <Link prefetch={false} className={styles.queueLink} href={`/admin/operations?source=${source}`}>
       <span>
         <strong>{title}</strong>
-        <small data-status={metric.status}>{availabilityLabel[metric.status]}</small>
+        {metric.status === "UNAVAILABLE" && <small data-status={metric.status}>Nedostupné</small>}
       </span>
       <b>{metric.value === null ? "—" : metric.value}</b>
     </Link>
@@ -118,7 +117,7 @@ async function WorkspaceReliabilityPanel({ promise }: { promise: QualityPromise 
             ? "Časť pracovného prehľadu sa nedá načítať."
             : "Pracovný prehľad má čiastočné údaje."}
         </strong>
-        <p>Nedostupný reader sa nezobrazuje ako nula. Otvor príslušnú agendu alebo obnov stránku.</p>
+        <p>Počet návrhov na doplnenie údajov sa nepodarilo overiť. Skúste obnoviť stránku.</p>
       </div>
       <span data-status={workspaceReliability.status}>{availabilityLabel[workspaceReliability.status]}</span>
     </section>
@@ -133,7 +132,7 @@ async function WorkspaceAttentionMetrics({ promise }: { promise: AttentionPromis
           <MetricCard
             emphasized={overallAttentionStatus !== "UNAVAILABLE" && attention.active > 0}
             title="Neprečítané upozornenia"
-            description="Nové alebo opätovne otvorené upozornenia, ktoré nie sú prečítané ani odložené. Vybavenie úloh sleduj v záložke Na vybavenie."
+            description="Otvoriť neprečítané upozornenia"
             href="/admin/operations"
             value={attention.active}
             status={overallAttentionStatus}
@@ -149,8 +148,8 @@ async function WorkspaceQualityMetric({ promise }: { promise: QualityPromise }) 
   return (
           <MetricCard
             title="Kvalita údajov"
-            description="Otvorené návrhy na doplnenie údajov. Počet predstavuje návrhy, nie počet dotknutých profilov."
-            href="/admin/kvalita"
+            description="Skontrolovať návrhy na doplnenie údajov"
+            href="/admin/kvalita#navrhy-na-schvalenie"
             value={quality.status === "UNAVAILABLE" ? null : quality.data.pendingProposals}
             status={quality.status}
             valueLabel="návrhov na schválenie"
@@ -200,8 +199,7 @@ async function WorkspaceCommunityCounts({ promise }: { promise: AttentionPromise
       {completed.length > 0 && (
         <details className={styles.completedQueues} data-admin-completed-queues>
           <summary>
-            <span>{actionable.length === 0 ? "Bez neprečítaných upozornení" : "Ďalšie agendy bez neprečítaných upozornení"}</span>
-            <small>{completed.length} bez neprečítaných · zobraziť</small>
+            <span>Agendy bez neprečítaných upozornení ({completed.length})</span>
           </summary>
           <div className={styles.completedQueueLinks}>
             {completed.map(({ title, source }) => (
@@ -224,7 +222,6 @@ function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
           <span>Komunita</span>
           <h2 id="admin-community-title">Neprečítané podľa agendy</h2>
         </div>
-        <p>Nula znamená bez neprečítaných upozornení, nie bez nevybavených úloh. Pomlčka znamená nedostupný zdroj.</p>
       </div>
       <Suspense fallback={<WorkspaceCommunityPending />}>
         <WorkspaceCommunityCounts promise={promise} />

@@ -244,7 +244,7 @@ test("dashboard count cards point to current canonical filtered work queues", ()
   assert.match(dashboard, /\{ title: "Žiadosti o správu profilu", source: "PARTNER_CLAIM_REVIEW" \}/);
   assert.match(dashboard, /<QueueLink key=\{source\} title=\{title\} source=\{source\} summary=\{attention\}/);
   assert.match(dashboard, /href=\{\x60\/admin\/operations\?source=\$\{source\}\x60\}/);
-  assert.match(dashboard, /href="\/admin\/kvalita"/);
+  assert.match(dashboard, /href="\/admin\/kvalita#navrhy-na-schvalenie"/);
   assert.match(read("components/admin-workspace-activity.tsx"), /href="\/admin\/automatizacie-gemini"/);
   assert.match(dashboard, /href=\{ADMIN_PROFILE_HOME\}/);
 });

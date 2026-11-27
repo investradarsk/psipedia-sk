@@ -170,12 +170,6 @@
   color: #cfe0d7;
 }
 
-.metricCard b {
-  align-self: end;
-  margin-top: auto;
-  font-size: .76rem;
-}
-
 .queueGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -333,11 +327,10 @@
 .sectionHeading { margin-bottom: 7px; gap: 8px; }
 .sectionHeading h2, .panelHeading h2 { font-family: inherit; font-weight: 800; font-size: clamp(1.05rem, 1.6vw, 1.24rem); }
 .priorityGrid, .splitGrid { gap: var(--admin-ui-space-sm, 9px); }
-.metricCard { min-height: 132px; gap: var(--admin-ui-editor-field-gap, 8px); padding: var(--admin-ui-panel-padding, 12px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
+.metricCard { min-height: 0; gap: var(--admin-ui-editor-field-gap, 8px); padding: var(--admin-ui-panel-padding, 12px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
 .metricValue { gap: 7px; flex-wrap: wrap; }
 .metricValue strong { font-family: inherit; font-size: var(--admin-ui-type-stat, clamp(1.6rem, 2.5vw, 2.1rem)); font-weight: 800; line-height: 1.05; }
 .metricCard p { line-height: 1.4; }
-.metricCard b { margin-top: 2px; }
 .queueGrid { gap: var(--admin-ui-editor-field-gap, 8px); }
 .queueLink { min-height: 56px; padding: 8px 10px; gap: var(--admin-ui-editor-field-gap, 8px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
 .queueLink b { font-family: inherit; font-size: 1.3rem; font-weight: 800; }

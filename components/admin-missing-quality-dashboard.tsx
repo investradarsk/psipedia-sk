@@ -303,9 +303,9 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         </div>)}</div>
       </details>:null}
     </details>
-    <section className={styles.results}>
+    <section id="navrhy-na-schvalenie" aria-labelledby="quality-proposals-title" className={styles.results}>
       <div className={styles.heading}>
-        <h2>{AREAS.find(a=>a.id===area)?.label}</h2>
+        <h2 id="quality-proposals-title">Návrhy na schválenie · {AREAS.find(a=>a.id===area)?.label}</h2>
         <span>{areaItems.length} {plural(areaItems.length)} na schválenie</span>
       </div>
       <div className={styles.profileSearch}><label htmlFor="quality-profile-filter">Vyhľadať profil</label>

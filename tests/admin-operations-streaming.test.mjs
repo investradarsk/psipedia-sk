@@ -52,7 +52,7 @@ test("homepage activity links to canonical agendas without duplicating the notif
   assert.doesNotMatch(source, /href="\/admin\/kvalita"/);
   assert.doesNotMatch(source, /href="\/admin\/operations"/);
   assert.match(read("components/admin-workspace-dashboard.tsx"), /href="\/admin\/operations\?view=pending"/);
-  assert.match(read("components/admin-workspace-dashboard.tsx"), /href="\/admin\/kvalita"/);
+  assert.match(read("components/admin-workspace-dashboard.tsx"), /href="\/admin\/kvalita#navrhy-na-schvalenie"/);
 });
 
 
