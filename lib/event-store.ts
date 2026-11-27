@@ -1,3 +1,4 @@
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
 import { eventListingSql, EVENT_PAGE_SIZE, type EventListingFilters } from './event-listing';
@@ -728,7 +729,7 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   return event;
 }
 
-export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent, unifiedEditFields?: readonly EventNotionField[]) {
+export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent, unifiedEditFields?: readonly EventNotionField[],reviewOnSave=false) {
   const database = requireD1Binding();
   await ensureEventStore(database);
   const existing = existingEvent ?? await getManagedEventById(id);
@@ -765,9 +766,10 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
     input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id, existing.updatedAt,
   );
-  const row = unifiedEditFields
+  const row = unifiedEditFields||reviewOnSave
     ? await commitEventAdminEdit<EventRow>(database, statement, {
-      id, expectedRevision: existing.updatedAt, nextRevision: now, editor: editorEmail, fields: unifiedEditFields,
+      id, expectedRevision: existing.updatedAt, nextRevision: now, editor: editorEmail, fields: unifiedEditFields??[],
+      companionStatements:reviewOnSave?reviewOnSaveStatements(database,{type:"EVENT",id,revision:now,actor:editorEmail}):[],
     })
     : await statement.first<EventRow>();
   if (!row) throw new EventWriteConflictError();
