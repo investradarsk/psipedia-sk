@@ -1,5 +1,5 @@
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
@@ -1957,7 +1957,7 @@ async function syncUnifiedDirectoryEditorialFields(input: {
         ? { ...rawReceipt, value: rawReceipt.value.split(/\r?\n/).map(clean).filter(Boolean) }
         : rawReceipt;
       const reservation = await reserveUnifiedField({
-        database, identity, historicalBaseline: base.present
+        database, identity, authorityBindings: bindings, authorityProperty: observed.page.properties?.[BREEDER_NOTION_EDITORIAL_FIELDS[path]], historicalBaseline: base.present
           ? { value: base.value, version: observed.mapping.content_hash } : null,
         notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction,
       });
@@ -1968,6 +1968,7 @@ async function syncUnifiedDirectoryEditorialFields(input: {
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
       const mapping = await loadMappingByProfile(database, id);
       if (mapping?.notion_page_id !== pageId) throw Error("DIRECTORY_UNIFIED_MAPPING_CHANGED");
+      await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
         const desired = breederApplyNotionChanges(observed.canonical, observed.remote, [path]);
         await saveBreederEditorialValue(database, live, desired, path);
@@ -2066,7 +2067,7 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       const observed = await observe(field);
       const receipt = await readUnifiedAdminEdit(database, observed.identity, observed.profile.updatedAt);
       const reservation = await reserveUnifiedField({
-        database, identity: observed.identity, historicalBaseline: null,
+        database, identity: observed.identity, authorityBindings: bindings, historicalBaseline: null,
         notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction,
       });
       if (!reservation) continue;
@@ -2074,6 +2075,7 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       if (live.profile.updatedAt !== observed.profile.updatedAt ||
           live.notion.value !== observed.notion.value || live.psipedia.value !== observed.psipedia.value)
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+      await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
         if (field.kind === "meta") {
           if (typeof live.notion.value !== "string") throw Error("DIRECTORY_UNIFIED_METADATA_VALUE");
@@ -2157,7 +2159,7 @@ async function syncUnifiedDirectoryBreederRelations(input: {
       const observed = await observe(field);
       const identity: FieldIdentity = {agenda:"directory",entityId:String(profileId),pageId,field:"relation:"+field};
       const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
-      const reservation = await reserveUnifiedField({database, identity, historicalBaseline:null,
+      const reservation = await reserveUnifiedField({database, identity, authorityBindings: bindings, historicalBaseline:null,
         notion:observed.notion, psipedia:observed.psipedia, psipediaEdit:receipt,direction});
       if (!reservation) continue;
       const live = await observe(field);
@@ -2165,6 +2167,7 @@ async function syncUnifiedDirectoryBreederRelations(input: {
           !sameBreederRelationIds(live.notion.value, observed.notion.value) ||
           !sameBreederRelationIds(live.psipedia.value, observed.psipedia.value))
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+      await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
         await saveBreederRelationSelection(database, profileId, {...live.selected,[field]:live.notion.value},
           SYSTEM_ACTOR,{expectedRevision:live.profile.updatedAt,fromNotion:true});
@@ -2805,7 +2808,7 @@ async function reserveUnifiedDirectoryCategories(
   });
   const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
   const reservation = await reserveUnifiedField({
-    database, identity, direction,
+    database, identity, direction, authorityBindings: bindings,
     historicalBaseline: baseline ? {
       value: normalizeAdditionalDirectoryCategories(baseline.additionalCategories ?? [], observed.profile.category),
       version: observed.mapping.content_hash,
