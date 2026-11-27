@@ -1,6 +1,12 @@
 -- UNNUMBERED PROPOSAL. Do not apply without owner approval, D1 bookmark,
 -- exact schema/dependency inventory and offline verification. Execute atomically.
 -- Preserve all existing lifecycle rows and 24 triggers from migration 0164.
+-- Refuse to rebuild if any deployed table has an incoming foreign key.
+-- Do not disable foreign keys or rely on cascades during a schema migration.
+SELECT CASE WHEN NOT EXISTS (
+ SELECT 1 FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) fk
+ WHERE m.type='table' AND fk."table" IN ('admin_record_tombstones','admin_record_publication_guards')
+) THEN 1 ELSE json_extract('V3_SCHEMA_INCOMING_FK','$') END;
 DROP TRIGGER admin_deleted_directory_insert;
 DROP TRIGGER admin_deleted_events_insert;
 DROP TRIGGER admin_deleted_help_insert;
