@@ -1,3 +1,4 @@
+import { preservePartnerReviewBeforeRevoke } from "./admin-notion-review-lock";
 import { getAdminEntityReview, setAdminEntityReviewed, type AdminReviewEntityType } from "./admin-entity-review-store";
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
@@ -253,6 +254,7 @@ export async function setPartnerAccountStatusAdmin(input:{accountId:string;actio
       // Suspension retains ownership. Deactivation permanently revokes management
       // without archiving or deleting any published canonical profile.
       ...(input.action==="DEACTIVATE"?[
+        ...preservePartnerReviewBeforeRevoke(database,{scope:{kind:"account",id:input.accountId},nowIso:now,actorRef:actor}),
         database.prepare("UPDATE partner_memberships SET revoked_at=?,revoked_by=?,updated_at=? WHERE account_id=? AND revoked_at IS NULL").bind(now,actor,now,input.accountId),
         database.prepare("UPDATE partner_help_claims SET status='REVOKED',revoked_at=?,revoked_by=?,updated_at=? WHERE account_id=? AND status='APPROVED'").bind(now,actor,now,input.accountId),
         database.prepare("UPDATE partner_claims SET status='CANCELLED',updated_at=? WHERE account_id=? AND status='PENDING'").bind(now,input.accountId),
@@ -299,7 +301,10 @@ export async function changePartnerMembershipAdmin(input:{membershipId:string;ro
   const database=db(input.database),current=await database.prepare("SELECT id,role,revoked_at revokedAt FROM partner_memberships WHERE id=?").bind(input.membershipId).first<{id:string;role:PartnerRole;revokedAt:string|null}>();
   if(!current)throw new Error("Membership neexistuje.");if(current.revokedAt)throw new Error("Membership už bola odvolaná.");const now=(input.now??new Date()).toISOString(),actor=auditActor(input.adminEmail);
   const action=input.revoke?"MEMBERSHIP_REVOKED":"MEMBERSHIP_ROLE_CHANGED";
-  if(input.revoke)await database.prepare("UPDATE partner_memberships SET revoked_at=?,revoked_by=?,updated_at=? WHERE id=? AND revoked_at IS NULL").bind(now,actor,now,input.membershipId).run();
+  if(input.revoke)await database.batch([
+    ...preservePartnerReviewBeforeRevoke(database,{scope:{kind:"membership",id:input.membershipId},nowIso:now,actorRef:actor}),
+    database.prepare("UPDATE partner_memberships SET revoked_at=?,revoked_by=?,updated_at=? WHERE id=? AND revoked_at IS NULL").bind(now,actor,now,input.membershipId),
+  ]);
   else {if(!input.role)throw new Error("Vyberte rolu.");await database.prepare("UPDATE partner_memberships SET role=?,updated_at=? WHERE id=? AND revoked_at IS NULL").bind(input.role,now,input.membershipId).run();}
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:actor,action,targetType:"PARTNER_MEMBERSHIP",targetId:input.membershipId,metadata:{fromRole:current.role,toRole:input.role??null},database,now:new Date(now)});
 }
@@ -338,11 +343,11 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
   await ensurePartnerDirectoryReviewLock({
     database,resourceId:input.resourceId,adminEmail:input.adminEmail,now:input.now,
   });
+  await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
   const current=await database.prepare(
     "SELECT id,role FROM partner_memberships WHERE account_id=?1 AND resource_id=?2 AND revoked_at IS NULL LIMIT 1",
   ).bind(input.accountId,input.resourceId).first<{id:string;role:PartnerRole}>();
   if(current?.role==="OWNER"){
-    await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
     return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:true};
   }
   if(current){
@@ -353,7 +358,6 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
       database,
       now:input.now,
     });
-    await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
     return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
   }
   const now=input.now??new Date(),iso=now.toISOString(),id=crypto.randomUUID(),actor=auditActor(input.adminEmail);
@@ -370,6 +374,5 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
     database,
     now,
   });
-  await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
   return {id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
 }
