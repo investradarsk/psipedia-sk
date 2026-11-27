@@ -1,7 +1,7 @@
 import { PublicHeading } from "@/components/public-heading";
 import { PublicActionLink } from "./public-visual-system";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
 import { PublicBannerFrame, type PublicBannerVisual, type PublicBannerSize } from "./public-banner-frame";
@@ -61,24 +61,8 @@ export function PublicMagazineBanner({
   desktopCopy?: { eyebrow: string; title: string; description: string; ctaLabel: string } | null;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
-  const bg =
-    desktopColors?.background === "sage"
-      ? "#e1ebdf"
-      : desktopColors?.background === "cream"
-        ? "#f9f1e5"
-        : desktopColors?.background === "white"
-          ? "#ffffff"
-          : undefined;
-  const buttonBg =
-    desktopColors?.button === "green"
-      ? "#20543e"
-      : desktopColors?.button === "red"
-        ? "#b44939"
-        : undefined;
-  const desktopStyle = {
-    "--ps-visual-desktop-bg": bg,
-    "--ps-visual-desktop-button": buttonBg,
-  } as CSSProperties;
+  // Legacy custom background/button values remain readable for saved drafts.
+  // Rendering uses only the approved two themes and three size presets.
   return (
     <PublicBannerFrame
       as="section"
@@ -87,7 +71,6 @@ export function PublicMagazineBanner({
       data-banner-desktop-visual={desktopColors?.visual}
       data-banner-desktop-size={desktopColors?.size}
       id={anchorId}
-      style={desktopColors ? desktopStyle : undefined}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}
       className={[
         compact ? "home-magazine-banner" : "shell home-magazine-banner",
