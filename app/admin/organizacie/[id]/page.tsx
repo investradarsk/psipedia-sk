@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { AdminPartnerCanonicalAudit } from "@/components/admin-partner-canonical-audit";
 import Link from "next/link";
 import { adminReturnHref } from "@/lib/admin-return-navigation";
@@ -77,6 +79,7 @@ export default async function OrganizationAdminDetailPage({ params, searchParams
   const resolved = resolveOrganizationEditorReads(organizationResult, locationsResult);
   if (!resolved) notFound();
   const { organization, locations } = resolved;
+  const review=(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?await getAdminEntityReview("ORGANIZATION",organizationId):null;
 
   // Start the non-essential request without awaiting it. React 19 Suspense
   // streams its panel when ready; failure never rejects the editor's render.
@@ -96,7 +99,7 @@ export default async function OrganizationAdminDetailPage({ params, searchParams
     </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
     <Suspense fallback={null}><OrganizationDuplicateWarning organizationId={organization.id} /></Suspense>
-    <AdminOrganizationEditor organization={organization} initialLocations={locations}
+    <AdminOrganizationEditor organization={organization} initialReview={review} initialLocations={locations}
       automationSuggestionsPromise={suggestionsPromise} returnHref={returnHref} />
     <div id="fundraising">
       <Suspense fallback={<p role="status" className="admin-panel">Načítavam fundraising…</p>}>
