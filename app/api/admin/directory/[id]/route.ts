@@ -107,6 +107,7 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync?: unknown;
       fullProfileSave?: unknown;
       expectedUpdatedAt?: unknown;
+      reviewOnSave?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
@@ -124,9 +125,12 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync: rawConfirmContactSync,
       fullProfileSave: rawFullProfileSave,
       expectedUpdatedAt: rawExpectedUpdatedAt,
+      reviewOnSave: rawReviewOnSave,
       ...submittedBody
     } = rawBody;
     const fullProfileSave = rawFullProfileSave === true;
+    const reviewOnSave = rawReviewOnSave === true && fullProfileSave &&
+      (env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
     // Full visible form is authoritative, but never overwrite a newer D1 revision.
     // Missing fields from an old/partially hydrated editor are NOT clears.
     if (fullProfileSave) {
@@ -434,6 +438,7 @@ export async function PUT(request: Request, { params }: Props) {
     let profile = await updateManagedDirectoryProfile(
       id, payload, user.email, before, db, {
         expectedUpdatedAt: before.updatedAt,
+        reviewOnSave,
         unifiedEditFields: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true"
           ? (editedPaths ?? []) : undefined,
       },
