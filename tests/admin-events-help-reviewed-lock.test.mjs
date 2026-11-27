@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { isAdminNotionSyncLocked, partnerAdminReviewStatement, partnerReviewOwnerSql,
-  reviewTypeForAgenda } from "../lib/admin-notion-review-lock.ts";
+  reviewTypeForAgenda, preservePartnerReviewBeforeRevoke } from "../lib/admin-notion-review-lock.ts";
 
 const read = path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
@@ -113,4 +113,43 @@ test("every partner approval includes automatic review lock and Admin shows owne
   for(const file of ["podujatia","adopcie","pomoc","stratene-najdene","organizacie"]){
     assert.match(read(`app/admin/${file}/[id]/page.tsx`),/AdminPartnerReviewStatus/);
   }
+});
+
+
+test("revocation preserves missing legacy reviews and existing review metadata for all six partner agendas",async()=>{
+  const {sqlite,database}=fixture();
+  try{
+    sqlite.exec(`
+      ALTER TABLE partner_resources ADD COLUMN entity_type TEXT;
+      ALTER TABLE partner_resources ADD COLUMN directory_profile_id INTEGER;
+      CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,status TEXT);
+      CREATE TABLE directory_profile_review_state(profile_id INTEGER PRIMARY KEY,reviewed_at TEXT,reviewed_by TEXT,
+        unlock_pending INTEGER,unlock_requested_at TEXT,unlock_requested_by TEXT,updated_at TEXT,updated_by TEXT);
+      INSERT INTO directory_profiles VALUES(6,'published'),(7,'published');
+      INSERT INTO partner_resources(id,entity_type,directory_profile_id) VALUES('dir','DIRECTORY_PROFILE',6),('other','DIRECTORY_PROFILE',7);
+      INSERT INTO partner_resources(id,managed_event_id,help_organization_id) VALUES('event',1,NULL),('org',NULL,2);
+      INSERT INTO partner_memberships VALUES('d','a','dir',NULL),('e','a','event',NULL),('o','a','org',NULL),('other','b','other',NULL);
+      INSERT INTO partner_help_claims VALUES('ad','a','APPROVED',3,NULL,NULL),('lf','a','APPROVED',NULL,4,NULL),('hc','a','APPROVED',NULL,NULL,5);
+      INSERT INTO admin_entity_reviews VALUES('EVENT',1,'original','human');
+      INSERT INTO directory_profile_review_state VALUES(6,NULL,NULL,1,'old','old','old','old');
+    `);
+    const run=async scope=>{
+      for(const statement of preservePartnerReviewBeforeRevoke(database,{scope,nowIso:"now",actorRef:"admin"}))
+        await statement.run();
+    };
+    await run({kind:"membership",id:"d"});
+    assert.equal(sqlite.prepare("SELECT unlock_pending FROM directory_profile_review_state WHERE profile_id=6").get().unlock_pending,0);
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM directory_profile_review_state WHERE profile_id=7").get().n,0);
+    await run({kind:"claim",id:"ad"});
+    assert.equal(await isAdminNotionSyncLocked(database,"adoptions",3),true);
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_entity_reviews WHERE entity_type='ADOPTION'").get().n,1);
+    await run({kind:"resource",accountId:"a",resourceId:"org"});
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_entity_reviews WHERE entity_type='ORGANIZATION'").get().n,1);
+    await run({kind:"account",id:"a"});
+    sqlite.exec("UPDATE partner_memberships SET revoked_at='now' WHERE account_id='a'; UPDATE partner_help_claims SET status='REVOKED' WHERE account_id='a'");
+    for(const [agenda,,id] of types)assert.equal(await isAdminNotionSyncLocked(database,agenda,id),true,agenda);
+    assert.equal(sqlite.prepare("SELECT reviewed_at FROM admin_entity_reviews WHERE entity_type='EVENT'").get().reviewed_at,"original");
+    assert.equal(sqlite.prepare("SELECT status FROM directory_profiles WHERE id=6").get().status,"published");
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM directory_profile_review_state WHERE profile_id=7").get().n,0);
+  }finally{sqlite.close()}
 });
