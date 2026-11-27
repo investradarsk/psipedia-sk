@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { AdminPartnerCanonicalAudit } from "@/components/admin-partner-canonical-audit";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -36,10 +38,11 @@ export default async function EditAdoptionPage({ params, searchParams }: Props) 
     listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: numericId }),
   ]);
   if (!item) notFound();
+  const review=(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?await getAdminEntityReview("ADOPTION",item.id):null;
   const selectedBreed = item.breedId && item.breedName.trim()
     ? { id: item.breedId, name: item.breedName }
     : null;
   // This option set alone depends on the selected breed of the loaded item.
   const breeds = await listAdoptionAdminBreedOptions(undefined, selectedBreed, item.breedId);
-  return <AdminShell recordId={item.id} user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminPartnerReviewStatus entityType="ADOPTION" entityId={item.id} />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href={returnHref}>{returnHref.startsWith("/admin/kvalita/seo?") ? "← Späť na SEO audit" : "← Späť na adopcie"}</Link></>}><Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="ADOPTION_DOG" canonicalId={item.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="ADOPTION_DOG" canonicalId={item.id} /></Suspense><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions} returnHref={returnHref}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref={returnHref} />}</AdminShell>;
+  return <AdminShell recordId={item.id} user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminPartnerReviewStatus entityType="ADOPTION" entityId={item.id} />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href={returnHref}>{returnHref.startsWith("/admin/kvalita/seo?") ? "← Späť na SEO audit" : "← Späť na adopcie"}</Link></>}><Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="ADOPTION_DOG" canonicalId={item.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="ADOPTION_DOG" canonicalId={item.id} /></Suspense><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} initialReview={review} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions} returnHref={returnHref}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref={returnHref} />}</AdminShell>;
 }
