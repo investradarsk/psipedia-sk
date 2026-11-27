@@ -104,9 +104,10 @@ export async function ensureFirstProfileNotionCopy(input:{
       db.prepare("INSERT INTO breed_notion_workcopy_links(breed_id,work_notion_page_id,work_data_source_id,canonical_slug,fci_number,work_sync_receipt,work_last_synced_at,work_notion_last_edited_time,status,verified_at,activated_at,created_at,updated_at) "+
         "SELECT p.id,?,?,p.slug,p.fci_number,?,?,?,'ACTIVE',?,?,?,? FROM managed_breeds p WHERE p.id=? AND p.updated_at=? AND lower(p.status)<>'archived' "+
         "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=p.id) "+
-        "AND NOT EXISTS(SELECT 1 FROM breed_notion_sync WHERE breed_id=p.id) AND "+guard+
+        "AND NOT EXISTS(SELECT 1 FROM breed_notion_sync WHERE breed_id=p.id) "+
+        "AND EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=\'BREED\' AND entity_id=p.id)=? AND "+guard+
         " AND NOT EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=p.id) ON CONFLICT DO NOTHING")
-        .bind(verified.id,sourceId,expected.hash,now,verified.last_edited_time??now,now,now,now,now,id,expected.revision,String(id),fence.token),
+        .bind(verified.id,sourceId,expected.hash,now,verified.last_edited_time??now,now,now,now,now,id,expected.revision,expected.reviewed?1:0,String(id),fence.token),
       db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('BREED_FIRST_COPY_CAS_FAILED','$') END"),
       db.prepare("INSERT INTO breed_notion_controlled_values(breed_id,values_json,notion_values_json,revision,updated_at) VALUES(?,?,?,0,?) ON CONFLICT(breed_id) DO NOTHING")
         .bind(id,controlledJson,controlledJson,now),
