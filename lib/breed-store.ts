@@ -1819,10 +1819,16 @@ export async function saveManagedBreedCombined(input:{
   const {database:db,before,actor}=input,id=before.id;
   if(before.updatedAt!==input.expectedRevision)throw new BreedUpdateConflictError();
   const now=nextBreedVersion(input.expectedRevision);
-  const merged=mergeManagedBreedEdit(before,input.patch);
+  const patch={...input.patch};
+  // The current editor owns the legacy family alias via the children score.
+  const fields=[...input.fields];
+  if(fields.includes("children")&&(before.family===0||before.family===before.children)){
+    patch.family=patch.children;fields.push("family");
+  }
+  const merged=mergeManagedBreedEdit(before,patch);
   if(Object.hasOwn(input.patch,"status")&&input.patch.status!=="published"&&input.patch.status!=="draft")throw Error("BREED_COMBINED_STATUS_INVALID");
   const value=clean(merged,before,false,true);
-  const fieldSet=new Set(input.fields);
+  const fieldSet=new Set(fields);
   const columns:Record<string,string>={...BREED_EVENT_SCALAR_COLUMNS,slug:"slug",status:"status",imageKey:"image_key",
     importKey:"import_key",gallery:"gallery_json",sports:"sports_json",healthRisks:"health_risks_json",
     goodFor:"good_for_json",consider:"consider_json",sources:"sources_json"};
@@ -1847,7 +1853,8 @@ export async function saveManagedBreedCombined(input:{
       "published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END"].join(",")+
     " WHERE id=? AND updated_at=? AND status<>'archived' "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=managed_breeds.id) "+
-    "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='breeds' AND entity_id=CAST(managed_breeds.id AS TEXT)) RETURNING id")
+    "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='breeds' AND entity_id=CAST(managed_breeds.id AS TEXT)) "+
+    "AND NOT EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=managed_breeds.id AND work_last_error_code='INBOUND_ID_PENDING') RETURNING id")
     .bind(...entries.map(entry=>entry.value),now,actor,value.status,now,id,input.expectedRevision);
   const relations:D1PreparedStatement[]=[];
   for(const [field,table,key] of [
