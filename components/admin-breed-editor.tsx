@@ -1,5 +1,6 @@
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 "use client";
+
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
@@ -259,7 +260,11 @@ export function AdminBreedEditor({ breed, initialReview=null, returnHref = "/adm
         }
         baseFormRef.current=revised as unknown as typeof form;
       } else baseFormRef.current=submittedForm;
-      setCanonicalForm((current)=>({...current,status:data.breed!.status}));
+      const aliases=review&&data.controlled?{fciGroup:data.breed.fciGroup,fciSectionNumber:data.breed.fciSectionNumber,size:data.breed.size}:{};
+      if(formEditRevisionRef.current===submittedRevision){
+        baseFormRef.current={...baseFormRef.current,...aliases};
+        setCanonicalForm(current=>({...current,...aliases,status:data.breed!.status}));
+      }else setCanonicalForm(current=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
       let controlledHasPending=!review&&controlledPendingKeys.length>0;
       if (breed && submittedControlledKeys.length && !review) {
