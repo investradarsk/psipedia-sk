@@ -52,8 +52,8 @@ export function normalizeBreedSports(input: unknown): BreedProfileSport[] {
     const candidate = raw as Partial<BreedSport>;
     const rawKey = typeof candidate.key === "string" ? candidate.key.trim() : "";
     const rawLabel = typeof candidate.label === "string" ? candidate.label.trim() : "";
-    const rating = Number(candidate.rating);
-    if ((!rawKey && !rawLabel) || !Number.isFinite(rating) || rating < 1 || rating > 5) continue;
+    const rating = candidate.rating === null ? null : Number(candidate.rating);
+    if ((!rawKey && !rawLabel) || (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5))) continue;
 
     const keyToken = normalizedToken(rawKey || rawLabel);
     const labelToken = normalizedToken(rawLabel || rawKey);
@@ -66,7 +66,7 @@ export function normalizeBreedSports(input: unknown): BreedProfileSport[] {
     output.push({
       key,
       label,
-      rating: Math.round(rating),
+      rating: rating === null ? null : Math.round(rating),
       note: typeof candidate.note === "string" && candidate.note.trim() ? candidate.note.trim() : undefined,
     });
   }

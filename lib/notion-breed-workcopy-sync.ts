@@ -1,3 +1,5 @@
+import { isLegacyBreedDuplicate } from "./notion-breed-legacy-duplicates.mjs";
+import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { breedWorkcopyObservation, isUnifiedBreedEditorialField } from "./notion-breed-unified-policy.ts";
@@ -165,7 +167,8 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
   const remote = parsed.values.find(item => item.field === field);
   const snapshot = breedFieldSnapshot(after) as Record<string, unknown>;
   const value = field === "fciNumber" ? after.fciNumber : snapshot[field];
-  return { page, revision: after.updatedAt,
+  return { page, revision: after.updatedAt, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
+    notionSiblings:Object.fromEntries(parsed.values.map(item=>[item.field,item.value])),
     notion: breedWorkcopyObservation(remote?.value, !!remote),
     psipedia: breedWorkcopyObservation(value, field === "fciNumber" || Object.hasOwn(snapshot, field)),
   };
@@ -509,11 +512,48 @@ export async function inspectManualBreedWorkCopyProfile(input: {
   return {notion,admin,excluded:[...excluded]};
 }
 
+/** Repair only a proven historical concatenation, on an existing REVIEW row
+ * without baseline, receipts or invalidation. A failed write remains PENDING
+ * for ordinary observed-state recovery, never blind replay. */
+async function repairLegacyBreedDuplicate(database:D1Database,bindings:BreedWorkCopyBindings,link:ShadowLink,field:string){
+  const identity={agenda:"breeds" as const,entityId:String(link.breed_id),pageId:link.work_notion_page_id,field};
+  const old=await readUnifiedFieldState(database,identity);
+  if(!old||old.status!=="REVIEW"||old.reason!=="BASELINE_UNAVAILABLE"||old.baseline!==undefined||old.baselineVersion||old.notionEdit||old.psipediaEdit)return false;
+  const guarded=async()=>{
+    const invalid=await database.prepare("SELECT 1 AS n FROM notion_unified_scope_invalidation WHERE agenda=? AND entity_id=?").bind(identity.agenda,identity.entityId).first();
+    const receipt=await database.prepare("SELECT 1 AS n FROM notion_unified_admin_field_edits WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=?").bind(identity.agenda,identity.entityId,identity.pageId,field).first();
+    const current=await getActiveLink(database,link.breed_id);
+    return !invalid&&!receipt&&current?.work_notion_page_id===link.work_notion_page_id&&!(await notionPageIsTombstoned(database,link.work_notion_page_id));
+  };
+  if(!await guarded())return false;
+  const live=await observeUnifiedBreedField(database,bindings,link,field);
+  if(!live.notion.present||!live.psipedia.present||
+    JSON.stringify(old.notion)!==JSON.stringify(live.notion.value)||JSON.stringify(old.psipedia)!==JSON.stringify(live.psipedia.value)||
+    !isLegacyBreedDuplicate(field,live.notion.value,live.psipedia.value,live.snapshot,live.notionSiblings))return false;
+  const plan=planBreedWorkCopyFieldWrite({schema:BREED_NOTION_SCHEMA,page:live.page,fieldId:field,value:live.psipedia.value,baseline:live.notion.value,allowCurrentRemote:false,expectedPageRevision:live.page.last_edited_time});
+  if(!plan.changed)return false;
+  const version=await writeUnifiedFieldState(database,identity,old.version,{baselineVersion:undefined,baseline:undefined,notion:live.notion.value,psipedia:live.psipedia.value,notionEdit:undefined,psipediaEdit:undefined,status:"PENDING",reason:null});
+  if(version===null)throw Error("BREED_LEGACY_DUPLICATE_RESERVATION_CHANGED");
+  const reservation={identity,version,value:live.psipedia.value};
+  const fresh=await observeUnifiedBreedField(database,bindings,link,field);
+  if(fresh.revision!==live.revision||fresh.page.last_edited_time!==plan.pageRevision||
+    !fresh.notion.present||!fresh.psipedia.present||
+    fresh.notion.value!==live.notion.value||fresh.psipedia.value!==live.psipedia.value||
+    !isLegacyBreedDuplicate(field,fresh.notion.value,fresh.psipedia.value,fresh.snapshot,fresh.notionSiblings)||!await guarded())
+    throw Error("BREED_LEGACY_DUPLICATE_CHANGED");
+  await assertUnifiedReservationCurrent(database,reservation);
+  await notionRequest(bindings,"/pages/"+encodeURIComponent(link.work_notion_page_id),{method:"PATCH",body:JSON.stringify({properties:plan.properties})});
+  const verified=await observeUnifiedBreedField(database,bindings,link,field);
+  await confirmUnifiedField(database,reservation,verified.notion,verified.psipedia);
+  return true;
+}
+
 export async function recoverBreedV2Field(database:D1Database,bindings:BreedWorkCopyBindings,id:number,pageId:string,field:string,direction:"observe"|"pull"="observe"){
   if(!unifiedBreedEnabled(bindings)||!requireWorkCopyOnly(bindings))throw Error("BREED_V2_RECOVERY_DISABLED");
   const link=await getActiveLink(database,id);
   if(!link||link.work_notion_page_id!==pageId)throw Error("BREED_V2_RECOVERY_SCOPE");
   if(!BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField)&&field!=="fciNumber")throw Error("BREED_V2_RECOVERY_SCOPE");
+  if(direction==="observe"&&await repairLegacyBreedDuplicate(database,bindings,link,field))return;
   const planned=await reserveBreedField(database,bindings,link,field,direction);
   if(direction==="pull"&&planned.reservation){
     const fresh=await observeUnifiedBreedField(database,bindings,link,field);

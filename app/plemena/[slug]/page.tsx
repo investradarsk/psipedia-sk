@@ -824,7 +824,7 @@ export default async function BreedDetailPage({ params }: Props) {
                         <strong>{sport.label}</strong>
                         {sport.note && !isInternalBreedSportNote(sport.note) ? <p>{sport.note}</p> : null}
                       </div>
-                      <span aria-label={`hodnotenie ${sport.rating} z 5`}>{sport.rating}/5</span>
+                      {sport.rating===null?null:<span aria-label={`hodnotenie ${sport.rating} z 5`}>{sport.rating}/5</span>}
                     </div>
                   ))}
                 </div>

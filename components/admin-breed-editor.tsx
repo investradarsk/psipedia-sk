@@ -73,7 +73,7 @@ const sportOptions=[
   ["pasenie","Pasenie"],["coursing","Coursing"],["dog-dancing","Dog dancing"],["zachranarcina","Záchranárčina"],
 ] as const;
 
-type SportDraft={index:number|null;key:string;label:string;rating:number;note:string};
+type SportDraft={index:number|null;key:string;label:string;rating:number|null;note:string};
 type BreedControlledValues=Record<string,string|number|string[]|null>;
 type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];rejectedKeys?:string[];error?:string};
 const subscribeToHydration=()=>()=>{};
@@ -187,9 +187,9 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
   function openSport(index:number){const sport=form.sports[index];setSportError("");setSportDraft({index,key:sport.key,label:sport.label,rating:sport.rating,note:sport.note??""});}
   function saveSport(){
     if(!sportDraft)return;
-    const key=sportDraft.key.trim();const label=sportDraft.label.trim();const rating=Number(sportDraft.rating);
+    const key=sportDraft.key.trim();const label=sportDraft.label.trim();const rating=sportDraft.rating;
     if(!key||!label){setSportError("Šport musí mať interný kľúč a názov.");return;}
-    if(!Number.isFinite(rating)||rating<1||rating>5){setSportError("Vhodnosť športu musí byť číslo od 1 do 5.");return;}
+    if(rating!==null&&(!Number.isFinite(rating)||rating<1||rating>5)){setSportError("Vhodnosť športu musí byť číslo od 1 do 5.");return;}
     if(form.sports.some((item,index)=>item.key===key&&index!==sportDraft.index)){setSportError("Tento šport je už v zozname.");return;}
     const next:BreedSport={key,label,rating,note:sportDraft.note.trim()};
     setForm((current)=>({...current,sports:sportDraft.index===null?[...current.sports,next]:current.sports.map((item,index)=>index===sportDraft.index?next:item)}));
@@ -691,7 +691,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
             <AdminActionButton variant="secondary" onClick={openNewSport}>+ Pridať šport</AdminActionButton></div>
         <div className={styles.sportsList}>
           {form.sports.map((sport,index)=><article className={styles.sportRow} key={`${sport.key}-${index}`}>
-            <strong>{sport.label}</strong><span className={styles.sportRating}>Vhodnosť {sport.rating}/5</span>{sport.note ? <p>{sport.note}</p> : <span className={styles.sportEmpty}>Bez poznámky</span>}
+            <strong>{sport.label}</strong><span className={styles.sportRating}>{sport.rating===null?"Nehodnotené":`Vhodnosť ${sport.rating}/5`}</span>{sport.note ? <p>{sport.note}</p> : <span className={styles.sportEmpty}>Bez poznámky</span>}
             <div className={styles.sportActions}>
               <AdminActionButton variant="neutral" onClick={()=>moveSport(index,-1)} disabled={index===0} aria-label={`Posunúť ${sport.label} vyššie`}>↑</AdminActionButton>
               <AdminActionButton variant="neutral" onClick={()=>moveSport(index,1)} disabled={index===form.sports.length-1} aria-label={`Posunúť ${sport.label} nižšie`}>↓</AdminActionButton>
@@ -754,9 +754,9 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       footer={<div className={styles.drawerFooter}><AdminActionButton variant="neutral" onClick={()=>{setSportDraft(null);setSportError("");}}>Zrušiť</AdminActionButton><AdminActionButton variant="primary" data-admin-autofocus="true" onClick={saveSport}>Uložiť šport</AdminActionButton></div>}
     >
       {sportDraft&&<div className={styles.drawerFields}>
-        <label className="admin-field"><span>Šport</span><select value={sportDraft.key} onChange={(e)=>{const selected=sportOptions.find(([key])=>key===e.target.value);setSportDraft((current)=>current?{...current,key:e.target.value,label:selected?.[1]??current.label}:current);}} disabled={sportDraft.index!==null}><option value="">Vyber šport</option>{sportOptions.map(([key,label])=><option value={key} key={key} disabled={form.sports.some((item,index)=>item.key===key&&index!==sportDraft.index)}>{label}</option>)}</select></label>
+        <label className="admin-field"><span>Šport</span><select value={sportDraft.key} onChange={(e)=>{const selected=sportOptions.find(([key])=>key===e.target.value);setSportDraft((current)=>current?{...current,key:e.target.value,label:selected?.[1]??current.label}:current);}} disabled={sportDraft.index!==null}><option value="">Vyber šport</option>{sportDraft.key&&!sportOptions.some(([key])=>key===sportDraft.key)&&<option value={sportDraft.key}>{sportDraft.label}</option>}{sportOptions.map(([key,label])=><option value={key} key={key} disabled={form.sports.some((item,index)=>item.key===key&&index!==sportDraft.index)}>{label}</option>)}</select></label>
         <label className="admin-field"><span>Názov</span><input value={sportDraft.label} onChange={(e)=>setSportDraft((current)=>current?{...current,label:e.target.value}:current)}/></label>
-        <label className="admin-field"><span>Vhodnosť 1–5</span><input type="number" min="1" max="5" value={sportDraft.rating} onChange={(e)=>setSportDraft((current)=>current?{...current,rating:Number(e.target.value)}:current)}/></label>
+        <label className="admin-field"><span>Vhodnosť 1–5</span><input type="number" min="1" max="5" value={sportDraft.rating??""} placeholder="Nehodnotené" onChange={(e)=>setSportDraft((current)=>current?{...current,rating:e.target.value===""?null:Number(e.target.value)}:current)}/></label>
         <label className="admin-field"><span>Krátka poznámka</span><textarea rows={4} value={sportDraft.note} onChange={(e)=>setSportDraft((current)=>current?{...current,note:e.target.value}:current)}/></label>
         {sportError&&<p className={styles.validation} role="alert">{sportError}</p>}
       </div>}
