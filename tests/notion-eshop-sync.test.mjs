@@ -133,7 +133,7 @@ test("e-shop system mirror verifies fresh Notion state before D1 acknowledgement
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, { exports: helperExports, module: { exports: helperExports } });
 
-  async function scenario({ staleEcho = false, persistMismatch = false, unrelatedError = false } = {}) {
+  async function scenario({ staleEcho = false, persistMismatch = false, unrelatedError = false, tombstoned = false } = {}) {
     const calls = [];
     const pageId = "notion-eshop-1";
     const sourceDate = "2026-11-12T14:05:00.000Z";
@@ -166,6 +166,7 @@ test("e-shop system mirror verifies fresh Notion state before D1 acknowledgement
       "Posledný sync": { date: { start: now } },
     });
     const context = {
+      notionPageIsTombstoned: async () => tombstoned,
       getManagedEshopById: async () => shop,
       fetchPage: async () => { calls.push("GET"); return clone(current); },
       notionPageBelongsToDataSource: p => p.id === pageId,
@@ -196,6 +197,10 @@ test("e-shop system mirror verifies fresh Notion state before D1 acknowledgement
     const input = { database: db, bindings: {}, dataSourceId: "collection", mapping: { eshop_id: 1, notion_page_id: pageId } };
     return { calls, current, fn: context.mirror, input, originalCount };
   }
+
+  const removed = await scenario({ tombstoned: true });
+  assert.equal(await removed.fn(removed.input), "unchanged");
+  assert.deepEqual(removed.calls, []);
 
   const stale = await scenario({ staleEcho: true });
   assert.equal(await stale.fn(stale.input), "pushed");
