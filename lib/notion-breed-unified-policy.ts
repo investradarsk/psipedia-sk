@@ -6,7 +6,8 @@ import { breedWorkcopyPhysicalProperty } from "./breed-notion-workcopy-field-con
 // workcopy. Derive excluded logical fields from its physical-column contract.
 export const NON_MIRRORED_BREED_FIELDS = BREED_NOTION_SCHEMA
   .filter(entry => entry.mode === "content" && !breedWorkcopyPhysicalProperty(entry.notion))
-  .map(entry => entry.id).filter(field => field !== "fciNumber");
+  .map(entry => entry.id);
+// fciNumber is handled separately by the workcopy adapter, not in this registry.
 const nonMirrored = new Set<string>(NON_MIRRORED_BREED_FIELDS);
 /** Only fixed registry identifiers; never SQL supplied by callers. */
 export function nonMirroredBreedPredicate(alias = "") {
