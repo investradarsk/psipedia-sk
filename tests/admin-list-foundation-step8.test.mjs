@@ -129,7 +129,7 @@ test("compact admin tables share desktop content geometry and e-shops use the sa
   assert.match(eshops, /<AdminEshopListInline/);
   assert.match(eshops, /shop.sourceUrl/);
   assert.match(eshops, /ESHOP_RATING_FIELDS/);
-  assert.match(eshops, /disabled=\{editing\}/);
+  assert.match(eshops, /disabled=\{!hydrated \|\| editing\}/);
   for (const name of ["event-dashboard", "help-dashboard", "help-unified-table"]) {
     assert.match(read("components/admin-" + name + ".tsx"), /<AdminRecordTable[\s\S]*?\bstretch\b/);
   }
@@ -151,7 +151,7 @@ test("Step 2/10: content list filters share search and selection surfaces", () =
   assert.match(unified, /data-admin-list-results/);
   const eshops = read("app/admin/recenzie/eshopy/eshops-admin-table.tsx");
   assert.match(eshops, /rows=\{visible\}/);
-  assert.match(eshops, /disabled=\{editing\}/);
+  assert.match(eshops, /disabled=\{!hydrated \|\| editing\}/);
   assert.match(eshops, /data-admin-list-search/);
   assert.match(read("components/admin-community-pagination.tsx"), /data-admin-community-pagination data-admin-list-pagination/);
 });
@@ -164,4 +164,12 @@ test("6/10 e-shop detail resets on filters, restores focus and stays single-colu
   assert.match(ui, /resetDetail\(\); setQuery/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.detail \.card \{ grid-template-columns:minmax\(0,1fr\)/);
   assert.match(read("components/admin-record-table.module.css"), /@media \(pointer: coarse\)/);
+});
+
+
+test("E-shop filtering is disabled until client hydration completes", () => {
+  const src = read("app/admin/recenzie/eshopy/eshops-admin-table.tsx");
+  assert.match(src, /useSyncExternalStore\(subscribeHydration, clientSnapshot, serverSnapshot\)/);
+  assert.match(src, /data-admin-eshop-ready=\{hydrated \? "true" : "false"\}/);
+  assert.match(src, /disabled=\{!hydrated \|\| editing\}/);
 });

@@ -428,7 +428,10 @@ for (const width of [1440, 1024, 390, 320]) {
     const filters = page.getByRole("search", { name: "Filtrovať e-shopy" });
     await expect(filters).toBeVisible();
     const search = filters.getByRole("searchbox");
+    await expect(filters).toHaveAttribute("data-admin-eshop-ready", "true");
+    await expect(search).toBeEnabled();
     await search.fill("neexistujuci-eshop-regresny-test");
+    await expect(search).toHaveValue("neexistujuci-eshop-regresny-test");
     await expect(page.locator("[data-admin-list-results]")).toContainText("Nájdené: 0 z");
     await filters.getByRole("button", { name: "Vyčistiť filtre" }).click();
     await expect(search).toHaveValue("");

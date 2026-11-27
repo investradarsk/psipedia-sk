@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminEshopListInline } from "@/components/admin-eshop-list-inline";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
@@ -13,7 +13,12 @@ function format(value: number) {
 }
 const statusLabel = { published: "Publikované", archived: "Archivované", draft: "Koncept" } as const;
 
+const subscribeHydration = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
+
 export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
+  const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ManagedEshop["status"] | "all">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -38,7 +43,7 @@ export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
     openerRef.current = null;
   }
   return <>
-    <fieldset role="search" aria-label="Filtrovať e-shopy" data-admin-list-filters data-admin-list-layout="simple" disabled={editing}>
+    <fieldset role="search" aria-label="Filtrovať e-shopy" data-admin-list-filters data-admin-list-layout="simple" data-admin-eshop-ready={hydrated ? "true" : "false"} disabled={!hydrated || editing}>
       <legend className="sr-only">Vyhľadávanie a filtre e-shopov</legend>
       <label data-admin-list-search><span>Hľadať</span><input type="search" value={query} onChange={event => { resetDetail(); setQuery(event.target.value); }} placeholder="Názov, Admin ID, web alebo zameranie" /></label>
       <label><span>Stav</span><select value={status} onChange={event => { resetDetail(); setStatus(event.target.value as typeof status); }}>
@@ -65,7 +70,7 @@ export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
         { id: "actions", label: "Akcie", width: 260, cell: item => <div className={styles.tableActions}>
           <Link href={`/admin/recenzie/eshopy/${item.id}`}>Upraviť</Link>
           {item.status === "published" && <Link href={`/recenzie/eshopy/${item.slug}`} target="_blank" rel="noreferrer">Verejný profil ↗</Link>}
-          <button type="button" disabled={editing} aria-expanded={selectedId === item.id} aria-controls={selectedId === item.id && shop ? "eshop-list-detail" : undefined} onClick={event => { openerRef.current = event.currentTarget; setSelectedId(item.id); if (selectedId === item.id) detailRef.current?.focus(); }}>Detail e-shopu</button>
+          <button type="button" disabled={!hydrated || editing} aria-expanded={selectedId === item.id} aria-controls={selectedId === item.id && shop ? "eshop-list-detail" : undefined} onClick={event => { openerRef.current = event.currentTarget; setSelectedId(item.id); if (selectedId === item.id) detailRef.current?.focus(); }}>Detail e-shopu</button>
         </div> },
       ]}
     /> : <p className={styles.empty}>{shops.length ? "Žiadny e-shop nezodpovedá filtrom." : "E-shopy sa momentálne nepodarilo načítať."}</p>}
