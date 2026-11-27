@@ -8,3 +8,7 @@
 .hint,.error,.success { margin:4px 0; font-size:12px; }
 .hint { color:#58695e; }.error { color:#a82727; }.success { color:#236443; }
 @media(max-width:899px) { .desktopOnly { display:none; } }
+
+/* A viewport resize must not strand an already-open edit. */
+.desktopOnly[data-editing="true"] { display:block; }
+@media(max-width:560px) { .fields { grid-template-columns:1fr; } }

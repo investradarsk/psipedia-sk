@@ -207,6 +207,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         stickyActions
         rows={items}
         label="Prípady Pomoci psom"
+          stretch
         busy={bulkBusy || inlineBusy}
         serverSorted
         serverSorting={{

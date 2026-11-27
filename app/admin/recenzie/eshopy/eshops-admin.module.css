@@ -25,3 +25,15 @@
 .tags span { padding: 5px 8px; border-radius: 999px; color: #315246; background: #eef4ee; font-size: .65rem; font-weight: 800; }
 .editLink { margin-left: auto; padding: 7px 10px; border-radius: 8px; color: #fff !important; background: #174b38; }
 @media (max-width: 920px) { .card { grid-template-columns: 76px minmax(0,1fr); } .rating { grid-column: 1 / -1; } .logo { width: 76px; height: 64px; } }
+
+/* The table is the default list; the existing rich profile preview is only
+   opened on demand and keeps full descriptions, ratings and inline editing. */
+.tableLogo { display:grid; place-items:center; width:28px; height:28px; overflow:hidden; border-radius:5px; background:#f0f5f0; }
+.tableLogo img { display:block; width:100%; height:100%; object-fit:contain; }
+.tableActions { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.tableActions button { color:#245541; background:transparent; border:0; text-decoration:underline; font:inherit; }
+.tableActions button:disabled { opacity:.55; cursor:not-allowed; }
+.tableActions :is(a,button):focus-visible { outline:2px solid #9a3d29; outline-offset:2px; }
+.detail { display:grid; gap:8px; min-width:0; margin-top:12px; }
+.detailHeader { display:flex; justify-content:space-between; flex-wrap:wrap; align-items:center; gap:8px; }
+.detail .card { padding:12px; gap:12px; border-radius:var(--admin-ui-radius,8px); }

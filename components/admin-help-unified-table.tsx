@@ -492,7 +492,7 @@ export function AdminHelpUnifiedTable({
         busy={bulkBusy || shelterBusy || helpBusy || dogBusy}
         serverSorted
         stickyActions
-        stretch={canInlineEditOrganizations || canInlineEditHelp || canInlineEditDogs}
+        stretch
         selection={canBulkEdit ? {
           selectedIds,
           disabled: bulkBusy || hasDraft,

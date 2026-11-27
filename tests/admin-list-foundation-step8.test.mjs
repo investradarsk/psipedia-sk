@@ -115,3 +115,22 @@ test("Step 8: Help, adoption, lost-found, organizations and attention reuse the 
   assert.match(org, /action="\/admin\/organizacie" method="get"/);
   assert.match(attention, /action="\/admin\/operations"/);
 });
+
+test("compact admin tables share desktop content geometry and e-shops use the same list", () => {
+  const css = read("components/admin-record-table.module.css");
+  assert.match(css, /height: 38px/);
+  assert.match(css, /font-size: 13px/);
+  assert.match(css, /width: 28px/);
+  assert.match(css, /pointer: fine/);
+  assert.match(css, /min-height: 44px/);
+  const eshops = read("app/admin/recenzie/eshopy/eshops-admin-table.tsx");
+  assert.match(eshops, /<AdminRecordTable/);
+  assert.match(eshops, /density="compact"/);
+  assert.match(eshops, /<AdminEshopListInline/);
+  assert.match(eshops, /shop.sourceUrl/);
+  assert.match(eshops, /ESHOP_RATING_FIELDS/);
+  assert.match(eshops, /disabled=\{editing\}/);
+  for (const name of ["event-dashboard", "help-dashboard", "help-unified-table"]) {
+    assert.match(read("components/admin-" + name + ".tsx"), /<AdminRecordTable[\s\S]*?\bstretch\b/);
+  }
+});

@@ -238,9 +238,7 @@
   .table :is(th, td)[data-column-id="actions"] {
   position: sticky;
   right: 0;
-  width: 215px;
-  min-width: 190px;
-  max-width: 215px;
+  /* The TanStack colgroup owns width, including resized columns. */
   white-space: normal;
   overflow: visible;
   background: #fff;
@@ -342,3 +340,38 @@
   }
 }
 
+
+/* Compact table contract: normalize the content of cells, not just their
+   minimum height. Keep long text, editing and multi-action rows accessible;
+   they may grow naturally. Touch layouts retain their existing targets. */
+@media (min-width: 900px) and (pointer: fine) {
+  .workspace[data-density="compact"] .table { font-size: 13px; }
+  .workspace[data-density="compact"] .table th { font-size: 12px; }
+  .workspace[data-density="compact"] .table td :is(button, a) { font-size: inherit; }
+  .workspace[data-density="compact"] .table td:is([data-column-id="photo"], [data-column-id="image"], [data-column-id="logo"]) > :is(span, div, img) {
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
+    min-width: 0;
+    min-height: 0;
+    max-width: 28px;
+    max-height: 28px;
+  }
+  .workspace[data-density="compact"] .table td:is([data-column-id="photo"], [data-column-id="image"], [data-column-id="logo"]) img {
+    width: 100%;
+    height: 100%;
+  }
+  .workspace[data-density="compact"] .table td :is(h2, h3) {
+    margin: 0;
+    font-size: inherit;
+    line-height: inherit;
+  }
+  .workspace[data-density="compact"] .table td[data-column-id="actions"] :is(a, button) {
+    min-height: 30px;
+    padding-block: 3px;
+    line-height: 1.2;
+  }
+  .workspace[data-density="compact"] .table td[data-column-id="actions"] > div {
+    gap: 4px;
+  }
+}

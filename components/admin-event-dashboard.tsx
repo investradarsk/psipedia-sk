@@ -389,6 +389,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         {rows.length > 0 && <AdminRecordTable
           rows={rows}
           label="Zoznam podujatí"
+          stretch
           stickyActions
           busy={busy || loading || !hydrated}
           serverSorted
