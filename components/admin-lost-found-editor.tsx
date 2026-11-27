@@ -11,6 +11,7 @@ import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import Link from "next/link";
 import { AdminPhotoGallery } from "@/components/admin-photo-gallery";
+import { useRouter } from "next/navigation";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
@@ -67,7 +68,10 @@ const transitionLabel: Record<LostFoundStatus, string> = {
   ARCHIVED: "Archivovať",
 };
 
-export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [], returnHref = "/admin/stratene-najdene" }: { report?: AdminDogReport; breeds: BreedOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
+export function AdminLostFoundEditor({ report, breeds, initialReview=null, automationSuggestions = [], returnHref = "/admin/stratene-najdene" }: { report?: AdminDogReport; initialReview?:{reviewed:boolean;reviewedAt:string}|null; breeds: BreedOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
+  const router=useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [state,setState]=useState(()=>initial(report)); const [syncRevision,setSyncRevision]=useState(0); const [saving,setSaving]=useState(false); const [uploading,setUploading]=useState(false); const [message,setMessage]=useState(""); const [error,setError]=useState(""); const formRef=useRef<HTMLFormElement|null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -109,9 +113,10 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
         region:state.region,district:state.district,city:state.city,locationDescription:state.locationDescription,publicLatitude:state.publicLatitude||null,publicLongitude:state.publicLongitude||null,publicLocationPrecision:state.publicLocationPrecision,
         contactName:state.contactName||null,contactPhone:state.contactPhone||null,contactEmail:state.contactEmail||null,publicContactNote:state.publicContactNote,publicPhone:state.publicPhone,publicEmail:state.publicEmail,publicWebsiteUrl:state.publicWebsiteUrl,publicFacebookUrl:state.publicFacebookUrl,publicInstagramUrl:state.publicInstagramUrl,source:state.source,sourceUrl:state.sourceUrl||null,expiresAt:state.expiresAt||null,internalNote:state.internalNote,
       };
-      const res=await fetch(report?`/api/admin/lost-found/${report.id}`:"/api/admin/lost-found",{method:report?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(report?{...payload,expectedUpdatedAt:lastPersistedRevisionRef.current}:payload)});
-      const data=await res.json() as {report?:AdminDogReport;error?:string};
+      const res=await fetch(report?`/api/admin/lost-found/${report.id}`:"/api/admin/lost-found",{method:report?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(report?{...payload,expectedUpdatedAt:lastPersistedRevisionRef.current,reviewOnSave:Boolean(review&&!review.reviewed&&lockWithSave)}:payload)});
+      const data=await res.json() as {report?:AdminDogReport;error?:string;review?:{reviewed:boolean;reviewedAt:string}|null};
       if(!res.ok||!data.report)throw new Error(data.error||"Uloženie zlyhalo.");
+      if(data.review){setReview(data.review);if(data.review.reviewed&&!review?.reviewed)router.refresh();}
       setSyncRevision(v=>v+1);
       lastPersistedStateRef.current = initial(data.report);
       lastPersistedRevisionRef.current = data.report.updatedAt;
@@ -171,6 +176,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     {navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}
     <AdminFormFeedback message={message} error={error} pending={saving} className={styles.message} errorClassName={styles.error} />
+    {review&&!review.reviewed&&<div role="status"><p>Neodkontrolované hlásenie: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeLostFoundSection, mode: "switch" }}>
     <div className={styles.editorLayout} data-admin-lost-found-editor-workspace>
       <AdminSharedEditorNavigation sections={LOST_FOUND_SECTIONS} activeId={activeLostFoundSection}
