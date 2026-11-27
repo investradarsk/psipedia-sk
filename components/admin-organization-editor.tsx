@@ -181,6 +181,7 @@ export function AdminOrganizationEditor({
     // Only server-rendered heading/public link depend on identity fields.
     // Description, contacts, media and address are already reconciled locally.
     let serverIdentityChanged = false;
+    let serverReviewChanged=false;
     setSaving(true); setError(""); setMessage("");
     try {
       let organizationId = organization?.id ?? createdOrganizationId.current;
@@ -197,7 +198,7 @@ export function AdminOrganizationEditor({
         if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
         organizationId = body.item.id;
         if (!organization) createdOrganizationId.current = organizationId;
-        if(body.review){setReview(body.review);if(body.review.reviewed&&!review?.reviewed)router.refresh();}
+        if(body.review){setReview(body.review);serverReviewChanged=body.review.reviewed!==review?.reviewed;}
         setExpectedUpdatedAt(body.item.updatedAt);
         const persistedDraft = organizationAdminInputFromCandidate(body.item);
         serverIdentityChanged = Boolean(organization &&
@@ -251,7 +252,7 @@ export function AdminOrganizationEditor({
       // The server heading and public-profile link only need a fresh RSC
       // payload when canonical name/slug changed. All other writes already
       // reconcile local form/location snapshots from their API responses.
-      if (serverIdentityChanged) router.refresh();
+      if (serverIdentityChanged||serverReviewChanged) router.refresh();
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.";
       if (savingAddress) {
