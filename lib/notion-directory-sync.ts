@@ -1754,6 +1754,7 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
   profileId: number;
   changed: Partial<Record<PilotDirectoryMetadataField, string>>;
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || !(serviceFilterCategories as readonly string[]).includes(profile.category))
@@ -1811,6 +1812,7 @@ export async function mirrorDirectoryMainImageToNotion(input: {
   bindings: NotionDirectorySyncBindings;
   profileId: number;
 }): Promise<void> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || profile.status === "archived")
@@ -2570,6 +2572,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   profileId: number;
   fields: readonly string[];
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (!input.fields.length ||
       await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
@@ -2663,6 +2666,7 @@ export async function mirrorTrainerTrustFieldsToNotion(input: {
   profileId: number;
   fields: readonly TrainerTrustField[];
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (!input.fields.length ||
       await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
@@ -2702,6 +2706,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   profileId: number;
   fields: readonly BreederRelationField[];
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!input.fields.length || !notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
@@ -2901,6 +2906,7 @@ async function applyNotionAdditionalCategories(input: {
 export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
@@ -2956,6 +2962,11 @@ async function syncMappedPage(input: {
   breederWebhookPropertyIds?: readonly string[];
   breederAdminFields?: readonly BreederEditorialField[];
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
+    if(input.manualDirection||input.forcePsipediaPush)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
+    if(input.breederAdminFields!==undefined)return "unchanged" as const;
+  }
   if (await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
   if (await directoryProfileNotionSyncLocked(input.database, input.mapping.directory_profile_id))
     return "unchanged" as const;
@@ -3674,6 +3685,7 @@ export async function runNotionDirectorySyncSweep(input: {
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
   async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false,
     adminChoiceSave = false) {
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return "skipped" as const;
     if (await directoryProfileNotionSyncLocked(input.database, profileId))
       return "skipped" as const;
     relationSchemaReady ??= input.database.prepare(
