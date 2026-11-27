@@ -1,3 +1,4 @@
+import { resolveBreederRelationText, sameBreederRelationIds, type BreederNameOption } from "./breeder-relation-text.ts";
 import { verifiedBreedStructuredProperty, breedStructuredAuthorityFields } from "./notion-breed-structured-authority.mjs";
 import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
 import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit, type ProfileAuthorityContext } from "./notion-unified-field-sync.ts";
@@ -34,7 +35,9 @@ export async function reserveUnifiedField(input: {
       owner, fieldAllowed: profileAuthorityTextFieldAllowed(identity),
       notionValidated: identity.agenda==="breeds"&&breedStructuredAuthorityFields.includes(identity.field)
         ? verifiedBreedStructuredProperty(identity.field,input.authorityProperty,input.notion,BREED_NOTION_SCHEMA)
-        : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
+        : identity.agenda==="directory"&&["qualifications","relation:breedIds","relation:clubIds"].includes(identity.field)
+          ? isVerifiedDirectoryStructuredProperty(identity.field,input.authorityProperty,input.notion)
+          : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
     };
     const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
     if(old?.status==="PENDING"){
@@ -246,4 +249,26 @@ export function isVerifiedAuthorityProperty(raw:unknown,observed:FieldObservatio
       JSON.stringify([...names].sort())===JSON.stringify([...observed.value].sort());
   }
   return false;
+}
+
+/** Reject incomplete rich text and lossy qualification parsing. Relations
+ * resolve exact unique names against the same live canonical option list. */
+export function isVerifiedDirectoryStructuredProperty(field:string,raw:unknown,observed:FieldObservation):boolean {
+  if(!observed.present||!Array.isArray(observed.value)||!raw||typeof raw!=="object")return false;
+  const wrapper=raw as {property?:unknown;candidates?:unknown};
+  const relation=field==="relation:breedIds"||field==="relation:clubIds";
+  if(!relation&&field!=="qualifications")return false;
+  const cell=(relation?wrapper.property:raw) as {type?:unknown;has_more?:unknown;rich_text?:unknown}|null;
+  if(!cell||cell.type!=="rich_text"||cell.has_more===true||!Array.isArray(cell.rich_text)||cell.rich_text.length>=25)return false;
+  if(cell.rich_text.some(part=>!part||part.type!=="text"||typeof part.plain_text!=="string"))return false;
+  const text=cell.rich_text.map(part=>part.plain_text).join("").replace(/\r\n?/g,"\n").trim();
+  if(!relation){
+    const items=[...new Set(text.split(/\n|<br\s*\/?\s*>/gi).map(item=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean))];
+    return items.length<=40&&JSON.stringify(items)===JSON.stringify(observed.value);
+  }
+  if(!Array.isArray(wrapper.candidates)||wrapper.candidates.length>=(field==="relation:breedIds"?500:1000)||
+    wrapper.candidates.some(option=>!option||!Number.isSafeInteger(option.id)||option.id<1||typeof option.name!=="string"||!option.name.trim()))return false;
+  const result=resolveBreederRelationText(text,wrapper.candidates as BreederNameOption[]);
+  return result.status!=="unmatched"&&observed.value.every(id=>Number.isSafeInteger(id)&&id>0)&&
+    new Set(observed.value).size===observed.value.length&&sameBreederRelationIds(result.ids,observed.value as number[]);
 }

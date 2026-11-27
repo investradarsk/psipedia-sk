@@ -16,7 +16,7 @@ export function profileAuthorityEnabled(bindings?: ProfileAuthorityBindings):boo
 }
 
 const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
-  directory:["additionalCategories","name","excerpt","description","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription","seo.noindex","seo.ogImage"],
+  directory:["additionalCategories","qualifications","relation:breedIds","relation:clubIds","name","excerpt","description","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription","seo.noindex","seo.ogImage"],
   breeds:[...BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="content"&&Boolean(breedWorkcopyPhysicalProperty(entry.notion))&&
     !["editorial.heroTraits","editorialComplete"].includes(entry.id)).map(entry=>entry.id),
     ...breedControlledKeys.map((key:string)=>"controlled."+key)],
@@ -69,4 +69,18 @@ export async function readProfileAuthorityOwner(db:D1Database,identity:FieldIden
     return review?"admin":"notion";
   }
   return await isAdminNotionSyncLocked(db,identity.agenda as LockableAgenda,id)?"admin":"notion";
+}
+
+/** The canonical parent update and child writes share one D1 transaction. */
+export function directoryAuthorityWriteGuard(reservation: {identity:FieldIdentity;version:number;profileAuthority?:true}, id:number, field:string) {
+  const identity=reservation.identity;
+  if(!reservation.profileAuthority||identity.agenda!=="directory"||identity.entityId!==String(id)||identity.field!==field||!identity.pageId||!Number.isSafeInteger(reservation.version))
+    throw Error("DIRECTORY_AUTHORITY_RESERVATION_SCOPE");
+  return {sql:` AND NOT EXISTS(SELECT 1 FROM directory_profile_review_state s WHERE s.profile_id=directory_profiles.id AND (length(trim(COALESCE(s.reviewed_at,'')))>0 OR s.unlock_pending=1))
+    AND NOT EXISTS(SELECT 1 FROM partner_resources r JOIN partner_memberships m ON m.resource_id=r.id WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id AND m.revoked_at IS NULL)
+    AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind='directory' AND t.record_id=directory_profiles.id)
+    AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda='directory' AND f.entity_id=CAST(directory_profiles.id AS TEXT))
+    AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id AND m.notion_page_id=?)
+    AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda='directory' AND s.entity_id=CAST(directory_profiles.id AS TEXT) AND s.notion_page_id=? AND s.field_key=? AND s.version=? AND s.status='PENDING')`,
+    params:[identity.pageId,identity.pageId,identity.field,reservation.version]};
 }

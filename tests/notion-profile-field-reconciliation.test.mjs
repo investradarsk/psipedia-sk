@@ -1974,3 +1974,23 @@ test("shared atomic review-on-save preserves prior reviews and aborts stale cano
     }finally{sqlite.close();}
   }
 });
+
+test("V3 directory structured proof distinguishes real blanks from malformed or lossy reads",async()=>{
+  const {isVerifiedDirectoryStructuredProperty:verify}=await import("../lib/notion-unified-field-transfer.ts");
+  const raw=text=>({type:"rich_text",rich_text:text?[{type:"text",plain_text:text}]:[]});
+  const obs=value=>({present:true,value});
+  assert.equal(verify("qualifications",raw(""),obs([])),true);
+  assert.equal(verify("qualifications",raw("Kurzy; semináre\n- Certifikát"),obs(["Kurzy; semináre","Certifikát"])),true);
+  assert.equal(verify("qualifications",{...raw(""),has_more:true},obs([])),false);
+  assert.equal(verify("qualifications",{type:"rich_text"},obs([])),false);
+  assert.equal(verify("qualifications",{type:"rich_text",rich_text:[{type:"mention",plain_text:""}]},obs([])),false);
+  const overflow=Array.from({length:41},(_,i)=>String(i));
+  assert.equal(verify("qualifications",raw(overflow.join("\n")),obs(overflow.slice(0,40))),false);
+  const candidates=[{id:1,name:"Labrador"},{id:2,name:"Retriever"}];
+  const relation=(text,options=candidates)=>({property:raw(text),candidates:options});
+  assert.equal(verify("relation:breedIds",relation("Labrador"),obs([1])),true);
+  assert.equal(verify("relation:breedIds",relation(""),obs([])),true);
+  assert.equal(verify("relation:breedIds",relation("Labrador; Unknown"),obs([1])),false);
+  assert.equal(verify("relation:breedIds",relation("Labrador",[{id:1,name:"Labrador"},{id:2,name:"Labrador"}]),obs([1])),false);
+  assert.equal(verify("relation:breedIds",relation("Labrador"),obs([2])),false);
+});

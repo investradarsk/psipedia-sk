@@ -1,6 +1,7 @@
+import { directoryAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
-import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
@@ -1485,6 +1486,7 @@ async function saveBreederEditorialValue(
   current: ManagedDirectoryProfile,
   desired: Record<string, unknown>,
   path: BreederEditorialField,
+  reservation?: FieldReservation,
 ): Promise<ManagedDirectoryProfile> {
   if (!isDirectoryFieldEventCategory(current.category) || current.status === "archived" || current.reviewed)
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
@@ -1564,6 +1566,7 @@ async function saveBreederEditorialValue(
     throw Error("DIRECTORY_FIELD_SYNC_LOCKED");
   const previous = Date.parse(current.updatedAt);
   const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
+  const guard=reservation?.profileAuthority?directoryAuthorityWriteGuard(reservation,current.id,path):{sql:"",params:[]};
   const guardedCategory = current.category === "chovatelske-stanice"
     ? "category = 'chovatelske-stanice'" : "category = ?";
   const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
@@ -1572,8 +1575,8 @@ async function saveBreederEditorialValue(
     (assignments.length ? assignments.join(", ") + ", " : "") +
     "updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND " + guardedCategory + " AND status <> 'archived' " +
-    "AND updated_at = ? RETURNING id",
-  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt);
+    "AND updated_at = ?" + guard.sql + " RETURNING id",
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt,...guard.params);
   // Notion field-events must update the EXACT 0173 SQL owner inside the same
   // D1 transaction as the guarded profile revision. Otherwise a fresh Notion SEO
   // / qualification edit would be hidden by the now SQL-first public/Admin
@@ -1988,8 +1991,15 @@ async function syncUnifiedDirectoryEditorialFields(input: {
       if (mapping?.notion_page_id !== pageId) throw Error("DIRECTORY_UNIFIED_MAPPING_CHANGED");
       await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
+        if(reservation.profileAuthority){
+          const fresh=await observe(path);
+          if(fresh.current.updatedAt!==live.updatedAt||fresh.page.last_edited_time!==observed.page.last_edited_time||
+            JSON.stringify(fresh.notion)!==JSON.stringify(observed.notion)||
+            JSON.stringify(property(fresh.page,BREEDER_NOTION_EDITORIAL_FIELDS[path]))!==JSON.stringify(property(observed.page,BREEDER_NOTION_EDITORIAL_FIELDS[path])))throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+          await assertUnifiedReservationCurrent(database,reservation);
+        }
         const desired = breederApplyNotionChanges(observed.canonical, observed.remote, [path]);
-        await saveBreederEditorialValue(database, live, desired, path);
+        await saveBreederEditorialValue(database, live, desired, path, reservation);
       } else {
         const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
         const properties = notionProfileProperties(live, observed.geo, "", new Date().toISOString(), observed.sourceImageUrl);
@@ -2167,6 +2177,7 @@ async function syncUnifiedDirectoryBreederRelations(input: {
     if (!fresh || fresh.updatedAt !== profile.updatedAt || await directoryProfileNotionSyncLocked(database, profileId))
       throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
     return {profile, page, key, selected, candidates,
+      authorityProperty:{property:property(page,key),candidates},
       notion: {present:true as const, value:[...remote.ids].sort((a,b)=>a-b)},
       psipedia: {present:true as const, value:[...selected[field]].sort((a,b)=>a-b)}};
   }
@@ -2177,18 +2188,20 @@ async function syncUnifiedDirectoryBreederRelations(input: {
       const observed = await observe(field);
       const identity: FieldIdentity = {agenda:"directory",entityId:String(profileId),pageId,field:"relation:"+field};
       const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
-      const reservation = await reserveUnifiedField({database, identity, authorityBindings: bindings, historicalBaseline:null,
+      const reservation = await reserveUnifiedField({database, identity, authorityBindings: bindings, authorityProperty:observed.authorityProperty, historicalBaseline:null,
         notion:observed.notion, psipedia:observed.psipedia, psipediaEdit:receipt,direction});
       if (!reservation) continue;
       const live = await observe(field);
       if (live.profile.updatedAt !== observed.profile.updatedAt ||
+          (reservation.profileAuthority&&(live.page.last_edited_time!==observed.page.last_edited_time||JSON.stringify(live.authorityProperty)!==JSON.stringify(observed.authorityProperty))) ||
           !sameBreederRelationIds(live.notion.value, observed.notion.value) ||
           !sameBreederRelationIds(live.psipedia.value, observed.psipedia.value))
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
       await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
         await saveBreederRelationSelection(database, profileId, {...live.selected,[field]:live.notion.value},
-          SYSTEM_ACTOR,{expectedRevision:live.profile.updatedAt,fromNotion:true});
+          SYSTEM_ACTOR,{expectedRevision:live.profile.updatedAt,fromNotion:true,
+            ...(reservation.profileAuthority?{authority:{reservation,field}}:{})});
       } else {
         const text = formatBreederRelationText(live.psipedia.value, live.candidates);
         if (text === null) throw Error("DIRECTORY_UNIFIED_RELATION_UNKNOWN_ID");
