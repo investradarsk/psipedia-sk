@@ -68,7 +68,7 @@ test("tombstones block exact slug reinsertion and forbid direct hard-delete with
   assert.equal((migration.match(/BEFORE UPDATE OF status, slug ON /g)||[]).length,8);
   assert.equal((migration.match(/BEFORE DELETE ON /g)||[]).length,8);
   assert.match(migration, /USE_VERIFIED_LIFECYCLE_DELETE/);
-  assert.match(core, /triggerNames=recordKinds\.flatMap/);
+  assert.match(core, /triggerNames=recordKinds\.filter[\s\S]*?\.flatMap/);
 });
 
 test("image files are deleted only after D1 deletion and a separate reference check", () => {
