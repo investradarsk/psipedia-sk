@@ -1,0 +1,5 @@
+# V2 production review audit
+
+The owner supplied 41 REVIEW rows (excluding accent). Some are old 109-property logical IDs without a physical column in the current 90-column breed workcopy. Use its existing contract, not a newly invented mapping. Controlled FCI fields keep separate typed owners. Preserve all historic evidence; count old missing non-mirrored entries separately, never hide active mapped missing fields, pending writes or content divergences. The instant validator had doubled backslashes in regex literals; accept explicit numeric UTC offsets, continue refusing date-only/ambiguous values. Do not assume midnight/timezone equivalence.
+
+Remaining: retry eligible empty initialization after existing recovery schedule; investigate invalidation/receipts before relaxing guards. UNKNOWN adoption values are not verified yes/no claims. Do not auto-replace populated merged breed paragraphs or remove embedded tips, and do not force contact/media recovery without proof. No SQL schema changes, live mutations, flag changes or automatic merge. CI and live verification still required.

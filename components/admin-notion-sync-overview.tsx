@@ -353,6 +353,7 @@ function UnifiedJournalView({journal,view}:{journal:UnifiedDiagnostics;view:"sta
     <p>{journal.enabled?"Režim V2 zapnutý":"Režim V2 vypnutý"} · {journal.schemaReady?"SQL evidencia dostupná":"SQL evidencia nedostupná alebo neúplná"}</p>
     {!journal.schemaReady?<p>Počty nie sú overené. Neznamená to, že neexistujú konflikty.</p>:<>
       <p className={styles.progress}>Evidencia z D1, nie živé porovnanie s Notionom. Potvrdené polia neznamenajú kompletné overenie celého profilu.</p>
+      {!!journal.historicalNonMirrored&&<p>Historická evidencia nesynchronizovaných polí plemien: {journal.historicalNonMirrored}. Údaje zostávajú uložené v D1; nejde o aktívne prenosy.</p>}
       {!!journal.manualFences&&<p role="status">Aktívne alebo prerušené manuálne prenosy: {journal.manualFences}. Automatická synchronizácia týchto profilov je blokovaná.</p>}
       {view==="status"?<div className={styles.tableScroll}><table className={styles.table}>
         <thead><tr><th>Agenda</th><th>Profily v evidencii</th><th>Potvrdené polia</th><th>Čakajú</th><th>Na kontrolu</th><th>Posledná evidencia</th></tr></thead>
