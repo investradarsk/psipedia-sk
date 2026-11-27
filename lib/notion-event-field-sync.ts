@@ -1,4 +1,4 @@
-import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
+import { isAdminNotionSyncLocked, partnerReviewOwnerSql } from "./admin-notion-review-lock";
 import type { DogEvent } from "./events.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
 import { getManagedEventById, updateManagedEvent, nextManagedEventUpdatedAt } from "./event-store.ts";
@@ -207,7 +207,7 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(["startTime","endTime"].includes(path) &&
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw Error("TIME_INVALID");
 }
-async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean,expectedRevision?:string){
+async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean,expectedRevision?:string,reservation?:FieldReservation){
   const live=await getManagedEventById(id);
   if(!live)throw Error("EVENT_CANONICAL_MISSING");
   if(expectedRevision!==undefined && live.updatedAt!==expectedRevision)throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
@@ -252,10 +252,21 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
   // content is always parameter-bound. Revision guard prevents lost updates.
   const assignment=scalar?scalar+"=?":"seo_json=json_set(COALESCE(seo_json,'{}'),?,?)";
   const args=scalar?[value]:["$."+seo,value];
+  const authority=reservation?.profileAuthority===true;
+  const guard=authority
+    ? " AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.event_id=managed_events.id AND m.notion_page_id=?)"+
+      " AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda='events' AND s.entity_id=CAST(managed_events.id AS TEXT) AND s.notion_page_id=? AND s.field_key=? AND s.version=? AND s.status='PENDING')"+
+      " AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda='events' AND f.entity_id=CAST(managed_events.id AS TEXT))"
+    : "";
   const saved=await db.prepare(
     "UPDATE managed_events SET "+assignment+
-    ",updated_at=?,updated_by=? WHERE id=? AND updated_at=? RETURNING id"
-  ).bind(...args,now,SYSTEM_ACTOR,id,live.updatedAt).first<{id:number}>();
+    ",updated_at=?,updated_by=? WHERE id=? AND updated_at=?"+
+    " AND status<>'archived' AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='EVENT' AND entity_id=managed_events.id)"+
+    " AND NOT "+partnerReviewOwnerSql("EVENT","managed_events.id")+
+    " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='events' AND record_id=managed_events.id)"+
+    guard+" RETURNING id"
+  ).bind(...args,now,SYSTEM_ACTOR,id,live.updatedAt,
+    ...(authority?[reservation!.identity.pageId,reservation!.identity.pageId,reservation!.identity.field,reservation!.version]:[])).first<{id:number}>();
   if(!saved)throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
   return true;
 }
@@ -324,7 +335,7 @@ export async function syncEventNotionFields(input:{
         const chosen = planned.reservation.value;
         if (typeof chosen !== "string" && typeof chosen !== "boolean") throw Error("EVENT_FIELD_INVALID");
         await assertUnifiedReservationCurrent(input.database,planned.reservation);
-        if (await saveField(input.database,id,path,chosen,planned.revision)) saved++;
+        if (await saveField(input.database,id,path,chosen,planned.revision,planned.reservation)) saved++;
         await confirmPilotField(input.database,input.bindings,id,input.page.id,path,planned.reservation);
       } else if (await saveField(input.database,id,path,value??"")) saved++;
     }catch(e){
@@ -432,7 +443,8 @@ export async function recoverEventV2Field(database:D1Database,bindings:EventFiel
     await assertUnifiedReservationCurrent(database,planned.reservation);
     const value=planned.reservation.value;
     if(typeof value!=="string"&&typeof value!=="boolean")throw Error("EVENT_FIELD_INVALID");
-    await saveField(database,id,path,value,planned.revision);
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    await saveField(database,id,path,value,planned.revision,planned.reservation);
     await confirmPilotField(database,bindings,id,pageId,path,planned.reservation);
   }
 }
