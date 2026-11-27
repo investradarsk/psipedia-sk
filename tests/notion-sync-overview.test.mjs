@@ -24,10 +24,14 @@ test("unified journal links each agenda to its editor and omits invalid IDs", as
   ];
   const journal = await readUnifiedDiagnostics({
     prepare: () => ({ all: async () => ({ success: true, results: Array(5) }) }),
-    batch: async () => [[], results, [{ n: 0 }]].map((results) => ({ success: true, results })),
+    batch: async (statements) => {
+      assert.equal(statements.length, 4);
+      return [[], results, [{ n: 0 }], [{ n: 3 }]].map((results) => ({ success: true, results }));
+    },
   }, true);
 
   assert.equal(journal.schemaReady, true);
+  assert.equal(journal.historicalNonMirrored, 3);
   assert.deepEqual(
     journal.issues.map(({ editorHref }) => editorHref),
     [...Object.values(editors).map((path) => `/admin/${path}/1873`), null, null, null],

@@ -50,7 +50,7 @@ test("contact actions remain operable; absent contact data shows an honest empty
   expect(new URL(page.url()).pathname).toBe(canonicalShelterPath);
   await expect(page.getByRole("link", { name: "+421 900 123 456" })).toHaveAttribute("href", "tel:+421900123456");
   await expect(page.getByRole("link", { name: "help-e2e@example.invalid" })).toHaveAttribute("href", "mailto:help-e2e@example.invalid");
-  await expect(page.getByRole("link", { name: "https://example.org ↗" })).toHaveAttribute("href", "https://example.org/");
+  await expect(page.locator("[data-public-contact-panel]").getByRole("link", { name: "Otvoriť web", exact: true })).toHaveAttribute("href", "https://example.org/");
   await expect(page.getByText(/Dobrovoľníctvo: venčenie/)).toBeVisible();
 
   await page.goto(cases[0].path);
