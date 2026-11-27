@@ -12,7 +12,7 @@ for (const viewport of [320, 390, 768, 1440]) {
       const host = document.createElement("div");
       host.id = "banner-matrix-fixture";
       host.style.cssText = "display:grid;gap:16px;width:100%;min-width:0;padding:8px;box-sizing:border-box";
-      document.body.append(host);
+      document.body.appendChild(host);
       for (const size of ["small", "medium", "large"]) {
         for (const theme of ["light", "dark"]) {
           const wrapper = document.createElement("div");
@@ -29,8 +29,8 @@ for (const viewport of [320, 390, 768, 1440]) {
           banner.dataset.bannerSize = size;
           banner.dataset.matrixCase = size + "-" + theme;
           banner.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
-          wrapper.append(banner);
-          host.append(wrapper);
+          wrapper.appendChild(banner);
+          host.appendChild(wrapper);
         }
       }
       return host.querySelectorAll("[data-matrix-case]").length;
