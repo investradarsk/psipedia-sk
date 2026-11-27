@@ -1854,3 +1854,59 @@ test("E-shop save and review lock roll back together on canonical CAS failure",a
     assert.equal(sqlite.prepare("SELECT reviewed_at FROM admin_entity_reviews").get().reviewed_at,"rev2","retain first review timestamp");
   }finally{sqlite.close();}
 });
+
+
+test("V3 E-shop lifecycle proposal preserves existing ledger and protects ratings",async()=>{
+  const db=new DatabaseSync(":memory:");
+  const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
+  try{
+    db.exec("PRAGMA foreign_keys=ON; CREATE TABLE review_authors(id TEXT PRIMARY KEY); INSERT INTO review_authors VALUES('a')");
+    for(const table of ["directory_profiles","managed_events","help_cases","managed_breeds","managed_articles","adoption_dogs","lost_found_dog_reports","help_organizations"])
+      db.exec("CREATE TABLE "+table+"(id INTEGER PRIMARY KEY,slug TEXT,status TEXT,import_key TEXT,fci_number INTEGER)");
+    db.exec(await read("drizzle/0100_eshop_ratings.sql"));
+    db.exec(await read("drizzle/0164_admin_record_lifecycle.sql"));
+    db.exec("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,record_name,record_category,state,created_by,created_at,updated_at) VALUES('directory',42,'old','Old','directory','COMPLETE','owner','old','old')");
+    db.exec("INSERT INTO admin_record_publication_guards VALUES('directory',43,'PENDING',NULL,'old')");
+    const old=db.prepare("SELECT * FROM admin_record_tombstones").all(),guards=db.prepare("SELECT * FROM admin_record_publication_guards").all();
+    const migration=await read("docs/proposals/notion-v3-eshop-lifecycle-UNNUMBERED_PROPOSAL.sql");
+    db.exec("BEGIN;"+migration+"COMMIT;");
+    assert.deepEqual(db.prepare("SELECT * FROM admin_record_tombstones").all(),old);
+    assert.deepEqual(db.prepare("SELECT * FROM admin_record_publication_guards").all(),guards);
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type='trigger' AND name LIKE 'admin_%'").get().n,27);
+    assert.throws(()=>db.exec("INSERT INTO directory_profiles(id,slug,status) VALUES(42,'old','draft')"),/RECORD_TOMBSTONED/);
+    const shop=db.prepare("SELECT id,slug,website_url FROM managed_eshops LIMIT 1").get();
+    assert.throws(()=>db.prepare("DELETE FROM managed_eshops WHERE id=?").run(shop.id),/USE_VERIFIED_LIFECYCLE_DELETE/);
+    db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,record_external_key,record_name,record_category,state,created_by,created_at,updated_at) VALUES('eshops',?,?,?,'Shop','eshops','PENDING_NOTION','owner','now','now')").run(shop.id,shop.slug,shop.website_url.replace(/\/+$/,"").toLowerCase());
+    db.prepare("UPDATE managed_eshops SET status='draft' WHERE id=?").run(shop.id);
+    assert.throws(()=>db.prepare("UPDATE managed_eshops SET status='published' WHERE id=?").run(shop.id),/RECORD_REMOVAL_PENDING/);
+    assert.throws(()=>db.prepare("DELETE FROM managed_eshops WHERE id=?").run(shop.id),/USE_VERIFIED_LIFECYCLE_DELETE/);
+    db.prepare("INSERT INTO eshop_ratings VALUES('r',?,'a',5,5,5,5,5,'now','now')").run(shop.id);
+    db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL' WHERE kind='eshops' AND record_id=?").run(shop.id);
+    assert.throws(()=>db.prepare("DELETE FROM managed_eshops WHERE id=?").run(shop.id),/FOREIGN KEY/);
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM eshop_ratings").get().n,1);
+    assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
+  }finally{db.close();}
+});
+
+test("V3 breed work-only proposal keeps historical originals and rejects partial identities",async()=>{
+  const db=new DatabaseSync(":memory:");
+  const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
+  try{
+    db.exec("PRAGMA foreign_keys=ON; CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY); INSERT INTO managed_breeds VALUES(1),(2),(3)");
+    db.exec(await read("drizzle/0178_notion_unified_field_state.sql"));
+    db.exec("CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT)");
+    db.exec(await read("drizzle/0159_breed_notion_workcopy_links.sql"));
+    const oldTriggers=(await read("drizzle/0181_notion_unified_scope_invalidation.sql")).match(/CREATE TRIGGER IF NOT EXISTS \w+\n[\s\S]*?\nEND;/g).filter(x=>/ON breed_notion_workcopy_links\b/.test(x));
+    db.exec(oldTriggers.join("\n"));
+    db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id,canonical_slug,fci_number,original_sync_receipt,status,activated_at) VALUES(1,'old','work1','legacy','work','breed1',10,'receipt','ACTIVE','then')");
+    const old=db.prepare("SELECT * FROM breed_notion_workcopy_links").get();
+    const migration=await read("docs/proposals/notion-v3-breed-workonly-links-UNNUMBERED_PROPOSAL.sql");
+    db.exec("BEGIN;"+migration+"COMMIT;");
+    assert.deepEqual(db.prepare("SELECT * FROM breed_notion_workcopy_links WHERE breed_id=1").get(),old);
+    db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,work_notion_page_id,work_data_source_id,canonical_slug,status,activated_at) VALUES(2,'work2','work','breed2','ACTIVE','now')");
+    assert.equal(db.prepare("SELECT original_notion_page_id FROM breed_notion_workcopy_links WHERE breed_id=2").get().original_notion_page_id,null);
+    assert.throws(()=>db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,original_notion_page_id,work_notion_page_id,work_data_source_id,canonical_slug,status,activated_at) VALUES(3,'fake','work3','work','breed3','ACTIVE','now')"),/CHECK constraint/);
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM notion_unified_scope_invalidation WHERE agenda='breeds' AND entity_id='2'").get().n,1);
+    assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
+  }finally{db.close();}
+});
