@@ -1,3 +1,4 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
@@ -37,8 +38,8 @@ export async function PUT(request: Request, { params }: Props) {
   if (!id) return Response.json({ error: "Neplatné ID organizácie." }, { status: 400 });
   if (!expectsJson(request)) return Response.json({ error: "Očakáva sa JSON požiadavka." }, { status: 415 });
 
-  let body: { payload?: unknown; expectedUpdatedAt?: unknown };
-  try { body = await request.json() as { payload?: unknown; expectedUpdatedAt?: unknown }; }
+  let body: { payload?: unknown; expectedUpdatedAt?: unknown;reviewOnSave?:unknown };
+  try { body = await request.json() as { payload?: unknown; expectedUpdatedAt?: unknown;reviewOnSave?:unknown }; }
   catch { return Response.json({ error: "Neplatné JSON dáta." }, { status: 400 }); }
   const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : "";
   if (!("payload" in body) || !expectedUpdatedAt.trim()) {
@@ -49,8 +50,11 @@ export async function PUT(request: Request, { params }: Props) {
     const before = await getOrganizationPublicationAdminById(id);
     if (!before) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
+    const authority=(env as unknown as TargetedNotionSaveBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const reviewOnSave=authority&&body.reviewOnSave===true;
+    if(reviewOnSave&&!unifiedOrganizationReceiptsEnabled())return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
     const item = await updateOrganizationFromAdmin(id, body.payload, user.email, expectedUpdatedAt,
-      undefined, new Date(), unifiedOrganizationReceiptsEnabled());
+      undefined, new Date(), unifiedOrganizationReceiptsEnabled(),reviewOnSave);
     if (!item) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
 
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id, beforeHelpSnapshot });
@@ -66,7 +70,7 @@ export async function PUT(request: Request, { params }: Props) {
       ]);
     }
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"organizations",id,item.status);
-    return Response.json({ item, notionFieldSync });
+    return Response.json({ item, notionFieldSync, ...(authority?{review:await getAdminEntityReview("ORGANIZATION",id).catch(()=>null)}:{}) });
   } catch (error) {
     if (error instanceof OrganizationAdminValidationError) {
       return Response.json({ error: error.message }, { status: 400 });
