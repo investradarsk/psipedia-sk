@@ -155,7 +155,7 @@ async function reserveControlledV2(database:D1Database,bindings:ControlledBreedB
   const identity={agenda:"breeds" as const,entityId:String(link.breed_id),
     pageId:link.work_notion_page_id,field:"controlled."+key};
   const receipt=await readUnifiedAdminEdit(database,identity,observed.revision);
-  const reservation=await reserveUnifiedField({database,identity,historicalBaseline:null,
+  const reservation=await reserveUnifiedField({database,identity,authorityBindings:bindings,historicalBaseline:null,
     notion:observed.notion,psipedia:observed.psipedia,psipediaEdit:receipt,direction});
   return {...observed,reservation};
 }
