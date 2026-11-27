@@ -1747,3 +1747,70 @@ test("raw authority observations preserve typed blank, zero, false and exact lis
     [{type:"multi_select",multi_select:[],has_more:true},[]],
   ]) assert.equal(verified(raw,present(value)),false);
 });
+
+
+test("first-create uses a durable fence, verifies the exact copy, and never retries uncertain POST",async()=>{
+  const {runInNewContext}=await import("node:vm");
+  const ts=(await import("typescript")).default;
+  const {acquireUnifiedManualFence,releaseUnifiedManualFence}=await import("../lib/notion-unified-manual-fence.ts");
+  const {sameNotionProperty}=await import("../lib/notion-selective-property-patch.ts");
+  const {notionPageBelongsToDataSource}=await import("../lib/notion-sync-page-ownership.ts");
+  const code=await readFile(new URL("../lib/notion-profile-first-create.ts",import.meta.url),"utf8");
+  const section=code.slice(code.indexOf("type Page=")).replace("export async function ensureFirstProfileNotionCopy","async function ensureFirstProfileNotionCopy");
+  const js=ts.transpileModule(section,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const sourceId="76d9ccde-5816-422c-bcfe-863ab69db080";
+  const pageId="11111111-1111-4111-8111-111111111111";
+  for(const mode of ["success","timeout-after-create","duplicate","bad-schema","wrong-echo"]){
+    const sqlite=new DatabaseSync(":memory:");
+    try{
+      sqlite.exec(await readFile(new URL("../drizzle/0178_notion_unified_field_state.sql",import.meta.url),"utf8"));
+      sqlite.exec(`
+        CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT);
+        CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
+        CREATE TABLE managed_eshops(id INTEGER PRIMARY KEY,status TEXT,updated_at TEXT);
+        INSERT INTO managed_eshops VALUES(42,'draft','revision');
+        CREATE TABLE eshop_notion_sync(notion_page_id TEXT UNIQUE,eshop_id INTEGER UNIQUE,content_hash TEXT,
+          notion_last_edited_time TEXT,psipedia_updated_at TEXT,last_synced_at TEXT,created_at TEXT,updated_at TEXT);
+      `);
+      const database={
+        prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return sqlite.prepare(sql).get(...args)??null},async run(){const x=sqlite.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}}}});return wrap([])},
+        async batch(statements){sqlite.exec("BEGIN");try{const results=[];for(const statement of statements)results.push(await statement.run());sqlite.exec("COMMIT");return results;}catch(error){sqlite.exec("ROLLBACK");throw error}}
+      };
+      const source={properties:{"Psipedia ID":{type:"rich_text"},"Popis":{type:"rich_text"},"Odkontrolované":{type:mode==="bad-schema"?"number":"checkbox"}}};
+      const rich=value=>({rich_text:[{text:{content:value}}]});
+      const snapshot=async()=>({revision:"revision",hash:"hash",reviewed:true,properties:{"Psipedia ID":rich("42"),Popis:rich("text")}});
+      let posts=0,remote=null;
+      const notionRequest=async(_bindings,path,init,options)=>{
+        if(path.endsWith("/query"))return {results:mode==="duplicate"?[{id:pageId},{id:"other"}]:remote?[remote]:[],has_more:false};
+        if(path.startsWith("/data_sources/"))return source;
+        if(path==="/pages"&&init.method==="POST"){
+          posts++;assert.equal(options.retryTransient,false);
+          const payload=JSON.parse(init.body);
+          const properties=Object.fromEntries(Object.entries(payload.properties).map(([name,value])=>[name,{...value,type:Object.keys(value)[0]}]));
+          remote={id:pageId,parent:{type:"data_source_id",data_source_id:sourceId},properties,last_edited_time:"now"};
+          if(mode==="timeout-after-create")throw Error("TIMEOUT_AFTER_CREATE");
+          if(mode==="wrong-echo")remote.properties.Popis={type:"rich_text",rich_text:[]};
+          return remote;
+        }
+        if(path==="/pages/"+pageId&&remote)return remote;
+        throw Error("unexpected provider operation "+path);
+      };
+      const context={acquireUnifiedManualFence,releaseUnifiedManualFence,sameNotionProperty,notionPageBelongsToDataSource,notionRequest,
+        notionRichTextProperty:(page,name)=>page.properties?.[name]?.rich_text?.map(part=>part.text.content).join("")??""};
+      runInNewContext(js,context);
+      const run=()=>context.ensureFirstProfileNotionCopy({database,bindings:{NOTION_PROFILE_AUTHORITY_MODE:"validated-text"},agenda:"eshops",id:42,sourceId,snapshot});
+      if(mode==="success"){
+        assert.equal((await run()).created,true);assert.equal((await run()).created,false);
+        assert.equal(posts,1);assert.equal(sqlite.prepare("SELECT count(*) AS n FROM eshop_notion_sync").get().n,1);
+        assert.equal(remote.properties.Odkontrolované.checkbox,true);
+        assert.equal(sqlite.prepare("SELECT count(*) AS n FROM notion_unified_manual_fence").get().n,0);
+      }else{
+        await assert.rejects(run());
+        assert.equal(sqlite.prepare("SELECT count(*) AS n FROM eshop_notion_sync").get().n,0);
+        assert.equal(posts,mode==="timeout-after-create"||mode==="wrong-echo"?1:0);
+        if(mode!=="bad-schema"){assert.equal(sqlite.prepare("SELECT count(*) AS n FROM notion_unified_manual_fence").get().n,1);await assert.rejects(run(),/SCOPE_BUSY/);}
+        assert.equal(posts,mode==="timeout-after-create"||mode==="wrong-echo"?1:0);
+      }
+    }finally{sqlite.close();}
+  }
+});
