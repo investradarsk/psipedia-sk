@@ -1313,6 +1313,10 @@ test("V2 manual transfer fence blocks both insertion and update of automatic fie
     assert.equal(await writeUnifiedFieldState(adapter,id,state.version,snapshot),null);
     assert.equal(await writeUnifiedFieldState(adapter,{...id,field:"name"},null,snapshot),null);
     assert.equal(await writeUnifiedFieldState(adapter,{...id,entityId:"43"},null,snapshot),1);
+    // Stale token cannot mutate another owner's evidence or release the fence.
+    await assert.rejects(releaseUnifiedManualFence(adapter,{...fence,token:"wrong"}),/FENCE_RELEASE_FAILED/);
+    assert.equal((await readUnifiedFieldState(adapter,id)).version,state.version);
+    assert.equal(db.prepare("SELECT owner_token FROM notion_unified_manual_fence").get().owner_token,fence.token);
     await releaseUnifiedManualFence(adapter,fence);
     const after=await readUnifiedFieldState(adapter,id);
     assert.ok(after.version>state.version);
@@ -1596,4 +1600,67 @@ test("profile authority: all eight agendas use validated Notion values without a
     assert.deepEqual(decide({profileAuthority:undefined}), {action:"review",reason:"BASELINE_UNAVAILABLE"});
     assert.deepEqual(decide({notion:present(""),initializeEmpty:true}), {action:"pull",value:""});
   }
+});
+
+
+test("shared review transition fences every agenda and unlocks only after verified transfer and CAS", async () => {
+  const {runUnifiedReviewTransition,isUnifiedManualFenceActive,releaseUnifiedManualFence} = await import("../lib/notion-unified-manual-fence.ts");
+  const {UNIFIED_SYNC_AGENDAS} = await import("../lib/notion-unified-field-sync.ts");
+  const {writeUnifiedFieldState} = await import("../lib/notion-unified-field-state.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../drizzle/0178_notion_unified_field_state.sql",import.meta.url),"utf8"));
+    const sql=await readFile(new URL("../drizzle/0179_notion_unified_admin_edits.sql",import.meta.url),"utf8");
+    db.exec(sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS notion_unified_admin_field_edits"),sql.indexOf("-- Trigger sees actual")));
+    const adapter={
+      prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])},
+      async batch(statements){
+        db.exec("BEGIN");
+        try{const results=statements.map(({sql,args})=>{const x=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}};});db.exec("COMMIT");return results;}
+        catch(error){db.exec("ROLLBACK");throw error;}
+      }
+    };
+    for (const agenda of UNIFIED_SYNC_AGENDAS) {
+      const link={scope:agenda,profile_id:42};
+      const identity={agenda,entityId:"42",pageId:"page",field:"description"};
+      const state={baselineVersion:"old",baseline:"old",notion:"old",psipedia:"old",status:"PENDING",reason:null};
+      let reviewed=false, calls=[];
+      const snapshot={revision:"r1",content:{description:"",phone:"original"}};
+      const guard=async()=>{
+        assert.equal(await isUnifiedManualFenceActive(adapter,link),true);
+        assert.equal(await writeUnifiedFieldState(adapter,identity,null,state),null);
+      };
+      await runUnifiedReviewTransition(adapter,link,{kind:"lock",async saveAndLock(){await guard();calls.push("save+lock");reviewed=true;return true}});
+      assert.equal(reviewed,true);
+      assert.equal(await isUnifiedManualFenceActive(adapter,link),false);
+      const operation={kind:"unlock",
+        async readLockedSnapshot(){await guard();assert.equal(reviewed,true);calls.push("snapshot");return snapshot},
+        async transferAndVerify(_,value){await guard();assert.equal(reviewed,true);assert.deepEqual(value,snapshot);calls.push("transfer+verify");return true},
+        async unlockIfCurrent(_,value){await guard();assert.deepEqual(value,snapshot);assert.equal(reviewed,true);calls.push("unlock CAS");reviewed=false;return true}
+      };
+      await runUnifiedReviewTransition(adapter,link,operation);
+      assert.deepEqual(calls,["save+lock","snapshot","transfer+verify","unlock CAS"]);
+      assert.equal(reviewed,false);
+      assert.equal(await isUnifiedManualFenceActive(adapter,link),false);
+      reviewed=true;
+      let finalized=false;
+      for (const failure of ["remote","revision","lock"]) {
+        const failing=failure==="lock" ? {kind:"lock",async saveAndLock(){await guard();return false}} : {
+          ...operation,
+          async transferAndVerify(){await guard();return failure!=="remote"},
+          async unlockIfCurrent(){await guard();finalized=true;return false}
+        };
+        await assert.rejects(runUnifiedReviewTransition(adapter,link,failing),
+          /REVIEW_(UNLOCK_TRANSFER_UNVERIFIED|UNLOCK_REVISION_CHANGED|LOCK_NOT_CONFIRMED)/);
+        assert.equal(reviewed,true);
+        assert.equal(finalized,failure==="revision");
+        assert.equal(await isUnifiedManualFenceActive(adapter,link),true);
+        await assert.rejects(runUnifiedReviewTransition(adapter,link,operation),/SCOPE_BUSY/);
+        // Simulate operator-verified recovery in this isolated fixture only.
+        const token=db.prepare("SELECT owner_token FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=?").get(agenda,"42").owner_token;
+        await releaseUnifiedManualFence(adapter,{agenda,entityId:"42",token});
+        finalized=false;
+      }
+    }
+  } finally { db.close(); }
 });
