@@ -226,7 +226,9 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
     }
 
     const rawBlock = block as unknown as Record<string, unknown>;
-    if ((block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote") && !stringValue(rawBlock.content).trim()) {
+    // Ordinary whitespace-only paragraphs are layout artifacts, not required content.
+    // Keep the blocker for actual editorial widgets and native headings.
+    if ((block.type === "tip" || block.type === "warning" || block.type === "quote") && !stringValue(rawBlock.content).trim()) {
       result.push(issue({
         code: "EMPTY_REQUIRED_BLOCK", field: "blocks", blockId: block.id, severity: "BLOCKER",
         message: "Obsahový blok je prázdny.",
