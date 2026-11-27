@@ -32,6 +32,7 @@ export function AdminVisualLibraryBannerPreview({
 }) {
   const previewSize = size ?? defaultBannerDraft(banner, 0).size;
   return (
+    <div style={{ width: "100%", maxWidth: previewSize === "small" ? 320 : previewSize === "medium" ? 760 : undefined, marginInline: "auto" }}>
     <PublicMagazineBanner
       compact
       visual={visual ?? (banner.id === "adresar:poskytovatelia" ? "dark" : undefined)}
@@ -44,5 +45,6 @@ export function AdminVisualLibraryBannerPreview({
       label={copy?.label ?? banner.ctaLabel}
       href={banner.ctaHref}
     />
+    </div>
   );
 }
