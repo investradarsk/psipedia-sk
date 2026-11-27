@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // Use the actual homepage markup and loaded production CSS; vary only placement
 // and palette in a detached test fixture. No changes to production data.
-for (const viewport of [390, 768, 1440]) {
+for (const viewport of [320, 390, 768, 1440]) {
   test(`internal banner matrix at viewport ${viewport}px`, async ({ page }) => {
     await page.setViewportSize({ width: viewport, height: 900 });
     await page.goto("/");
@@ -56,7 +56,7 @@ for (const viewport of [390, 768, 1440]) {
           const a = action.getBoundingClientRect();
           const d = art.getBoundingClientRect();
           const cs = getComputedStyle(el);
-          const available = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+          const available = b.width - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
           return {
             buttonBelowCopy: a.top >= c.bottom - 1,
             buttonInside: a.left >= b.left && a.right <= b.right + 1,
