@@ -10,14 +10,53 @@ const nameDays = readFileSync(new URL("../lib/dog-name-day-store.ts", import.met
 const publicPartnerSession = readFileSync(new URL("../lib/public-partner-session.ts", import.meta.url), "utf8");
 const directoryProfile = readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
 
-test("admin access still verifies every JWT, but reuses JWK fetches and imported keys", () => {
-  assert.match(worker, /const accessJwksLoads = new Map/);
-  assert.match(worker, /const importedAccessKeys = new WeakMap/);
+test("admin access verifies every JWT and shares only completed JWK data", () => {
+  assert.match(worker, /const accessJwksCache = new Map<string, CachedAccessJwks>/);
+  assert.doesNotMatch(worker, /accessJwksLoads|importedAccessKeys/);
+  assert.doesNotMatch(worker, /(?:Map|WeakMap)<[^;\n]*Promise<(?:AccessJwk|CryptoKey)/);
   assert.match(worker, /crypto\.subtle\.verify\("RSASSA-PKCS1-v1_5"/);
   assert.match(worker, /getImportedAccessKey\(jwk\)/);
-  assert.match(worker, /accessJwksLoads\.delete\(cacheKey\)/);
-  assert.match(worker, /importedAccessKeys\.delete\(jwk\)/);
   assert.match(worker, /ACCESS_JWKS_TTL_MS = 5 \* 60 \* 1000/);
+  const load = worker.slice(worker.indexOf("async function getAccessJwks("), worker.indexOf("function normalizeAccessTeamDomain("));
+  assert.match(load, /if \(!forceRefresh && cached && cached\.expiresAt > Date\.now\(\)\) return cached\.keys/);
+  assert.match(load, /const certsResponse = await fetch\(/);
+  assert.match(load, /await certsResponse\.json\(\)[\s\S]*accessJwksCache\.set\(cacheKey, \{ expiresAt: Date\.now\(\) \+ ACCESS_JWKS_TTL_MS, keys \}\)/);
+  const importKey = worker.slice(worker.indexOf("async function getImportedAccessKey("), worker.indexOf("const ADMIN_AUTH_PATHS"));
+  assert.match(importKey, /return crypto\.subtle\.importKey\(/);
+  assert.doesNotMatch(importKey, /\.get\(|\.set\(/);
+});
+
+test("concurrent certificate misses do not await another request and completed keys remain reusable", async () => {
+  const load = worker.slice(worker.indexOf("async function getAccessJwks("), worker.indexOf("function normalizeAccessTeamDomain("))
+    .replace("teamDomain: URL", "teamDomain")
+    .replace(": Promise<AccessJwk[]>", "")
+    .replace("jwks: unknown", "jwks");
+  const cache = new Map();
+  const calls = [];
+  const fakeFetch = () => new Promise(resolve => calls.push(resolve));
+  const getAccessJwks = new Function("accessJwksCache", "ACCESS_JWKS_TTL_MS", "fetch", "isRecord", "isAccessJwk", load + "\nreturn getAccessJwks;")(
+    cache, 300000, fakeFetch, v => v !== null && typeof v === "object", v => typeof v?.kid === "string"
+  );
+  const issuer = new URL("https://example.cloudflareaccess.com");
+  const first = getAccessJwks(issuer);
+  const second = getAccessJwks(issuer);
+  // Simulate the first request being stalled/abandoned. The second owns a
+  // distinct fetch and can complete without waiting for the first.
+  assert.equal(calls.length, 2);
+  assert.equal(cache.size, 0);
+  const keys = [{ kid: "key-1" }];
+  calls[1]({ ok: true, json: async () => ({ keys }) });
+  assert.deepEqual(await second, keys);
+  assert.deepEqual(await getAccessJwks(issuer), keys);
+  assert.equal(calls.length, 2);
+  calls[0]({ ok: false });
+  assert.deepEqual(await first, []);
+  const refresh = getAccessJwks(issuer, true);
+  assert.equal(calls.length, 3);
+  const rotated = [{ kid: "key-2" }];
+  calls[2]({ ok: true, json: async () => ({ keys: rotated }) });
+  assert.deepEqual(await refresh, rotated);
+  assert.deepEqual(await getAccessJwks(issuer), rotated);
 });
 
 test("public layout overlaps navigation and optional partner authentication", () => {
