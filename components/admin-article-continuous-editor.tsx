@@ -21,6 +21,7 @@ import styles from "./admin-article-continuous-readonly.module.css";
 
 type Props = ContinuousArticleInput & {
   currentArticleId?: number;
+  qaBlockFocusRequest?: { blockId: string } | null;
   onChange: (fields: ContinuousArticleFields) => void;
   onUploadingChange: (pending: boolean) => void;
   onMessage: (message: string) => void;
@@ -178,6 +179,7 @@ export function AdminArticleContinuousEditor(props: Props) {
   const scope = useArticleTiptapScope();
   const scopeRef = useRef(scope);
   const callbackRef = useRef(props.onChange);
+  const qaPositions = useRef(new Map<string, number>());
   const requiredNativeKeys = useRef(new Set(props.blocks
     .flatMap((block, index) => block.type === "text" || block.type === "h2" || block.type === "h3"
       ? [] : [index + ":" + block.id])));
@@ -225,13 +227,16 @@ export function AdminArticleContinuousEditor(props: Props) {
     onUpdate({ editor: updated }) {
       if (prepared.initialError) return;
       try {
+        const positions = new Map<string, number>();
         const fields = continuousDocumentToArticleFields(updated.getJSON(), {
+          onBlockPosition: (block, nodeIndex) => { if (!positions.has(block.id)) positions.set(block.id, nodeIndex); },
           requiredNativeBlockKeys: [...requiredNativeKeys.current],
           originalIntro: {
             intro: props.intro ?? editorialRichTextPlainText(props.introRichText),
             introRichText: props.introRichText,
           },
         });
+        qaPositions.current = positions;
         setInvalid("");
         callbackRef.current(fields);
       } catch (error) {
@@ -239,6 +244,31 @@ export function AdminArticleContinuousEditor(props: Props) {
       }
     },
   }, []);
+
+  useEffect(() => {
+    if (!editor || !props.qaBlockFocusRequest) return;
+    const id = props.qaBlockFocusRequest.blockId;
+    const mappedIndex = qaPositions.current.get(id);
+    let target: HTMLElement | null = null;
+    editor.state.doc.forEach((node, offset, index) => {
+      if (!target && (mappedIndex !== undefined ? index === mappedIndex : node.attrs.sourceBlockId === id)) {
+        const dom = editor.view.nodeDOM(offset);
+        if (dom instanceof HTMLElement) target = dom;
+      }
+    });
+    const element = target as HTMLElement | null;
+    if (!element) return;
+    const previous = element.style.outline;
+    const previousOffset = element.style.outlineOffset;
+    element.style.outline = "2px solid #b91c1c";
+    element.style.outlineOffset = "3px";
+    const frame = window.requestAnimationFrame(() => element.scrollIntoView({ block: "center", behavior: "smooth" }));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      element.style.outline = previous;
+      element.style.outlineOffset = previousOffset;
+    };
+  }, [editor, props.qaBlockFocusRequest]);
 
   useEffect(() => () => {
     if (scopeRef.current?.active?.id === "article-continuous") scopeRef.current.setActive(null);

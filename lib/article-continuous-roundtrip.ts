@@ -67,7 +67,7 @@ function sameRichText(original: ArticleBlock, nodes: TiptapEditorialNode[]): boo
   return sameEditorialContent(source, proseDocument(nodes));
 }
 
-type PendingProse = { key: string; original: ArticleBlock | null; nodes: TiptapEditorialNode[] };
+type PendingProse = { key: string; original: ArticleBlock | null; nodes: TiptapEditorialNode[]; firstNodeIndex: number };
 
 /** Converts one editable Tiptap document back into the *existing* fields.
  *
@@ -82,6 +82,7 @@ export function continuousDocumentToArticleFields(
     requiredNativeBlockIds?: string[];
     requiredNativeBlockKeys?: string[];
     originalIntro?: { intro: string; introRichText: EditorialRichTextDocument };
+    onBlockPosition?: (block: ArticleBlock, nodeIndex: number) => void;
   } = {},
 ): ContinuousArticleFields {
   const doc = record(value, "Tiptap dokument");
@@ -115,9 +116,19 @@ export function continuousDocumentToArticleFields(
   let pending: PendingProse | null = null;
   const flush = () => {
     if (!pending) return;
-    const { nodes: content, original } = pending;
+    const { nodes: content, original, firstNodeIndex } = pending;
     const richText = proseDocument(content);
-    if (original?.type === "text" && sameRichText(original, content)) {
+    const plainText = editorialRichTextPlainText(richText);
+    const unchanged = original?.type === "text" && sameRichText(original, content);
+    // Tiptap inserts editable spacer/trailing paragraphs around atom widgets.
+    // Never persist a standalone blank paragraph group as editorial content.
+    // Preserve nonempty legacy snapshots even if their rich-text projection is empty.
+    if (content.every(node => node.type === "paragraph") && !plainText
+      && !(unchanged && original?.type === "text" && original.content.trim())) {
+      pending = null;
+      return;
+    }
+    if (unchanged && original?.type === "text") {
       blocks.push(snapshot(original));
     } else if (content.length === 1 && content[0].type === "heading") {
       const level = content[0].attrs?.level;
@@ -133,9 +144,10 @@ export function continuousDocumentToArticleFields(
       const inherited = original?.type === "text" ? original : null;
       blocks.push({
         ...(inherited ?? {}), id, type: "text",
-        content: editorialRichTextPlainText(richText), richText,
+        content: plainText, richText,
       });
     }
+    options.onBlockPosition?.(blocks[blocks.length - 1], firstNodeIndex);
     pending = null;
   };
 
@@ -152,6 +164,7 @@ export function continuousDocumentToArticleFields(
         throw new Error("Identita vloženého bloku sa zmenila. Ukladanie bolo zastavené.");
       }
       blocks.push(snapshot(block));
+      options.onBlockPosition?.(block, boundary + 2 + bodyIndex);
       encounteredNative.push(block.id);
       encounteredNativeKeys.push(String(node.attrs?.sourceBlockIndex) + ":" + block.id);
       continue;
@@ -175,7 +188,7 @@ export function continuousDocumentToArticleFields(
       : original ? originKey!
         : node.type === "heading" ? `new-heading:${bodyIndex}` : "new";
     if (pending && pending.key !== key) flush();
-    if (!pending) pending = { key, original, nodes: [] };
+    if (!pending) pending = { key, original, nodes: [], firstNodeIndex: boundary + 2 + bodyIndex };
     pending.nodes.push(node);
   }
   flush();

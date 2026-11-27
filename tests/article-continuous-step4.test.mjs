@@ -197,3 +197,38 @@ test("CONTINUOUS STEPS 3–5: editable workspace exists without a new storage or
   assert.match(parent, /async function save\(nextStatus/);
   assert.doesNotMatch(ui + roundtrip, /fetch\(|saveManagedArticle|blocks_json\s*=|notion\.pages\.update/);
 });
+
+
+test("CONTINUOUS: empty paragraphs around native widgets do not create phantom blocks", () => {
+  const input = fixture();
+  const doc = articleToCanonicalContinuousDocument(input);
+  const imageAt = doc.content.findIndex(node => node.attrs?.sourceBlockId === "img");
+  doc.content.splice(imageAt, 0, { type: "paragraph" });
+  doc.content.push({ type: "paragraph", content: [{ type: "text", text: "  " }] });
+  doc.content.push({ type: "paragraph" });
+  const positions = new Map();
+  const result = continuousDocumentToArticleFields(doc, { onBlockPosition: (block, index) => positions.set(block.id, index) });
+  assert.deepEqual(result.blocks, input.blocks);
+  assert.equal(doc.content[positions.get("img")].attrs.sourceBlockId, "img");
+});
+
+test("CONTINUOUS: old empty paragraphs are removed but empty headings and actual widgets remain", () => {
+  const input = fixture();
+  input.blocks.push({ id: "old-empty", type: "text", content: "" });
+  input.blocks.push({ id: "empty-heading", type: "h2", text: "" });
+  input.blocks.push({ id: "empty-quote", type: "quote", content: "" });
+  const result = convert(articleToCanonicalContinuousDocument(input), input, ["empty-quote"]);
+  assert.deepEqual(result.blocks, input.blocks.filter(block => block.id !== "old-empty"));
+});
+
+test("CONTINUOUS: a new empty heading still maps to its precise editor node", () => {
+  const input = fixture();
+  const doc = articleToCanonicalContinuousDocument(input);
+  doc.content.push({ type: "heading", attrs: { level: 2 } });
+  const positions = new Map();
+  const result = continuousDocumentToArticleFields(doc, { onBlockPosition: (block, index) => positions.set(block.id, index) });
+  const last = result.blocks.at(-1);
+  assert.equal(last.type, "h2");
+  assert.equal(last.text, "");
+  assert.equal(positions.get(last.id), doc.content.length - 1);
+});
