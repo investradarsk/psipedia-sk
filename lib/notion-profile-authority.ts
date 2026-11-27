@@ -16,7 +16,7 @@ export function profileAuthorityEnabled(bindings?: ProfileAuthorityBindings):boo
 }
 
 const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
-  directory:["name","excerpt","description","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription","seo.noindex","seo.ogImage"],
+  directory:["additionalCategories","name","excerpt","description","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription","seo.noindex","seo.ogImage"],
   breeds:[...BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="content"&&Boolean(breedWorkcopyPhysicalProperty(entry.notion))&&
     !["editorial.heroTraits","editorialComplete"].includes(entry.id)).map(entry=>entry.id),
     ...breedControlledKeys.map((key:string)=>"controlled."+key)],
