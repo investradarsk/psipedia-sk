@@ -196,11 +196,11 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
 
     <section ref={panelRef} className="admin-panel">
       <div className={styles.filters} role="search" aria-label="Filtre plemien" data-admin-list-filters>
-        <label className="admin-search">
+        <label className="admin-search" data-admin-list-search>
           <span>Hľadať</span>
           <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, slug, pôvod, FCI…" title="Vyhľadáva aj podľa presného Admin ID, napr. 1842"/></div>
         </label>
-        <button type="button" className={styles.advancedToggle} aria-controls="admin-breed-advanced-filters"
+        <button type="button" className={styles.advancedToggle} data-admin-list-toggle aria-controls="admin-breed-advanced-filters"
            aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
            {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
          </button>
@@ -211,7 +211,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
         <label><span>Publikovanie</span><select value={filters.status} onChange={(event) => changeFilter("status", event.target.value)}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
         <label><span>Úplnosť</span><select value={filters.completeness} onChange={(event) => changeFilter("completeness", event.target.value)}><option value="all">Všetky profily</option><option value="incomplete">Len neúplné</option><option value="complete">Bez detegovaných medzier</option></select></label>
         </div>
-         <div className={styles.filterActions}><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); setRequestedPage(1); }}>Zrušiť filtre</AdminActionButton></div>
+         <div className={styles.filterActions} data-admin-list-filter-actions><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); setRequestedPage(1); }}>Zrušiť filtre</AdminActionButton></div>
       </div>
 
       <div className={styles.resultBar} data-admin-list-results>

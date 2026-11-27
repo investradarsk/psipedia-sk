@@ -3,6 +3,7 @@ import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner"
 import { formatSlovakCount } from "@/lib/slovak-count";
 
 import { EventListingResults } from "./event-listing-results";
+import { EventSubscription } from "./event-subscription";
 import { PublicSubcategoryNavigator } from "@/components/public-visual-system";
 import {
   eventListingParams,
@@ -633,6 +634,7 @@ export function EventCalendar({
         </section>
       </div>
       )}
+            <EventSubscription key={view.type + ":" + initialRegion} initialType={view.type} initialRegion={initialRegion} />
             <div data-events-popularity>{sidebar}</div>
             <AffiliateRotatingBanner placement="sidebar" />
           </>}

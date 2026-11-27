@@ -223,7 +223,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
 
     <section className="admin-panel" data-admin-organization-list>
       <form className={styles.filters} action="/admin/organizacie" method="get" role="search" data-admin-list-filters>
-        <label className={"admin-search " + styles.search}>
+        <label className={"admin-search " + styles.search} data-admin-list-search>
           <SearchIcon size={19} /><span>Hľadať</span>
           <input name="q" defaultValue={filters.q} maxLength={120} placeholder="Názov, slug, mesto, okres, e-mail…" />
         </label>
@@ -234,14 +234,14 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         <label className="admin-select-filter"><span>Mesto</span><select name="city" defaultValue={filters.city}><option value="">Všetky mestá</option>{data.options.cities.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         <label className={styles.check}><input type="checkbox" name="missingLocation" value="1" defaultChecked={filters.missingLocation} /> Bez lokality</label>
         <label className={styles.check}><input type="checkbox" name="incomplete" value="1" defaultChecked={filters.incomplete} /> Neúplný profil</label>
-        <div className={styles.filterActions}><AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton><Link className={styles.clearFilters} href="/admin/organizacie">Vyčistiť</Link></div>
+        <div className={styles.filterActions} data-admin-list-filter-actions><AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton><Link className={styles.clearFilters} href="/admin/organizacie">Vyčistiť</Link></div>
       </form>
 
       {message && <p className={styles.message} role="status">{message}</p>}
       {error && <p className={styles.message + " " + styles.error} role="alert">{error}</p>}
       <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{data.resultCount}</strong> · Strana {data.pagination.page} z {data.pagination.totalPages}</p>
 
-      {!!data.items.length && <p className={styles.bulkSelect}>
+      {!!data.items.length && <p className={styles.bulkSelect} data-admin-list-selection>
         {bulkSelection.currentPageSelected} z {data.items.length} označených na tejto strane
       </p>}
 

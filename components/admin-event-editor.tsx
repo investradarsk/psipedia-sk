@@ -1,4 +1,8 @@
 "use client";
+
+import { AdminEditorSyncReceipt } from "@/components/admin-editor-sync-status";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
@@ -87,6 +91,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [lastNotionReceipt, setLastNotionReceipt] = useState<string>();
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
   const [locationSectionVisited, setLocationSectionVisited] = useState(false);
@@ -200,6 +205,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         return;
       }
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
+      setLastNotionReceipt(data.notionFieldSync);
       setStatus(data.event.status);
       setExpectedUpdatedAt(data.event.updatedAt);
       setSavedSnapshot(editorSnapshot);
@@ -251,7 +257,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na podujatia"}
         actions={
           <EditorActionBar
-            message={dirty ? "Neuložené zmeny" : undefined}
+            dirty={dirty} pending={saving} uploading={uploading}
+            sync={<AdminEditorSyncReceipt status={lastNotionReceipt} scope="Posledné uloženie podujatia" />}
             secondary={<>
               {event && <details className={styles.moreActions} data-admin-event-more-actions>
                 <summary>Ďalšie akcie</summary>
@@ -369,13 +376,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
           <EditorSection id="event-seo" className={styles.seoSection}>
             <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>
           </EditorSection>
-          <nav data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami podujatia">
-            <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex <= 0}
-              onClick={() => navigateWithPager(EVENT_SECTIONS[activeEventSectionIndex - 1]?.id ?? EVENT_SECTIONS[0].id)}>Predchádzajúca</AdminActionButton>
-            <span role="status">Sekcia {activeEventSectionIndex + 1} z {EVENT_SECTIONS.length}</span>
-            <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex >= EVENT_SECTIONS.length - 1}
-              onClick={() => navigateWithPager(EVENT_SECTIONS[activeEventSectionIndex + 1]?.id ?? EVENT_SECTIONS[EVENT_SECTIONS.length - 1].id)}>Ďalšia</AdminActionButton>
-          </nav>
+          <AdminEditorSectionPager sections={EVENT_SECTIONS} index={activeEventSectionIndex} onNavigate={navigateWithPager}
+        ariaLabel="Prechod medzi sekciami podujatia" />
         </form>
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Podujatie"} title={title} excerpt={excerpt}

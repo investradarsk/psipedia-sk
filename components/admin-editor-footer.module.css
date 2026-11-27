@@ -134,3 +134,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Distinguish editor work from independently reported synchronization. */
+.footer[data-editor-work-state="dirty"] .status { color: #865b17; font-weight: 700; }
+.footer:is([data-editor-work-state="saving"], [data-editor-work-state="uploading"], [data-editor-work-state="working"]) .status { color: var(--admin-v3-green, #174b38); font-weight: 700; }
+.sync { flex: 1 1 100%; min-width: 0; }
+.status { font-size: var(--admin-ui-type-caption, .83rem); }
+@media (pointer: coarse) { .footer :is(button, a) { min-height: 44px; } }
+
+.sync:empty { display: none; }

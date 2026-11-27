@@ -318,7 +318,7 @@ export function AdminBulkSelectionControls({
 
   return (
     <>
-      {(!pageSelectionInTable || selectedCount > 0) && <div className={styles.pageSelect}>
+      {(!pageSelectionInTable || selectedCount > 0) && <div className={styles.pageSelect} data-admin-list-selection>
         {!pageSelectionInTable && <BulkSelectionCheckbox checked={currentPageAllSelected} indeterminate={currentPageSomeSelected} disabled={!selectionReady}
           label={pageSelectionLabel} onChange={toggleCurrentPage} />}
         {currentPageSelected > 0 && <span>{currentPageSelected} položiek vybraných na tejto strane</span>}

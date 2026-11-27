@@ -52,7 +52,7 @@ test("step 12: four editors keep dirty guards, navigation, upload, footer and li
     } else {
       assert.match(src, /<AdminSingleImageUpload/, path);
     }
-    assert.match(src, /data-admin-editor-pager/, path);
+    assert.match(src, /<AdminEditorSectionPager/, path);
     assert.match(src, /data-admin-form-system="v4"/, path);
   }
   assert.match(read("components/admin-lost-found-editor.tsx"), /<AdminPhotoGallery/);

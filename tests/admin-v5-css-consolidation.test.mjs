@@ -62,7 +62,7 @@ test("Admin V5 stage 6: footer uses one mobile safe-area spacing and keeps save 
   assert.match(css, /max-width: 100%/);
   assert.match(footer, /data-editor-save-pending/);
   assert.match(footer, /role="status" aria-live="polite"/);
-  assert.match(footer, /aria-busy=\{pending\}/);
+  assert.match(footer, /aria-busy=\{busy\}/);
 });
 
 test("Admin V5 stage 6: shared section navigation retains focus and mobile 16px controls", () => {

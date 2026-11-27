@@ -28,3 +28,30 @@
   overflow-wrap:anywhere;
 }
 .fieldError { color: var(--admin-ui-error-text, #842f35); }
+
+/* Explicit state selectors out-rank legacy module-specific message classes
+   inside Admin; do not recolor a warning or a pending save as success. */
+:global([data-admin-workspace]) [data-admin-form-feedback].feedback {
+  box-sizing: border-box;
+  max-width: 100%;
+  margin-block: var(--admin-ui-feedback-space, .375rem);
+  padding: var(--admin-ui-panel-padding, .55rem);
+  border-radius: var(--admin-ui-field-radius, 8px);
+  font-size: var(--admin-ui-type-body, .875rem);
+  line-height: 1.4;
+}
+:global([data-admin-workspace]) [data-admin-form-feedback="saving"].feedback {
+  color: var(--admin-v3-muted, #52695c);
+  background: var(--admin-v3-surface-muted, #f8faf8);
+  border: 1px solid var(--admin-ui-border, #e1e7e2);
+}
+:global([data-admin-workspace]) [data-admin-form-feedback="success"].feedback {
+  color: var(--admin-v3-text, #234332);
+  background: var(--admin-v3-surface, #fff);
+  border: 1px solid var(--admin-v3-border, #cbded0);
+}
+:global([data-admin-workspace]) [data-admin-form-feedback="error"].feedback {
+  color: var(--admin-ui-error-text, #842f35);
+  background: var(--admin-ui-error-background, #fff3f2);
+  border: 1px solid var(--admin-ui-error-border, #e9b5b2);
+}

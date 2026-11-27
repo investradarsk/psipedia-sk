@@ -7,6 +7,10 @@ import { HorizontalCarouselControls } from "@/components/horizontal-carousel-con
 import { ArrowIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
+import { PuppyEquipmentLink } from "@/components/puppy-equipment-page";
+import { DogHealthCalendarLink } from "@/components/dog-health-calendar-page";
+import { DogCalculatorsLink } from "@/components/dog-calculators-page";
+import { getManagedPortalSection } from "@/lib/section-store";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   PublicActionLink,
@@ -526,13 +530,13 @@ export async function EditorialSectionHub({
     (article) => articlePortalSection(article) === sectionSlug
       && !visibleAreaSlugs.has(articleArea(article, sectionSlug) ?? ""),
   );
-  // Four clear life-stage groups replace the 11 consecutive undifferentiated
+  // Four clear life-stage groups replace consecutive undifferentiated
   // puppy topic sections. Canonical topic URLs and all content stay intact.
   const puppyStages = [
     {
       title: "Pred príchodom psa",
       description: "Rozhodnutie, plemeno a zodpovedný chov.",
-      slugs: ["pred-kupou-psa", "vyber-plemena", "vyber-chovatela"],
+      slugs: ["pred-kupou-psa", "vybava", "vyber-plemena", "vyber-chovatela"],
     },
     {
       title: "Prvé mesiace doma",
@@ -556,7 +560,7 @@ export async function EditorialSectionHub({
     {
       title: "Zdravie a každodenná starostlivosť",
       description: "Prevencia, výživa a zdravé návyky.",
-      slugs: ["zdravie", "vyziva", "srst-a-hygiena"],
+      slugs: ["zdravie", "zdravotny-kalendar", "vyziva", "kalkulacky", "srst-a-hygiena"],
     },
     {
       title: "Život so psom",
@@ -640,6 +644,8 @@ export async function EditorialSectionHub({
         <PageContainer className={styles.calloutShell} data-section-public-callout>
           <HubCallout sectionSlug={sectionSlug} />
         </PageContainer>
+        {sectionSlug === "steniatka" && <PageContainer><PuppyEquipmentLink section={section} /></PageContainer>}
+        {sectionSlug === "starostlivost" && <PageContainer><DogHealthCalendarLink section={section} /><DogCalculatorsLink section={section} /></PageContainer>}
 
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
@@ -801,6 +807,7 @@ export async function EditorialSectionTopic({
   const topicArticles = orderedArticles(section, articles, subpage);
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const isHealthLanding = sectionSlug === "starostlivost" && subpage.slug === "zdravie";
+  const relatedCareSection = sectionSlug === "steniatka" && ["ockovanie-a-zdravie", "krmenie", "pred-kupou-psa"].includes(subpage.slug) ? await getManagedPortalSection("starostlivost") : null;
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
     name: `${subpage.label} – ${section.label}`,
@@ -860,6 +867,11 @@ export async function EditorialSectionTopic({
           >
             <HubCallout sectionSlug={sectionSlug} subpage={subpage} />
           </div>
+          {sectionSlug === "steniatka" && ["pred-kupou-psa", "prve-dni"].includes(subpage.slug) && <PuppyEquipmentLink section={section} />}
+          {sectionSlug === "starostlivost" && ["zdravie", "vyziva"].includes(subpage.slug) && <DogHealthCalendarLink section={section} />}
+          {relatedCareSection?.visible && subpage.slug === "ockovanie-a-zdravie" && <DogHealthCalendarLink section={relatedCareSection} />}
+          {sectionSlug === "starostlivost" && subpage.slug === "vyziva" && <DogCalculatorsLink section={section} />}
+          {relatedCareSection?.visible && ["krmenie", "pred-kupou-psa"].includes(subpage.slug) && <DogCalculatorsLink section={relatedCareSection} />}
           <section
             className={styles.relatedSection}
             aria-labelledby="topic-related-heading"

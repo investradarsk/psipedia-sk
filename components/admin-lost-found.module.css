@@ -427,7 +427,7 @@
    Keep private contact values, Lexical buffers and photo gallery in the DOM. */
 .editorLayout {
   display: grid;
-  grid-template-columns: minmax(184px, 216px) minmax(0, 1fr);
+  grid-template-columns: var(--admin-profile-sidebar, minmax(184px, 216px)) minmax(0, 1fr);
   gap: 14px;
   align-items: start;
   min-width: 0;
@@ -562,9 +562,9 @@
 .gridSelection button { min-height:44px; }
 .pagination :is(a,span) { min-height:44px; height:auto; }
 .card { padding:var(--admin-ui-panel-padding,.75rem); border-radius:var(--admin-ui-radius,12px); }
-.card h2 { font-family:inherit; font-size:1rem; margin:0 0 .55rem; }
-.field { gap:.35rem; margin-bottom:.55rem; }
-.fieldGrid { gap:.55rem; }
+.card h2 { font-family:inherit; font-size:var(--admin-ui-type-section,1rem); margin:0 0 var(--admin-ui-space-sm,.375rem); }
+.field { gap:var(--admin-ui-editor-field-gap,.375rem); margin-bottom:var(--admin-ui-space-sm,.375rem); }
+.fieldGrid { gap:var(--admin-ui-space-sm,.375rem) var(--admin-ui-space-md,.55rem); }
 .field :is(input,select,textarea) { box-sizing:border-box; max-width:100%; min-width:0; }
 .sections { gap:var(--admin-ui-section-gap,.625rem); }
 .editorLayout { gap:var(--admin-ui-space-sm,.55rem); }

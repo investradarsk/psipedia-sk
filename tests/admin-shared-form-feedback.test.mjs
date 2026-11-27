@@ -82,7 +82,7 @@ test("Event editor shows save feedback above switchable sections without nesting
   assert.match(event,/<form id="event-editor-v3-form"[\s\S]*<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
   assert.equal((event.match(/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/g) ?? []).length, 1);
   assert.match(event,/sectionMode="switch"/);
-  assert.match(event,/message=\{dirty \? "Neuložené zmeny" : undefined\}/);
+  assert.match(event,/dirty=\{dirty\} pending=\{saving\} uploading=\{uploading\}/);
   assert.match(workspace,/EditorUnsavedChangesGuard/);
   assert.doesNotMatch(event,/<EditorUnsavedChangesGuard/);
   assert.match(event,/save\("published"\)/);
