@@ -1618,7 +1618,9 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
     insert, ...breedSqlV2NewBreedStatements(database, value.slug, value),
     // A genuinely new canonical breed starts with unknown numeric facts and
     // explicitly empty typed lists, not a shadow imported from another page.
-    database.prepare("INSERT INTO breed_public_facts(breed_id,origin_countries_json,coat_types_json,use_types_json) SELECT id,\'[]\',\'[]\',\'[]\' FROM managed_breeds WHERE slug=?").bind(value.slug),
+    ...((env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?[
+      database.prepare("INSERT INTO breed_public_facts(breed_id,origin_countries_json,coat_types_json,use_types_json) SELECT id,\'[]\',\'[]\',\'[]\' FROM managed_breeds WHERE slug=?").bind(value.slug),
+    ]:[]),
   ]);
   const id=Number(result.meta.last_row_id);
   if(!Number.isSafeInteger(id)||id<1)throw Error("BREED_CREATE_ID_INVALID");
