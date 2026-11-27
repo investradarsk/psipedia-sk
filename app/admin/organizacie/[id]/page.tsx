@@ -99,7 +99,7 @@ export default async function OrganizationAdminDetailPage({ params, searchParams
     </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
     <Suspense fallback={null}><OrganizationDuplicateWarning organizationId={organization.id} /></Suspense>
-    <AdminOrganizationEditor organization={organization} initialReview={review} initialLocations={locations}
+    <AdminOrganizationEditor organization={organization} initialLocations={locations} initialReview={review}
       automationSuggestionsPromise={suggestionsPromise} returnHref={returnHref} />
     <div id="fundraising">
       <Suspense fallback={<p role="status" className="admin-panel">Načítavam fundraising…</p>}>
