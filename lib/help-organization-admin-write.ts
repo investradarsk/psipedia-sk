@@ -1,3 +1,4 @@
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { env } from "cloudflare:workers";
 import { commitOrganizationAdminEdit, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
@@ -150,7 +151,9 @@ export async function updateOrganizationFromAdmin(
   database?: AdoptionD1Database,
   now = new Date(),
   recordUnifiedReceipt = false,
+  reviewOnSave=false,
 ) {
+  if(reviewOnSave&&!recordUnifiedReceipt)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
   const input: OrganizationAdminInput = parseOrganizationAdminInput(payload);
@@ -183,6 +186,7 @@ export async function updateOrganizationFromAdmin(
     );
     const result = (recordUnifiedReceipt ? await commitOrganizationAdminEdit(db, statement, {
       id, expectedRevision: expectedUpdatedAt, nextRevision: timestamp, editor: editorEmail,
+      companionStatements:reviewOnSave?reviewOnSaveStatements(db as unknown as D1Database,{type:"ORGANIZATION",id,revision:timestamp,actor:editorEmail}):[],
     }) : await statement.run()) as RunResult;
     const changes = Number(result.meta?.changes ?? result.changes ?? 0);
     if (changes !== 1) throw new OrganizationConcurrentEditError();
