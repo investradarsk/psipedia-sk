@@ -1814,3 +1814,43 @@ test("first-create uses a durable fence, verifies the exact copy, and never retr
     }finally{sqlite.close();}
   }
 });
+
+
+test("E-shop save and review lock roll back together on canonical CAS failure",async()=>{
+  const {commitHelpV2AdminEdit}=await import("../lib/notion-help-v2-admin-receipts.ts");
+  const sqlite=new DatabaseSync(":memory:");
+  try{
+    sqlite.exec(`
+      CREATE TABLE managed_eshops(id INTEGER PRIMARY KEY, name TEXT,updated_at TEXT,updated_by TEXT);
+      INSERT INTO managed_eshops VALUES(1,'old','rev1','editor');
+      CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT,content_hash TEXT);
+      CREATE TABLE notion_help_admin_edit_intent(edit_id TEXT,agenda TEXT,entity_id INTEGER,notion_page_id TEXT,before_json TEXT);
+      CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,baseline_version TEXT);
+      CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,edit_id TEXT,baseline_version TEXT,canonical_revision TEXT,observed_at TEXT,value_json TEXT,explicit_clear INTEGER,
+        PRIMARY KEY(agenda,entity_id,notion_page_id,field_key));
+      CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER,reviewed_at TEXT,reviewed_by TEXT,PRIMARY KEY(entity_type,entity_id));
+    `);
+    const database={
+      prepare(sql){const wrap=args=>({bind(...params){return wrap(params)},async run(){const x=sqlite.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}}}});return wrap([])},
+      async batch(statements){sqlite.exec("BEGIN");try{const results=[];for(const statement of statements)results.push(await statement.run());sqlite.exec("COMMIT");return results;}catch(error){sqlite.exec("ROLLBACK");throw error}}
+    };
+    const save=(expected,next,failReview=false)=>commitHelpV2AdminEdit(database,
+      database.prepare("UPDATE managed_eshops SET name=?,updated_at=?,updated_by=? WHERE id=1 AND updated_at=?").bind("new",next,"editor",expected),
+      {agenda:"eshops",table:"managed_eshops",projection:"json_object('name',p.name)",id:1,expectedRevision:expected,nextRevision:next,editor:"editor",
+        companionStatements:[
+          database.prepare("INSERT OR IGNORE INTO admin_entity_reviews SELECT 'ESHOP',id,updated_at,updated_by FROM managed_eshops WHERE id=1 AND updated_at=?").bind(next),
+          database.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ESHOP' AND entity_id=?) THEN 1 ELSE json_extract('ESHOP_REVIEW_LOCK_FAILED','$') END").bind(failReview?99:1)
+        ]});
+    await assert.rejects(save("stale","rev2"));
+    assert.equal(sqlite.prepare("SELECT name FROM managed_eshops").get().name,"old");
+    assert.equal(sqlite.prepare("SELECT count(*) AS n FROM admin_entity_reviews").get().n,0);
+    await assert.rejects(save("rev1","rev2",true));
+    assert.equal(sqlite.prepare("SELECT name FROM managed_eshops").get().name,"old");
+    assert.equal(sqlite.prepare("SELECT count(*) AS n FROM admin_entity_reviews").get().n,0);
+    await save("rev1","rev2");
+    assert.equal(sqlite.prepare("SELECT name FROM managed_eshops").get().name,"new");
+    assert.equal(sqlite.prepare("SELECT reviewed_at FROM admin_entity_reviews").get().reviewed_at,"rev2");
+    await save("rev2","rev3");
+    assert.equal(sqlite.prepare("SELECT reviewed_at FROM admin_entity_reviews").get().reviewed_at,"rev2","retain first review timestamp");
+  }finally{sqlite.close();}
+});
