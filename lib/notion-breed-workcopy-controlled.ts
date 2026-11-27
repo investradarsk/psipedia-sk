@@ -41,6 +41,7 @@ const eq=sameBreedControlledValue;
 const keys=new Set<string>(breedControlledKeys);
 
 function requireNewEngine(bindings:ControlledBreedBindings) {
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
   if (!notionFlagEnabled(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED) ||
       notionFlagEnabled(bindings.NOTION_BREED_SYNC_ENABLED))
     throw Error("BREED_CONTROLLED_WORKCOPY_INACTIVE");
