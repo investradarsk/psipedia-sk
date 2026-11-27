@@ -1,3 +1,6 @@
+import { env } from "cloudflare:workers";
+import { unlockReviewedEventsHelpProfile, type NotionEventsHelpSyncBindings } from "@/lib/notion-events-help-sync";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   isAdminReviewEntityType,
@@ -30,6 +33,17 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    const bindings=env as unknown as NotionEventsHelpSyncBindings & {DB?:D1Database};
+    if(body.reviewed===false&&bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      if(!bindings.DB)throw Error("Databáza administrácie nie je pripojená.");
+      const current=await getAdminEntityReview(body.entityType,entityId,bindings.DB);
+      if(current.reviewed){
+        const agendas={EVENT:"events",ORGANIZATION:"organizations",ADOPTION:"adoptions",LOST_FOUND:"lost-found",HELP_CASE:"help-cases"} as const;
+        await unlockReviewedEventsHelpProfile({database:bindings.DB,bindings,
+          agenda:agendas[body.entityType],entityId});
+        return Response.json({review:await getAdminEntityReview(body.entityType,entityId,bindings.DB)});
+      }
+    }
     const review = await setAdminEntityReviewed(body.entityType, entityId, body.reviewed, user.email);
     return Response.json({ review });
   } catch (error) {
