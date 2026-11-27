@@ -1,3 +1,4 @@
+import { breedOwnedMediaKey, validateBreedStructuredValue } from "./notion-breed-structured-authority.mjs";
 import { importNewBreedWorkCopy } from "./notion-breed-inbound-import.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { BREED_WORKCOPY_EDITORIAL_PROPERTIES } from "./breed-notion-workcopy-field-contract.mjs";
@@ -172,6 +173,13 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
     throw Error("BREED_UNIFIED_REVISION_CHANGED");
   const parsed = breedWorkcopyEventValues(page, Object.keys(page.properties ?? {}), BREED_NOTION_SCHEMA, true);
   const remote = parsed.values.find(item => item.field === field);
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&remote&&(field==="image"||field==="gallery")){
+    if(!validateBreedStructuredValue(field,remote.value))throw Error("BREED_MEDIA_REVIEW_REQUIRED");
+    const keys=field==="image"?(remote.value===""?[]:[breedOwnedMediaKey(remote.value)]):
+      (remote.value as {imageUrl:string}[]).map(item=>breedOwnedMediaKey(item.imageUrl));
+    for(const key of keys)if(!key||!bindings.BUCKET||!await bindings.BUCKET.head(key))throw Error("BREED_MEDIA_ASSET_MISSING");
+    if((await getManagedBreed(link.breed_id))?.updatedAt!==after.updatedAt)throw Error("BREED_UNIFIED_REVISION_CHANGED");
+  }
   const snapshot = breedFieldSnapshot(after) as Record<string, unknown>;
   const value = field === "fciNumber" ? after.fciNumber : snapshot[field];
   return { page, revision: after.updatedAt, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
@@ -291,7 +299,13 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
           const pilot = unifiedBreedEnabled(args.bindings) && !args.manualImport
             ? await reserveBreedField(args.database, args.bindings, link, field.field, "pull") : null;
           if (pilot && !pilot.reservation) continue;
-          if(pilot?.reservation)await assertUnifiedReservationCurrent(args.database,pilot.reservation);
+          if(pilot?.reservation){
+            if(pilot.reservation.profileAuthority){
+              const fresh=await observeUnifiedBreedField(args.database,args.bindings,link,field.field);
+              if(fresh.revision!==pilot.revision||fresh.page.last_edited_time!==pilot.page.last_edited_time||!same(fresh.notion,pilot.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
+            }
+            await assertUnifiedReservationCurrent(args.database,pilot.reservation);
+          }
           const saved=await saveBreedNotionField({
             database:args.database,breedId:link.breed_id,
             field:field.field,value:pilot?.reservation ? pilot.reservation.value : field.value,
