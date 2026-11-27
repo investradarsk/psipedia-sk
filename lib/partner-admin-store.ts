@@ -361,9 +361,14 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
     return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
   }
   const now=input.now??new Date(),iso=now.toISOString(),id=crypto.randomUUID(),actor=auditActor(input.adminEmail);
-  await database.prepare(
-    "INSERT INTO partner_memberships(id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES(?1,?2,?3,'OWNER',?4,?5,?4)",
-  ).bind(id,input.accountId,input.resourceId,iso,actor).run();
+  await database.batch([
+    database.prepare(
+      "INSERT INTO partner_memberships(id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES(?1,?2,?3,'OWNER',?4,?5,?4)",
+    ).bind(id,input.accountId,input.resourceId,iso,actor),
+    // Reassert the durable review in the grant transaction itself, even
+    // if another Admin tried to unlock between the precheck and the grant.
+    ...preservePartnerReviewBeforeRevoke(database,{scope:{kind:"resource",accountId:input.accountId,resourceId:input.resourceId},nowIso:iso,actorRef:actor}),
+  ]);
   await appendPartnerAuditEvent({
     actorType:"ADMIN",
     actorRef:actor,
