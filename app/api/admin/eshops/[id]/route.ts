@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
@@ -59,6 +60,8 @@ export async function PUT(request: Request, { params }: Props) {
     const shop = await updateManagedEshop(id, body, auth.user.email,undefined,unifiedEshopEnabled()?before.updatedAt:undefined,reviewOnSave);
     if (!shop) return Response.json({ error: "E-shop sa nenašiel." }, { status: 404 });
 
+    const db=(env as unknown as {DB?:D1Database}).DB;
+    if(db&&shop.status==="published"&&before.status!=="published")await acknowledgeAdminPublication(db,"eshops",shop.id);
     if (before.logoKey && before.logoKey !== shop.logoKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.logoKey).catch(() => undefined);
