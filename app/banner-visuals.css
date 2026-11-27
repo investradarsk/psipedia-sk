@@ -70,11 +70,11 @@
   --ps-bnr-radius: 16px;
 }
 .ps-public-banner-frame[data-banner-size="medium"] {
-  --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
+  --ps-bnr-title-size: clamp(1.15rem, 2.8cqi, 1.7rem);
 }
 .ps-public-banner-frame[data-banner-size="large"] {
   --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
-  --ps-bnr-title-size: clamp(1.65rem, 3vw, 2.15rem);
+  --ps-bnr-title-size: clamp(1.15rem, 2.8cqi, 2.15rem);
 }
 /* Remove the old photo art without altering text, anchors, promo targeting
  * or partner artwork (which does not use PublicBannerFrame). */
@@ -201,21 +201,7 @@
     --ps-bnr-border: rgba(23, 53, 43, 0.3);
     border-color: var(--ps-bnr-border);
   }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] {
-    --ps-bnr-padding: 14px 16px;
-    --ps-bnr-title-size: 1.15rem;
-    --ps-bnr-radius: 16px;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="medium"] {
-    --ps-bnr-padding: 18px 22px;
-    --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
-    --ps-bnr-radius: 18px;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"] {
-    --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
-    --ps-bnr-title-size: clamp(1.65rem, 3vw, 2.15rem);
-    --ps-bnr-radius: 18px;
-  }
+
 }
 /* All shared copy uses the same type and rhythm across placements. */
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-description] {
