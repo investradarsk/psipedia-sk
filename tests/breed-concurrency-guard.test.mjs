@@ -29,7 +29,7 @@ function section(src, first, after) {
   return src.slice(a, b);
 }
 const factories =
-  section(store, "function values(", "export async function createManagedBreed(") +
+  section(store, "function values(", "export async function createNotionWorkOnlyBreedDraft(") +
   "\n" +
   section(store, "const select =", "export async function listManagedBreedSummaries(") +
   // Exercise the production SQL projection without any historic physical columns.
