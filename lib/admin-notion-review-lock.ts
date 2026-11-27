@@ -77,3 +77,48 @@ export function partnerAdminReviewStatement(database:D1Database,input:{
       AND ${partnerReviewOwnerSql(input.type,input.entitySql)}`)
     .bind(input.type,input.nowIso,input.actorRef);
 }
+
+
+/** Persist the review of any legacy owned record BEFORE dropping ownership.
+ * Caller MUST prepend these statements to the same D1 batch as revocation.
+ * No status or publication fields are touched. Existing review actors/dates
+ * are retained; a pending Directory unlock is cancelled by active ownership.
+ */
+export function preservePartnerReviewBeforeRevoke(database:D1Database,input:{
+  scope: {kind:"account"|"membership"|"claim";id:string} |
+    {kind:"resource";accountId:string;resourceId:string};
+  nowIso:string;actorRef:string;
+}):D1PreparedStatement[]{
+  const {scope,nowIso,actorRef}=input;
+  const membership=scope.kind==="account"?"m.account_id=?3":
+    scope.kind==="membership"?"m.id=?3":
+    scope.kind==="resource"?"m.account_id=?3 AND m.resource_id=?4":null;
+  const claim=scope.kind==="account"?"c.account_id=?3":scope.kind==="claim"?"c.id=?3":null;
+  const args=scope.kind==="resource"?[scope.accountId,scope.resourceId]:[scope.id];
+  const statements:D1PreparedStatement[]=[];
+  if(membership){
+    const owned=" FROM partner_resources r JOIN partner_memberships m ON m.resource_id=r.id WHERE m.revoked_at IS NULL AND "+membership;
+    statements.push(database.prepare(
+      "INSERT INTO directory_profile_review_state(profile_id,reviewed_at,reviewed_by,unlock_pending,unlock_requested_at,unlock_requested_by,updated_at,updated_by) "+
+      "SELECT p.id,?1,?2,0,NULL,NULL,?1,?2 FROM directory_profiles p WHERE EXISTS(SELECT 1"+owned+
+      " AND r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=p.id) "+
+      "ON CONFLICT(profile_id) DO UPDATE SET reviewed_at=COALESCE(NULLIF(TRIM(directory_profile_review_state.reviewed_at),''),excluded.reviewed_at),"+
+      "reviewed_by=CASE WHEN NULLIF(TRIM(directory_profile_review_state.reviewed_at),'') IS NULL THEN excluded.reviewed_by ELSE directory_profile_review_state.reviewed_by END,"+
+      "unlock_pending=0,unlock_requested_at=NULL,unlock_requested_by=NULL,updated_at=excluded.updated_at,updated_by=excluded.updated_by "+
+      "WHERE NULLIF(TRIM(directory_profile_review_state.reviewed_at),'') IS NULL OR directory_profile_review_state.unlock_pending=1"
+    ).bind(nowIso,actorRef,...args));
+    for(const [type,table,column] of [["EVENT","managed_events","managed_event_id"],["ORGANIZATION","help_organizations","help_organization_id"]] as const)
+      statements.push(database.prepare(
+        "INSERT OR IGNORE INTO admin_entity_reviews(entity_type,entity_id,reviewed_at,reviewed_by) "+
+        "SELECT '"+type+"',p.id,?1,?2 FROM "+table+" p WHERE EXISTS(SELECT 1"+owned+" AND r."+column+"=p.id)"
+      ).bind(nowIso,actorRef,...args));
+  }
+  if(claim){
+    for(const [type,table,column] of [["ADOPTION","adoption_dogs","adoption_dog_id"],["LOST_FOUND","lost_found_dog_reports","lost_found_report_id"],["HELP_CASE","help_cases","help_case_id"]] as const)
+      statements.push(database.prepare(
+        "INSERT OR IGNORE INTO admin_entity_reviews(entity_type,entity_id,reviewed_at,reviewed_by) "+
+        "SELECT '"+type+"',p.id,?1,?2 FROM "+table+" p WHERE EXISTS(SELECT 1 FROM partner_help_claims c WHERE c.status='APPROVED' AND "+claim+" AND c."+column+"=p.id)"
+      ).bind(nowIso,actorRef,...args));
+  }
+  return statements;
+}
