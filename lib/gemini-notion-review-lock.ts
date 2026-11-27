@@ -6,8 +6,8 @@ export async function acquireGeminiNotionLock(database: D1Database, rawId: strin
     "INSERT OR IGNORE INTO gemini_notion_review_locks (notion_page_id, owner) VALUES (?, ?)",
   ).bind(id, owner).run();
   if (!result.meta.changes) return null;
-  return async () => {
+  return Object.assign(async () => {
     await database.prepare("DELETE FROM gemini_notion_review_locks WHERE notion_page_id = ? AND owner = ?")
       .bind(id, owner).run();
-  };
+  },{owner});
 }
