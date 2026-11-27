@@ -225,7 +225,7 @@ export function isVerifiedAuthorityProperty(raw:unknown,observed:FieldObservatio
   if(type==="checkbox")return typeof value==="boolean"&&value===observed.value;
   if(type==="select"||type==="status"){
     const label=value&&typeof value==="object"?(value as {name?:unknown}).name:undefined;
-    return typeof observed.value==="string"&&(value===null?observed.value==="":typeof label==="string"&&!!label.trim()&&text(label)===text(observed.value));
+    return value===null?(observed.value===""||observed.value===null):typeof observed.value==="string"&&typeof label==="string"&&!!label.trim()&&text(label)===text(observed.value);
   }
   if(type==="date"){
     if(value===null)return observed.value===""||observed.value===null;
@@ -238,7 +238,8 @@ export function isVerifiedAuthorityProperty(raw:unknown,observed:FieldObservatio
     if(!Array.isArray(value)||value.length>=25||!Array.isArray(observed.value))return false;
     const names=value.map(item=>item&&typeof item==="object"?(item as {name?:unknown}).name:undefined);
     return names.every(name=>typeof name==="string"&&!!name.trim())&&
-      new Set(names).size===names.length&&JSON.stringify(names)===JSON.stringify(observed.value);
+      new Set(names).size===names.length&&observed.value.every(item=>typeof item==="string")&&
+      JSON.stringify([...names].sort())===JSON.stringify([...observed.value].sort());
   }
   return false;
 }
