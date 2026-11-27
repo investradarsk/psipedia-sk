@@ -75,12 +75,14 @@ test("Premium Glass is scoped, progressively enhanced and avoids containing fixe
   assert.match(css, /--ps-glass-header-filter: blur\(10px\) saturate\(125%\)/);
   const glass = css.slice(css.indexOf("/* Premium Glass"));
   assert.doesNotMatch(glass, /\[data-public-card\]|\.article-card\s*\{|\.hero\s*\{/);
-  assert.match(read("app/banner-visuals.css"), /:not\(\[data-banner-semantic="urgent"\]\)[^{}]*\{[^}]*background-image: var\(--ps-glass-sheen,/s);
+  assert.doesNotMatch(read("app/banner-visuals.css"), /--ps-glass-sheen/);
   assert.match(read("components/article-popularity-sidebar.module.css"), /\.tabs \.activeTab\s*\{[^}]*background: var\(--ps-glass-selected,/s);
   assert.match(read("app/partner/partner.css"), /\.partner-shell--workspace \.partner-dashboard-header\s*\{[^}]*background: var\(--ps-glass-panel,/s);
 });
 
-test("Dark Glass CTA excludes urgent and explicitly customized banners", () => {
+test("internal promo banner actions use opaque brand colors instead of glass", () => {
   const banners = read("app/banner-visuals.css");
-  assert.match(banners, /\[data-banner-visual="dark"\]\[data-banner-size\]:not\(\[data-banner-semantic="urgent"\]\):not\(\[data-visual-library-desktop-published\]\)[^{}]*\{[^}]*background-image: var\(--ps-glass-dark-cta, none\)/s);
+  assert.doesNotMatch(banners, /--ps-glass-dark-cta|--ps-glass-sheen/);
+  assert.match(banners, /background: var\(--ps-bnr-button-bg\) !important/);
+  assert.match(banners, /background-image: none !important/);
 });
