@@ -24,7 +24,6 @@ const GROUPS = [
   {id:"date",label:"Dátumy a časy"},
   {id:"other",label:"Ostatné"},
 ];
-function plural(n:number) { return n===1?"nález":n>1&&n<5?"nálezy":"nálezov"; }
 function safeQualityHref(value:string):string|null {
   try { const url=new URL(value); return ["https:","http:"].includes(url.protocol)?url.href:null; }
   catch { return null; }
@@ -88,6 +87,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const [manualLimit,setManualLimit]=useState(5);
   const [manualBusy,setManualBusy]=useState(false);
   const [manualProgress,setManualProgress]=useState("");
+  const [imageSearch, setImageSearch] = useState<{ id: number; pending?: boolean; message?: string; error?: string } | null>(null);
   const [manualResults,setManualResults]=useState<ManualQualityResponse|null>(null);
   const [profileFilter,setProfileFilter]=useState("");
   const [preview,setPreview]=useState<string|null>(null);
@@ -141,15 +141,19 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   }
   async function findOtherImage(p:MissingQualityProposal){
     if(manualBusy||busy!==null||bulkBusy||!data.manualReady)return;
-    setManualBusy(true);setManualProgress("");
-    try{
-      const result=await manualRequest({area:p.area,group:"image",mode:"alternative",
-        entityType:p.entity_type,entityId:p.entity_id});
-      setManualProgress(result.found?
-        "Pridaný nový návrh obrázka na schválenie pre "+p.profile_label+".":
-        "Pre "+p.profile_label+" sa ďalší použiteľný obrázok nenašiel.");
+    setManualBusy(true);
+    setImageSearch({ id: p.id, pending: true });
+    try {
+      const result = await manualRequest({ area: p.area, group: "image", mode: "alternative",
+        entityType: p.entity_type, entityId: p.entity_id });
+      setImageSearch({
+        id: p.id,
+        message: result.found ? "Nový návrh obrázka čaká na schválenie." : "Ďalší vhodný obrázok sa nenašiel.",
+      });
       router.refresh();
-    } catch(error){setManualProgress(error instanceof Error?error.message:"Hľadanie zlyhalo.");}
+    } catch (error) {
+      setImageSearch({ id: p.id, error: error instanceof Error ? error.message : "Obrázok sa nepodarilo vyhľadať." });
+    }
     finally{setManualBusy(false);}
   }
   async function decide(item:MissingQualityProposal,action:"accept"|"reject",value?:string) {
@@ -306,7 +310,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     <section id="navrhy-na-schvalenie" aria-labelledby="quality-proposals-title" className={styles.results}>
       <div className={styles.heading}>
         <h2 id="quality-proposals-title">Návrhy na schválenie · {AREAS.find(a=>a.id===area)?.label}</h2>
-        <span>{areaItems.length} {plural(areaItems.length)} na schválenie</span>
+        <span role="status">Zobrazené: {shown.length} z {areaItems.length}</span>
       </div>
       <div className={styles.profileSearch}><label htmlFor="quality-profile-filter">Vyhľadať profil</label>
         <input id="quality-profile-filter" value={profileFilter} onChange={e=>setProfileFilter(e.target.value)} placeholder="Názov profilu" />
@@ -324,7 +328,11 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       </div>
       <AdminFormFeedback error={noticeError?notice:undefined} message={!noticeError?notice:undefined} className={styles.notice}/>
       <p className={styles.subtle}>Filtre a vyhľadávanie profilu pracujú s načítanou stránkou (najviac 100 nálezov).</p>
-      {shown.length===0?<div className={styles.empty}>Pre zvolené filtre na načítanej strane nie sú žiadne návrhy.</div>:(
+      {shown.length===0?<div className={styles.empty}>
+        {areaItems.length ? <>Žiadny návrh nezodpovedá výberu.{" "}
+          <button type="button" className={styles.reject} onClick={()=>{setGroup("all");setProfileFilter("");}}>Zrušiť filtre</button>
+        </> : "V tejto oblasti na načítanej strane nie sú žiadne návrhy."}
+      </div>:(
         <>
           <div className={styles.list}>
             {shown.map(p=><article className={styles.item} key={p.id}>
@@ -368,6 +376,9 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                   <span className={styles.source}>Overený obrázok uložený v Psipedia na schválenie.</span>:null}
                 {p.field_group==="image"&&brokenImages.includes(p.id)?
                   <span className={styles.lastError}>Náhľad nefunguje. Tento obrázok neschvaľuj; vyhľadaj iný.</span>:null}
+                {imageSearch?.id === p.id && <AdminFormFeedback
+                  pending={imageSearch.pending} pendingLabel="Hľadám ďalší obrázok…"
+                  message={imageSearch.message} error={imageSearch.error} />}
                 {p.source_url&&p.source_url!==p.value&&safeQualityHref(p.source_url)?<a className={styles.source} href={safeQualityHref(p.source_url)!} rel="noopener noreferrer" target="_blank">Otvoriť zdroj ↗</a>:null}
               </div>
               <div className={styles.actions}>
