@@ -26,12 +26,13 @@ test("unified journal links each agenda to its editor and omits invalid IDs", as
     prepare: () => ({ all: async () => ({ success: true, results: Array(5) }) }),
     batch: async (statements) => {
       assert.equal(statements.length, 4);
-      return [[], results, [{ n: 0 }], [{ n: 3 }]].map((results) => ({ success: true, results }));
+      return [[], results, [{ n: 0 }], [{ n: 9 }]].map((results) => ({ success: true, results }));
     },
   }, true);
 
   assert.equal(journal.schemaReady, true);
-  assert.equal(journal.historicalNonMirrored, 3);
+  assert.equal(journal.historicalNonMirrored, 9);
+  assert.equal(journal.manualFences, 0);
   assert.deepEqual(
     journal.issues.map(({ editorHref }) => editorHref),
     [...Object.values(editors).map((path) => `/admin/${path}/1873`), null, null, null],

@@ -453,6 +453,8 @@ test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes",
   const mobile = info.project.name === "mobile-chromium";
   await page.setViewportSize({ width: mobile ? 390 : 1440, height: 850 });
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  // The streaming dashboard can expose links before the Admin router hydrates.
+  await expect(page.locator("[data-admin-sidebar]")).toHaveAttribute("data-admin-hydrated", "true");
   const shortcuts = page.locator("[data-admin-dashboard-shortcuts]");
   await expect(shortcuts.getByRole("link", { name: "Všetky profily" })).toHaveAttribute("href", "/admin/adresar");
   await expect(shortcuts.locator('a[href="/admin/sluzby-pre-psov"], a[href="/admin/pomoc-psom"]')).toHaveCount(0);

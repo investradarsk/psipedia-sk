@@ -51,6 +51,25 @@ function blank(value: unknown) {
     (Array.isArray(value) && value.length === 0);
 }
 
+/** A confirmed blank target is not an inferred clear. Only fill supported,
+ * present values; the normal three-way decision must independently agree. */
+export function isConfirmedBlankPush(input: {
+  identity: FieldIdentity;
+  baseline: {value:unknown;version:string} | null;
+  notion: FieldObservation;
+  psipedia: FieldObservation;
+}): boolean {
+  if (!input.baseline?.version || !input.notion.present || !input.psipedia.present ||
+      input.baseline.value === undefined || input.notion.value === undefined ||
+      !blank(input.baseline.value) || !blank(input.notion.value) ||
+      !same(input.baseline.value,input.notion.value)) return false;
+  const value = input.psipedia.value;
+  const filled = (typeof value === "string" && !!value.trim()) ||
+    (typeof value === "number" && Number.isFinite(value)) ||
+    typeof value === "boolean" || (Array.isArray(value) && value.length > 0);
+  return filled && decideUnifiedField(input).action === "push";
+}
+
 function verified(
   edit: ScopedFieldEdit | undefined, identity: FieldIdentity,
   source: ScopedFieldEdit["source"], baselineVersion: string, value: unknown,

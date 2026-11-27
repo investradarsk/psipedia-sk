@@ -1,4 +1,4 @@
-import { decideUnifiedField, type FieldIdentity, type FieldObservation, type ScopedFieldEdit } from "./notion-unified-field-sync.ts";
+import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit } from "./notion-unified-field-sync.ts";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 
 export type FieldReservation = {
@@ -54,7 +54,12 @@ export async function reserveUnifiedField(input: {
   const initialCandidate = !input.historicalBaseline && !input.notionEdit && !input.psipediaEdit &&
     (!old || (old.status === "REVIEW" && old.baseline === undefined && !old.baselineVersion &&
       !old.notionEdit && !old.psipediaEdit && (old.reason === "BASELINE_UNAVAILABLE" || initialMarker)));
-  const invalidation = ((!old && input.historicalBaseline) || initialCandidate) ? await database.prepare(
+  const confirmedMarker = old?.status === "REVIEW" && old.reason === "CONFIRMED_BLANK_PUSH";
+  const confirmedCandidate = old?.status === "REVIEW" &&
+    (old.reason === "RECOVERY_DIRECTION_REQUIRED" || confirmedMarker) &&
+    !!old.baselineVersion && old.baseline !== undefined &&
+    !old.notionEdit && !old.psipediaEdit && !input.notionEdit && !input.psipediaEdit;
+  const invalidation = ((!old && input.historicalBaseline) || initialCandidate || confirmedCandidate || confirmedMarker) ? await database.prepare(
     "SELECT 1 AS invalidated FROM notion_unified_scope_invalidation WHERE agenda=? AND entity_id=?"
   ).bind(identity.agenda,identity.entityId).first<{invalidated:number}>() : null;
   const baseline = old
@@ -66,11 +71,14 @@ export async function reserveUnifiedField(input: {
   const samePair = !!old && input.notion.present && input.psipedia.present &&
     JSON.stringify(old.notion) === JSON.stringify(input.notion.value) &&
     JSON.stringify(old.psipedia) === JSON.stringify(input.psipedia.value);
-  const initialReceipt = initialCandidate && !invalidation ? await database.prepare(
+  const initialReceipt = (initialCandidate || confirmedCandidate) && !invalidation ? await database.prepare(
     "SELECT 1 AS found FROM notion_unified_admin_field_edits WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? LIMIT 1"
   ).bind(identity.agenda,identity.entityId,identity.pageId,identity.field).first<{found:number}>() : null;
   const initializeEmpty = initialCandidate && !invalidation && !initialReceipt &&
     (initialMarker ? samePair : input.direction === "observe");
+  const confirmedBlankReady = confirmedCandidate && !invalidation && !initialReceipt &&
+    isConfirmedBlankPush({identity,baseline,notion:input.notion,psipedia:input.psipedia}) &&
+    (input.direction === "observe" || (confirmedMarker && samePair));
   const decision = decideUnifiedField({
     identity, baseline, notion: input.notion, psipedia: input.psipedia,
     notionEdit: input.notionEdit, psipediaEdit: input.psipediaEdit, initializeEmpty,
@@ -78,8 +86,13 @@ export async function reserveUnifiedField(input: {
   const notion = input.notion.present ? input.notion.value : undefined;
   const psipedia = input.psipedia.present ? input.psipedia.value : undefined;
   const unchanged = decision.action === "unchanged";
-  const allowed = input.direction !== "observe" && decision.action === input.direction;
+  // A recovery marker authorizes only the exact live pair just observed.
+  // If any value, receipt or scope changes, a new observation is required.
+  const confirmedBlocked = confirmedMarker && input.direction === "push" && !confirmedBlankReady;
+  const allowed = input.direction !== "observe" && decision.action === input.direction && !confirmedBlocked;
   const reason = unchanged || allowed ? null :
+    confirmedBlocked ? "CONFIRMED_BLANK_CHANGED" :
+    confirmedBlankReady && input.direction === "observe" ? "CONFIRMED_BLANK_PUSH" :
     initialMarker && !samePair ? "INITIAL_FILL_CHANGED" :
     old?.reason === "INITIAL_FILL_CHANGED" && !baseline ? "INITIAL_FILL_CHANGED" :
     initializeEmpty && !baseline && decision.action === "push" ? "INITIAL_FILL_PUSH" :

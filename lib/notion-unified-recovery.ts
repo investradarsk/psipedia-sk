@@ -86,7 +86,7 @@ async function pushRecoveryField(database:D1Database,bindings:Bindings,identity:
       return result.enabled&&result.schemaReady&&!result.failed&&Boolean(result.pushedToNotion||result.unchanged);
     }
     case "organizations":case "adoptions":case "lost-found":case "help-cases":
-      return await syncOneAdminHelpRecord({database,bindings,agenda:identity.agenda,entityId:id,changedHelpFields:[identity.field]})==="synced";
+      return await syncOneAdminHelpRecord({database,bindings,agenda:identity.agenda,entityId:id,expectedNotionPageId:identity.pageId,changedHelpFields:[identity.field]})==="synced";
     case "directory":
       await recoverDirectoryV2Field(database,bindings,id,identity.pageId,identity.field,"push");return true;
     case "breeds":
@@ -100,10 +100,12 @@ async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   const observed=await readUnifiedFieldState(database,key);
   // Catch missed inbound events only where one current value differs from a
   // verified baseline. The adapter re-observes and reserves before writing.
+  // A confirmed blank may be filled from SQL without a fabricated receipt;
+  // its scoped marker must survive the adapter's fresh pre-write check.
   // Never fabricate a signed event, resolve a dual edit or erase with blanks.
   if(observed?.status==="REVIEW"&&observed.reason==="INITIAL_FILL_PULL"){
     await observe(database,bindings,key,"pull");
-  }else if(observed?.status==="REVIEW"&&observed.reason==="INITIAL_FILL_PUSH"){
+  }else if(observed?.status==="REVIEW"&&(observed.reason==="INITIAL_FILL_PUSH"||observed.reason==="CONFIRMED_BLANK_PUSH")){
     await pushRecoveryField(database,bindings,key,true);
   }else if(observed?.status==="REVIEW"&&observed.reason==="RECOVERY_DIRECTION_REQUIRED"&&
     observed.baselineVersion&&observed.baseline!==undefined&&observed.notion!==undefined&&observed.psipedia!==undefined&&
