@@ -24,6 +24,7 @@ function tagsFromText(value: string) {
 
 export function AdminEshopEditor({ shop,initialReview=null }: { shop: ManagedEshop;initialReview?:{reviewed:boolean;reviewedAt:string}|null }) {
   const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [name, setName] = useState(shop.name);
   const [slug, setSlug] = useState(shop.slug);
   const [websiteUrl, setWebsiteUrl] = useState(shop.websiteUrl);
@@ -70,11 +71,7 @@ export function AdminEshopEditor({ shop,initialReview=null }: { shop: ManagedEsh
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
-    let reviewOnSave=false;
-    if(review&&!review.reviewed){
-      reviewOnSave=window.confirm("E-shop ešte nie je odkontrolovaný. Chceš uložiť zmeny a zároveň ho označiť ako Odkontrolované?");
-      if(!reviewOnSave&&!window.confirm("Uložiť bez uzamknutia? Notion zostane autoritou profilu."))return;
-    }
+    const reviewOnSave=Boolean(review&&!review.reviewed&&lockWithSave);
     setSaving(true);
     setMessage("");
     setError("");
@@ -127,6 +124,10 @@ export function AdminEshopEditor({ shop,initialReview=null }: { shop: ManagedEsh
   return (
     <form className={styles.editor} noValidate onSubmit={save}>
       {review&&<AdminReviewCheckbox key={String(review.reviewed)+review.reviewedAt} entityType="ESHOP" entityId={shop.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate disabled={saving||dirty} onReviewChange={setReview}/>}
+      {review&&!review.reviewed&&<div role="status">
+        <p>Neodkontrolovaný e-shop: Notion môže prepísať uložené úpravy.</p>
+        <label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={event=>setLockWithSave(event.target.checked)}/> Uložiť a označiť ako Odkontrolované</label>
+      </div>}
       <EditorWorkspace
         mode="page"
         title={"E-shop — " + (name || "Úprava profilu")}
