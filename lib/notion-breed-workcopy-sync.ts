@@ -182,6 +182,16 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
   }
   const snapshot = breedFieldSnapshot(after) as Record<string, unknown>;
   const value = field === "fciNumber" ? after.fciNumber : snapshot[field];
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const listColumns:Record<string,string>={gallery:"gallery_json",sports:"sports_json",sources:"sources_json",healthRisks:"health_risks_json",goodFor:"good_for_json",consider:"consider_json"};
+    const column=listColumns[field];
+    if(column){
+      const cell=await database.prepare("SELECT "+column+" AS value FROM managed_breeds WHERE id=? AND updated_at=?")
+        .bind(after.id,after.updatedAt).first<{value:string}>();
+      if(!cell||typeof cell.value!=="string"||!same(JSON.parse(cell.value),value))
+        throw Error("BREED_STRUCTURED_CANONICAL_UNKNOWN");
+    }
+  }
   return { page, revision: after.updatedAt, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
     notionSiblings:Object.fromEntries(parsed.values.map(item=>[item.field,item.value])),
     notion: breedWorkcopyObservation(remote?.value, !!remote),
