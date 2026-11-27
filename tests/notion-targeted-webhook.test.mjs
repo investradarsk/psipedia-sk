@@ -362,7 +362,8 @@ test("signed webhook only acknowledges a committed D1 receipt", async () => {
   assert.ok(webhook.includes("await enqueueNotionWebhook(bindings.DB, data, body)"));
   assert.ok(webhook.includes('result: "queued"'));
   assert.ok(webhook.includes('status: 503'));
-  assert.ok(webhook.includes("if (bindings.NOTION_WEBHOOK_INBOX_ENABLED !== \"true\")"));
+  assert.ok(webhook.includes('if (bindings.NOTION_WEBHOOK_INBOX_ENABLED !== "true" && data.type !== "page.deleted")')); 
+  assert.ok(webhook.includes('if (data.type === "page.deleted")'));
   assert.ok(webhook.includes("await dispatchNotionPageChange(data, bindings)"));
   assert.ok(webhook.indexOf("await dispatchNotionPageChange(data, bindings)") < webhook.indexOf("await enqueueNotionWebhook(bindings.DB, data, body)"));
   assert.ok(worker.includes("controller.cron === ADMIN_PUSH_CRON"));
