@@ -2,28 +2,18 @@
   /* Shared public banner geometry; editorial tone colors remain intentionally distinct. */
   --context-banner-ink: var(--forest-dark, #17352b);
   --context-banner-muted: var(--muted, #5f6e66);
-  display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--ps-banner-border, var(--ps-border-soft));
-  border-radius: var(--ps-banner-radius, 18px);
+  /* Border and color are owned by the shared frame. */
   color: var(--context-banner-ink);
-  background: var(--paper, #fffdf8);
 }
 
 .hasImage {
-  grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
+  min-width: 0;
 }
 
 .copy {
-  display: grid;
   min-width: 0;
-  max-width: 760px;
-  align-content: center;
-  justify-items: start;
-  gap: 8px;
-  padding: clamp(24px, 3.5vw, 38px);
 }
 
 .icon {
@@ -75,8 +65,9 @@
   margin-bottom: 0;
 }
 
-.copy > a {
-  margin-top: 5px;
+/* Legacy inline flag is a semantic hook, not a separate layout. */
+.inline > .copy {
+  min-width: 0;
 }
 
 .media {
@@ -97,46 +88,25 @@
   --context-banner-ink: var(--ps-premium-on-dark);
   --context-banner-muted: var(--ps-premium-muted-on-dark);
   --context-banner-eyebrow: var(--ps-premium-kicker-on-dark);
-  border-color: rgba(23, 53, 43, 0.18);
-  border-left: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
-  background: var(--ps-premium-gradient);
+  color: var(--context-banner-ink);
 }
 
 .tone_sage {
-  background: linear-gradient(135deg, #edf3e9, #f9f8f1);
+  color: var(--context-banner-ink);
 }
 
 .tone_coral {
   --context-banner-eyebrow: var(--coral-dark, #b94732);
-  border-left: 3px solid var(--coral-dark, #b94732);
-  background: linear-gradient(135deg, #f8f4eb, #fffdf8);
+  color: var(--context-banner-ink);
 }
 
 .tone_sand {
-  background: linear-gradient(135deg, #f5efe2, #fffaf2);
+  color: var(--context-banner-ink);
 }
 
 @media (max-width: 720px) {
-  .hasImage {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .copy {
-    gap: 7px;
-    padding: 22px 20px 20px;
-  }
-
-  .copy h2 {
-    font-size: clamp(1.65rem, 8vw, 2.2rem);
-  }
-
   .text {
     font-size: 0.8rem;
-  }
-
-  .copy > a {
-    width: 100%;
-    min-height: 46px;
   }
 
   .media {
@@ -145,71 +115,7 @@
   }
 }
 
-/* DS-4: one owned compact layout for the events organizer banner. */
-/* Do not duplicate grid rules in the consuming page stylesheet. */
-.inline > .copy {
-  max-width: none;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 24px;
-  padding: 20px clamp(20px, 3vw, 26px);
-}
-.inline > .copy > :not(a) {
-  grid-column: 1;
-}
-.inline > .copy > a {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  align-self: center;
-  justify-self: end;
-  margin: 0;
-}
-.inline .copy h2 {
-  font-size: clamp(1.45rem, 2.5vw, 2rem);
-}
-.banner h2,
-.text,
-.copy > a {
-  overflow-wrap: anywhere;
-}
-.copy > a {
-  max-width: 100%;
-  min-height: 44px;
-}
-
-@media (max-width: 720px) {
-  .inline > .copy {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    padding: 20px;
-  }
-  .inline > .copy > a {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: stretch;
-    width: 100%;
-    min-height: 48px;
-  }
-  .copy > a {
-    min-height: 48px;
-    justify-content: center;
-  }
-}
-
 @media (min-width: 821px) {
-  .banner > .copy {
-    max-width: none;
-    width: 100%;
-    gap: 18px;
-    padding: 18px clamp(18px, 2.4vw, 28px);
-  }
-  .hasImage > .copy {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .inline > .copy > :not(a),
-  .inline > .copy > a {
-    grid-column: auto;
-    grid-row: auto;
-  }
   .tone_forest :global([data-public-heading]),
   .tone_forest :global([data-public-banner-content]) {
     color: #fff;
@@ -220,17 +126,7 @@
 }
 
 @media (min-width: 901px) {
-  .banner.hasImage {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .banner .media {
     display: none;
-  }
-  .banner.hasImage > .copy {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .banner .copy [data-public-heading] {
-    font-size: var(--ps-heading-content-section);
-    line-height: 1.25;
   }
 }
