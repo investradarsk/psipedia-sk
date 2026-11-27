@@ -1,8 +1,9 @@
 import { runUnifiedReviewTransition, isUnifiedManualFenceActive } from "./notion-unified-manual-fence.ts";
-import { notionRequest, notionRichTextProperty, type NotionPage, type NotionSyncBindings } from "./notion-sync-shared.ts";
+import { notionRequest, notionRichTextProperty, type NotionPage as BaseNotionPage, type NotionSyncBindings } from "./notion-sync-shared.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { sameNotionProperty, selectiveNotionProperties } from "./notion-selective-property-patch.ts";
 
+type NotionPage=BaseNotionPage & {archived?:boolean;in_trash?:boolean;parent?:{type?:string;data_source_id?:string;database_id?:string}};
 type Agenda="breeds"|"eshops";
 const specs={
   breeds:{table:"managed_breeds",type:"BREED",mapping:"breed_notion_workcopy_links",key:"breed_id",page:"work_notion_page_id",extra:" AND status='ACTIVE'"},
