@@ -156,7 +156,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
       const identity={agenda:"organizations" as const,entityId:String(entityId),pageId,field};
       const historical=await readProfileFieldBaseline({database,agenda:"organizations",entityId,pageId,expectedHash:observation.mapping.content_hash});
       const reservation=structural ? null : await reserveUnifiedField({
-        database,identity,historicalBaseline:historical && Object.hasOwn(historical,field)
+        database,identity,authorityBindings:input.bindings,authorityProperty:observation.page.properties?.[field],historicalBaseline:historical && Object.hasOwn(historical,field)
           ? {value:historical[field],version:observation.mapping.content_hash} : null,
         notion:observation.notion,psipedia:observation.psipedia,direction,
         psipediaEdit:await readUnifiedAdminEdit(database,identity,observation.revision),
@@ -206,7 +206,7 @@ export async function recoverOrganizationV2Field(input:OrganizationV2Scope,field
   const {database,entityId,pageId}=input;
   const historical=await readProfileFieldBaseline({database,agenda:"organizations",entityId,pageId,expectedHash:observed.mapping.content_hash});
   const identity={agenda:"organizations" as const,entityId:String(entityId),pageId,field};
-  await reserveUnifiedField({database,identity,direction:"observe",notion:observed.notion,psipedia:observed.psipedia,
+  await reserveUnifiedField({database,identity,direction:"observe",authorityBindings:input.bindings,authorityProperty:observed.page.properties?.[field],notion:observed.notion,psipedia:observed.psipedia,
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:observed.mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision)});
 }
