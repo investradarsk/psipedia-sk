@@ -283,7 +283,7 @@
 /* Same SVG waves and dog at every width. Wide banners reserve an illustration
  * lane; narrow banners put the same artwork in a compact trailing row so it
  * cannot overlap the copy or the action. */
-@container ps-editorial-banner (min-width: 521px) {
+@container ps-editorial-banner (width > 520px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"])
     > [data-public-banner-content] {
     box-sizing: border-box;
