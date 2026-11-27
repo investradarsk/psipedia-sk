@@ -105,8 +105,10 @@ function AdminHelpLabelledSourceEditor({
   );
 }
 
-export function AdminHelpEditor({ item, automationSuggestions = [], returnHref = "/admin/pomoc" }: { item?: HelpCase; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
+export function AdminHelpEditor({ item, initialReview=null, automationSuggestions = [], returnHref = "/admin/pomoc" }: { item?: HelpCase; initialReview?:{reviewed:boolean;reviewedAt:string}|null; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
   const router = useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [title, setTitle] = useState(item?.title ?? "");
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleDraftRef = useRef(item?.title ?? "");
@@ -225,10 +227,11 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
       const response = await fetch(item ? `/api/admin/help/${item.id}` : "/api/admin/help", {
         method: item ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...(item ? { expectedUpdatedAt: persistedRevision.current } : {}), title: titleDraftRef.current || titleInputRef.current?.value || title, slug, category, status: nextStatus, excerpt, description, organization, dogName, breed, ageNote, city, region, locationNote, reportedDate: reportedDate || null, deadlineDate: deadlineDate || null, actionLabel, actionUrl: actionUrl || null, contactNote, goalAmount: goalAmount || null, raisedAmount: raisedAmount || null, imageUrl: imageUrl || null, imageKey: imageKey || null, thumbnailImageDisplay, detailImageDisplay, verified, urgent, resolved, seo }),
+        body: JSON.stringify({ ...(item ? { expectedUpdatedAt: persistedRevision.current,reviewOnSave:Boolean(review&&!review.reviewed&&lockWithSave) } : {}), title: titleDraftRef.current || titleInputRef.current?.value || title, slug, category, status: nextStatus, excerpt, description, organization, dogName, breed, ageNote, city, region, locationNote, reportedDate: reportedDate || null, deadlineDate: deadlineDate || null, actionLabel, actionUrl: actionUrl || null, contactNote, goalAmount: goalAmount || null, raisedAmount: raisedAmount || null, imageUrl: imageUrl || null, imageKey: imageKey || null, thumbnailImageDisplay, detailImageDisplay, verified, urgent, resolved, seo }),
       });
-      const data = await response.json() as { item?: HelpCase; error?: string };
+      const data = await response.json() as { item?: HelpCase; error?: string;review?:{reviewed:boolean;reviewedAt:string}|null };
       if (!response.ok || !data.item) throw new Error(data.error || "Prípad sa nepodarilo uložiť.");
+      if(data.review){setReview(data.review);if(data.review.reviewed&&!review?.reviewed)router.refresh();}
       persistedRevision.current = data.item.updatedAt;
       setSyncRevision(v=>v+1);
       if (item) navigation.markSavedIfUnchanged(submittedRevision);
@@ -264,6 +267,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
         layout="sidebar" mode="switch" ariaLabel="Sekcie editora Pomoc psom" />
       <div className={styles.helpEditorBody}>
         <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+        {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaný prípad: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
         <div className="admin-event-editor-grid"><div className="admin-event-fields">
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     <AdminEditorSection id="help-basics" className="admin-form-card admin-form-card--intro"><div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Názov a krátke vysvetlenie, aká pomoc je potrebná.</p></div></div></div><div className="admin-field admin-field--title"><label htmlFor="help-title">Názov prípadu alebo výzvy</label><input ref={titleInputRef} id="help-title" value={title} onChange={(event) => changeTitle(event.target.value)} placeholder="Napríklad: Ben hľadá pokojný domov" required /></div><div className="admin-field"><label htmlFor="help-excerpt">Krátky popis</label><AdminLexicalTextField id="help-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); navigation.markDirty(); }} placeholder="Čo sa deje a aká pomoc je potrebná?" required ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div></AdminEditorSection>
