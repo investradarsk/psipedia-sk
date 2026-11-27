@@ -30,6 +30,7 @@ const expectedSubmenus = {
   ],
   starostlivost: [
     ["Zdravie", "/starostlivost/zdravie"],
+    ["Zdravotný kalendár psa", "/starostlivost/zdravotny-kalendar"],
     ["Výživa", "/starostlivost/vyziva"],
     ["Každodenná výchova", "/starostlivost/vycvik"],
     ["Správanie", "/starostlivost/spravanie"],

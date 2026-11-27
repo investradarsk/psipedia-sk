@@ -269,6 +269,12 @@ export const portalSections: PortalSection[] = [
         featuredArticleSlugs: ["kedy-ist-so-psom-k-veterinarovi", "horuce-dni-so-psom-bezpecne"],
       },
       {
+        slug: "zdravotny-kalendar", label: "Zdravotný kalendár psa", icon: "📅",
+        description: "Osobný prehľad očkovania, odčervenia, návštev veterinára a hmotnosti psa.",
+        seoTitle: "Zdravotný kalendár psa – termíny a evidencia",
+        metaDescription: "Zaznamenaj očkovanie, odčervenie, ochranu proti parazitom a hmotnosť viacerých psov. Naplánuj termíny a exportuj ich do kalendára bez registrácie.",
+      },
+      {
         slug: "vyziva", label: "Výživa", icon: "🥣", description: "Krmivá, dávky, kondícia a rozhodovanie bez marketingových mýtov.",
         intro: "Vyberaj krmivo podľa potrieb konkrétneho psa, jeho kondície a tolerancie — nie iba podľa reklamy na obale.",
         popularTopics: ["Výber granúl", "Denná dávka", "Zmena krmiva", "Zdravá kondícia"],

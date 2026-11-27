@@ -8,6 +8,7 @@ import { ArrowIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/compone
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import { PuppyEquipmentLink } from "@/components/puppy-equipment-page";
+import { DogHealthCalendarLink } from "@/components/dog-health-calendar-page";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   PublicActionLink,
@@ -557,7 +558,7 @@ export async function EditorialSectionHub({
     {
       title: "Zdravie a každodenná starostlivosť",
       description: "Prevencia, výživa a zdravé návyky.",
-      slugs: ["zdravie", "vyziva", "srst-a-hygiena"],
+      slugs: ["zdravie", "zdravotny-kalendar", "vyziva", "srst-a-hygiena"],
     },
     {
       title: "Život so psom",
@@ -642,6 +643,7 @@ export async function EditorialSectionHub({
           <HubCallout sectionSlug={sectionSlug} />
         </PageContainer>
         {sectionSlug === "steniatka" && <PageContainer><PuppyEquipmentLink section={section} /></PageContainer>}
+        {sectionSlug === "starostlivost" && <PageContainer><DogHealthCalendarLink section={section} /></PageContainer>}
 
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
@@ -863,6 +865,7 @@ export async function EditorialSectionTopic({
             <HubCallout sectionSlug={sectionSlug} subpage={subpage} />
           </div>
           {sectionSlug === "steniatka" && ["pred-kupou-psa", "prve-dni"].includes(subpage.slug) && <PuppyEquipmentLink section={section} />}
+          {sectionSlug === "starostlivost" && ["zdravie", "vyziva"].includes(subpage.slug) && <DogHealthCalendarLink section={section} />}
           <section
             className={styles.relatedSection}
             aria-labelledby="topic-related-heading"
