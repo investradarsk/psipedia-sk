@@ -49,7 +49,7 @@ const projection="json_object("+[
   }),
 ].join(",")+")";
 export function commitHelpCaseV2AdminEdit(database:D1Database,statement:D1PreparedStatement,input:{
-  id:number;expectedRevision:string;nextRevision:string;editor:string
+  id:number;expectedRevision:string;nextRevision:string;editor:string;companionStatements?:readonly D1PreparedStatement[]
 }){
   return commitHelpV2AdminEdit(database as unknown as AdoptionD1Database,statement as unknown as AdoptionD1Statement,{
     ...input,agenda:"help-cases",table:"help_cases",projection,
