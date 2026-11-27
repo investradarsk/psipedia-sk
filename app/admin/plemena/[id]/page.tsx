@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { notFound } from "next/navigation";
 import { AdminBreedEditor } from "@/components/admin-breed-editor";
@@ -25,8 +24,7 @@ export default async function EditBreedPage({ params, searchParams }: Props) {
   return (
     <AdminShell recordId={numeric} user={user} eyebrow={breed.status === "published" ? "Publikované plemeno" : "Koncept"}
       title={`Upraviť: ${breed.name}`} description="Zmeny sa na verejnom atlase ukážu po publikovaní.">
-      {review&&<AdminReviewCheckbox entityType="BREED" entityId={numeric} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />}
-      <AdminBreedEditor breed={breed} options={options} returnHref={returnHref} />
+      <AdminBreedEditor breed={breed} initialReview={review} options={options} returnHref={returnHref} />
     </AdminShell>
   );
 }
