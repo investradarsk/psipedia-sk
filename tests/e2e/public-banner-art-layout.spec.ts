@@ -47,7 +47,7 @@ test("directory content banners reserve artwork space according to their actual 
     const button = action.getBoundingClientRect();
     return {
       width: outer.width,
-      contentWidth: element.clientWidth - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight),
+      contentWidth: outer.width - parseFloat(getComputedStyle(element).borderLeftWidth) - parseFloat(getComputedStyle(element).borderRightWidth) - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight),
       size: element.getAttribute("data-banner-size"),
       dogVisible: getComputedStyle(art, "::after").display !== "none",
       artBelowAction: art.getBoundingClientRect().top >= button.bottom - 1,
