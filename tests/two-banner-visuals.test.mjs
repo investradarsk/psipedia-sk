@@ -106,7 +106,7 @@ test("banner CTA stacks in a narrow desktop sidebar based on its own width", () 
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important/);
   assert.match(styles, /word-break:\s*normal/);
   assert.match(styles, /justify-self:\s*stretch/);
-  assert.match(styles, /\.ps-public-banner-frame\[data-banner-size="small"\] \[data-public-banner-content\]/);
+  assert.match(styles, /\[data-public-banner-content\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important;/);
 
   assert.match(article, /<ArticlePromo[\s\S]*?\bcompact\s*\/>/);
   assert.match(promo, /compact=\{compact\}/);
@@ -217,4 +217,14 @@ test("internal editorial promotion adapters share the canonical copy and action 
   assert.match(hub, /data-banner-semantic=\{cta.key === "health-urgent" \? "urgent" : undefined\}/);
   assert.match(read("components/article-promo.tsx"), /<PublicMagazineBanner/);
   assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
+});
+
+
+test("banner layout has one canonical grid and no competing contextual CTA columns", () => {
+  const shared = read("app/banner-visuals.css");
+  const contextual = read("components/public-visual-system/public-context-banner.module.css");
+  const magazine = read("components/public-visual-system/public-magazine-banner.module.css");
+  assert.equal((shared.match(/grid-template-columns:\s*minmax\(0, 1fr\) !important;/g) ?? []).length, 1);
+  assert.doesNotMatch(contextual, /grid-template-columns:|grid-column:|grid-row:/);
+  assert.doesNotMatch(magazine, /\.bannerContent\s*\{[^}]*grid-template-columns:/);
 });
