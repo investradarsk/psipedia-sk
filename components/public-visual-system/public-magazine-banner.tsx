@@ -67,9 +67,8 @@ export function PublicMagazineBanner({
     <PublicBannerFrame
       as="section"
       visual={visual ?? (photoTone ? "dark" : "light")}
-      size={size ?? (compact ? "small" : "medium")}
+      size={size ?? (compact ? "small" : "large")}
       data-banner-desktop-visual={desktopColors?.visual}
-      data-banner-desktop-size={desktopColors?.size}
       id={anchorId}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}
       className={[
