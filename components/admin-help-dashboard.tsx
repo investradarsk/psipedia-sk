@@ -175,6 +175,8 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
 
     <section className="admin-panel" data-admin-help-list>
       <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať prípady pomoci" data-admin-list-filters>
+        {filters.sort && <input type="hidden" name="sort" value={filters.sort} />}
+        {filters.direction && <input type="hidden" name="direction" value={filters.direction} />}
         <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, Admin ID, pes, mesto alebo organizácia" maxLength={120} /></label>
         <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
         <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
@@ -200,7 +202,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         onFinished={() => { setSelected(new Set()); router.refresh(); }}
       />}
       {message && <p className="admin-flash" role="status">{message}</p>}
-      <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
+      <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{resultCount}</strong>{pages > 1 && <> · Strana {page} z {pages}</>}</p>
       {items.length ? <AdminRecordTable
         stickyActions
         rows={items}
@@ -244,13 +246,15 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           </div> },
         ]}
       />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne prípady pomoci pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
-      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie prípadov pomoci" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>
+      {pages > 1 && <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie prípadov pomoci" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>}
     </section>
 
     <AdminModalDialog
       open={bulkReview !== null}
       title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané prípady pomoci" : "Presunúť vybrané prípady pomoci do konceptu"}
-      description="Zmena sa týka iba publikačného stavu. Server pri potvrdení znovu overí verziu a publikačné pravidlá."
+      description={bulkReview?.targetStatus === "published"
+        ? "Prípady budú viditeľné na verejnom webe. Stav riešenia prípadu zostane rovnaký."
+        : "Prípady sa skryjú z verejného webu. V Admine ich môžete ďalej upravovať."}
       onClose={() => { if (!bulkBusy) setBulkReview(null); }}
       footer={<>
         <AdminActionButton variant="neutral" disabled={bulkBusy} onClick={() => setBulkReview(null)}>Zrušiť</AdminActionButton>
@@ -270,10 +274,10 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     </AdminModalDialog>
     <AdminDestructiveConfirmDialog
       open={pendingDelete !== null}
-      title="Natrvalo odstrániť Help záznam"
+      title="Natrvalo odstrániť prípad pomoci"
       description={pendingDelete ? `Naozaj chceš natrvalo odstrániť „${pendingDelete.title}“?` : undefined}
       affectedCount={pendingDelete ? 1 : 0}
-      affectedLabel="Help záznam"
+      affectedLabel="Prípad pomoci"
       confirmLabel="Natrvalo odstrániť"
       pending={deletingId !== null}
       onCancel={() => { if (deletingId === null) setPendingDelete(null); }}
