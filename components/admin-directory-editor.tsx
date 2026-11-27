@@ -512,8 +512,8 @@ export function AdminDirectoryEditor({
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
       // For legacy clients, a Contacts-tab save may explicitly reconfirm contacts.
-      // Every canonical Admin save independently sends fullProfileSave and all
-      // currently displayed values; the server reconfirms all five contacts.
+      // Contact writes require their own interaction receipt, even on full saves.
+      // An explicit Contacts-tab reconfirmation may mirror non-empty values.
       const confirmContactSync = Boolean(profile && category === profile.category &&
         currentDirectorySection === "directory-contacts" && editedContactsRef.current.size === 0);
       const breederBaseline = breederSaveBaselineRef.current;
@@ -621,6 +621,8 @@ export function AdminDirectoryEditor({
           ...(profile ? {
             fullProfileSave: true,
             expectedUpdatedAt: breederBaseline?.updatedAt ?? profile.updatedAt,
+            contactEditedFields,
+            contactOriginalValues,
           } : {}),
           ...(breederChangedPaths ? {
             breederEditedPaths: breederChangedPaths,
@@ -632,8 +634,6 @@ export function AdminDirectoryEditor({
               description: breederBaseline?.description ?? "",
             },
             explicitlyClearedContacts,
-              contactEditedFields,
-              contactOriginalValues,
           } : {}),
           ...(confirmContactSync ? { confirmContactSync: true } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
