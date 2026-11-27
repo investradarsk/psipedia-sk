@@ -1664,3 +1664,66 @@ test("shared review transition fences every agenda and unlocks only after verifi
     }
   } finally { db.close(); }
 });
+
+
+test("authority reservation across all eight mapped agendas rejects missing raw text and blocks ordinary push",async()=>{
+  const {reserveUnifiedField,assertUnifiedReservationCurrent,isVerifiedAuthorityText}=await import("../lib/notion-unified-field-transfer.ts");
+  const {readUnifiedFieldState}=await import("../lib/notion-unified-field-state.ts");
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec(await readFile(new URL("../drizzle/0178_notion_unified_field_state.sql",import.meta.url),"utf8"));
+    db.exec(`
+      CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
+      CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER,reviewed_at TEXT,reviewed_by TEXT);
+      CREATE TABLE directory_profile_review_state(profile_id INTEGER,reviewed_at TEXT,unlock_pending INTEGER);
+      CREATE TABLE partner_resources(id TEXT,entity_type TEXT,directory_profile_id INTEGER,managed_event_id INTEGER,help_organization_id INTEGER);
+      CREATE TABLE partner_memberships(resource_id TEXT,revoked_at TEXT);
+      CREATE TABLE partner_help_claims(status TEXT,adoption_dog_id INTEGER,lost_found_report_id INTEGER,help_case_id INTEGER);
+      CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT);
+      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT);
+      CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER,work_notion_page_id TEXT,status TEXT);
+      CREATE TABLE event_notion_sync(event_id INTEGER,notion_page_id TEXT);
+      CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT);
+      INSERT INTO directory_notion_sync VALUES(1,'p');
+      INSERT INTO breed_notion_workcopy_links VALUES(1,'p','ACTIVE');
+      INSERT INTO event_notion_sync VALUES(1,'p');
+      INSERT INTO eshop_notion_sync VALUES(1,'p');
+    `);
+    const rows=[
+      ["directory","directory_profiles","excerpt",null],
+      ["breeds","managed_breeds","seo.title","BREED"],
+      ["events","managed_events","excerpt","EVENT"],
+      ["organizations","help_organizations","Krátky popis","ORGANIZATION"],
+      ["adoptions","adoption_dogs","Krátky popis","ADOPTION"],
+      ["lost-found","lost_found_dog_reports","Krátky popis","LOST_FOUND"],
+      ["help-cases","help_cases","Perex","HELP_CASE"],
+      ["eshops","managed_eshops","description","ESHOP"],
+    ];
+    const database={prepare(sql){const wrap=args=>({bind(...v){return wrap(v)},async first(){return db.prepare(sql).get(...args)??null}});return wrap([])}};
+    const present=value=>({present:true,value});
+    const raw={type:"rich_text",rich_text:[{type:"text",plain_text:"new"}]};
+    assert.equal(isVerifiedAuthorityText({type:"rich_text",rich_text:[]},present("")),true);
+    assert.equal(isVerifiedAuthorityText({type:"url",url:null},present("")),false);
+    assert.equal(isVerifiedAuthorityText({type:"rich_text",rich_text:[{}]},present("")),false);
+    assert.equal(isVerifiedAuthorityText({type:"rich_text",rich_text:[],has_more:true},present("")),false);
+    assert.equal(isVerifiedAuthorityText({type:"rich_text",rich_text:Array(25).fill({plain_text:""})},present("")),false);
+    for(const [agenda,table,field,type] of rows){
+      db.exec("CREATE TABLE "+table+"(id INTEGER PRIMARY KEY,status TEXT); INSERT INTO "+table+" VALUES(1,'draft')");
+      if(["organizations","adoptions","lost-found","help-cases"].includes(agenda))
+        db.prepare("INSERT INTO notion_agenda_sync VALUES(?,1,'p')").run(agenda);
+      const identity={agenda,entityId:"1",pageId:"p",field};
+      const input={database,identity,historicalBaseline:null,notion:present("new"),psipedia:present("old"),
+        authorityBindings:{NOTION_PROFILE_AUTHORITY_MODE:"validated-text"},authorityProperty:raw};
+      await assert.rejects(reserveUnifiedField({...input,direction:"push"}),/NOTION_AUTHORITY_PULL_REQUIRED/);
+      assert.equal(await reserveUnifiedField({...input,direction:"observe"}),null);
+      assert.equal((await readUnifiedFieldState(database,identity)).reason,"NOTION_AUTHORITY_PULL_REQUIRED");
+      await assert.rejects(reserveUnifiedField({...input,direction:"pull",authorityProperty:undefined,notion:present("")}),/INVALID_NOTION_FIELD/);
+      const reservation=await reserveUnifiedField({...input,direction:"pull",authorityProperty:{type:"rich_text",rich_text:[]},notion:present("")});
+      assert.equal(reservation.value,"");
+      await assertUnifiedReservationCurrent(database,reservation);
+      if(type)db.prepare("INSERT INTO admin_entity_reviews VALUES(?,1,'now','admin')").run(type);
+      else db.exec("INSERT INTO directory_profile_review_state VALUES(1,'now',0)");
+      await assert.rejects(assertUnifiedReservationCurrent(database,reservation),/UNIFIED_FIELD_AUTHORITY_CHANGED/);
+    }
+  }finally{db.close()}
+});
