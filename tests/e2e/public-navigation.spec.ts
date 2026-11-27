@@ -471,3 +471,20 @@ test("dog calculators recalculate, reject invalid inputs and fit small screens",
   await expect(energy.getByRole("status").last()).toContainText("224,0 g/deň");
   for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});await expectNoHorizontalOverflow(page,"Psie kalkulačky "+width);}
 });
+
+test("event calendar exposes a filtered subscription URL and public ICS response",async({page,request})=>{
+  await page.goto("/podujatia");
+  const panel=page.locator("[data-event-subscription]");
+  await expect(panel).toBeVisible();
+  await panel.getByLabel("Kraj",{exact:true}).selectOption("Nitriansky kraj");
+  await panel.getByLabel("Typ podujatia",{exact:true}).selectOption("Výstava");
+  const url=new URL(await panel.getByLabel("Adresa odberu").inputValue());
+  expect(url.searchParams.get("region")).toBe("Nitriansky kraj");
+  expect(url.searchParams.get("typ")).toBe("Výstava");
+  const response=await request.get(url.pathname+url.search);
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/calendar");
+  expect(await response.text()).toContain("BEGIN:VCALENDAR");
+  expect((await request.get(url.pathname+"?typ=unknown")).status()).toBe(400);
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});await expectNoHorizontalOverflow(page,"Odber podujatí "+width);}
+});
