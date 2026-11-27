@@ -21,8 +21,8 @@ export function EventSubscription({initialType="Všetky",initialRegion=""}:{init
     <h2 id="event-subscription-heading"><CalendarPlus size={20} aria-hidden="true"/> Odber podujatí</h2>
     <p>Pridaj si vybrané kynologické podujatia do svojho kalendára. Nové termíny a zmeny sa prejavia pri ďalšom obnovení odberu.</p>
     <div className={styles.fields}>
-      <label>Kraj<PublicSelect value={region} onChange={e=>{setRegion(e.target.value as EventSubscriptionFilters["region"]);setMessage("");}}><option value="">Všetky kraje</option>{slovakRegions.map(r=><option key={r} value={r}>{r}</option>)}</PublicSelect></label>
-      <label>Typ podujatia<PublicSelect value={type} onChange={e=>{setType(e.target.value as EventSubscriptionFilters["type"]);setMessage("");}}><option value="Všetky">Všetky typy</option>{eventTypes.map(t=><option key={t} value={t}>{t}</option>)}</PublicSelect></label>
+      <label>Kraj odberu<PublicSelect value={region} onChange={e=>{setRegion(e.target.value as EventSubscriptionFilters["region"]);setMessage("");}}><option value="">Všetky kraje</option>{slovakRegions.map(r=><option key={r} value={r}>{r}</option>)}</PublicSelect></label>
+      <label>Typ podujatia v odbere<PublicSelect value={type} onChange={e=>{setType(e.target.value as EventSubscriptionFilters["type"]);setMessage("");}}><option value="Všetky">Všetky typy</option>{eventTypes.map(t=><option key={t} value={t}>{t}</option>)}</PublicSelect></label>
     </div>
     <label className={styles.address}>Adresa odberu<input readOnly value={url} onFocus={e=>e.target.select()}/></label>
     <div className={styles.actions}><PublicActionButton onClick={copy}>Kopírovať adresu</PublicActionButton><a href={google} target="_blank" rel="noopener noreferrer">Google Kalendár ↗</a><a href={webcal}>Apple / iný kalendár</a></div>

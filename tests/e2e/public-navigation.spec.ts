@@ -476,8 +476,8 @@ test("event calendar exposes a filtered subscription URL and public ICS response
   await page.goto("/podujatia");
   const panel=page.locator("[data-event-subscription]");
   await expect(panel).toBeVisible();
-  await panel.getByLabel("Kraj",{exact:true}).selectOption("Nitriansky kraj");
-  await panel.getByLabel("Typ podujatia",{exact:true}).selectOption("Výstava");
+  await panel.getByLabel("Kraj odberu",{exact:true}).selectOption("Nitriansky kraj");
+  await panel.getByLabel("Typ podujatia v odbere",{exact:true}).selectOption("Výstava");
   const url=new URL(await panel.getByLabel("Adresa odberu").inputValue());
   expect(url.searchParams.get("region")).toBe("Nitriansky kraj");
   expect(url.searchParams.get("typ")).toBe("Výstava");
