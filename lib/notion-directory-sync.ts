@@ -1,3 +1,4 @@
+import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
@@ -1332,13 +1333,28 @@ async function recentNotionPages(
   return response.results ?? [];
 }
 
-async function bootstrapProfileIds(database: D1Database) {
+async function createStagedDirectoryCopy(database:D1Database,bindings:NotionDirectorySyncBindings,dataSourceId:string,profileId:number){
+  const schema=(await notionRequest<{properties?:Record<string,unknown>}>(bindings,"/data_sources/"+encodeURIComponent(dataSourceId))).properties??{};
+  return ensureFirstProfileNotionCopy({database,bindings,agenda:"directory",id:profileId,sourceId:dataSourceId,
+    async snapshot(){
+      const profile=await getManagedDirectoryProfileById(profileId,database);
+      if(!profile||profile.status==="archived")throw Error("DIRECTORY_FIRST_CREATE_MISSING");
+      const monitor=await getMediaSourceMonitorForEntity(database,"DIRECTORY_PROFILE",profileId);
+      const sourceImageUrl=monitor?.sourceImageUrl||externalSourceImageUrl(profile.imageUrl);
+      const hash=await snapshotHash(profileSnapshot(profile,sourceImageUrl));
+      const geo=await loadGeoMirror(database,profileId);
+      const properties=adaptDirectoryNotionTextProperties(notionProfileProperties(profile,geo??null,hash,profile.updatedAt,sourceImageUrl),schema);
+      return {revision:profile.updatedAt,hash,properties,reviewed:await directoryProfileNotionSyncLocked(database,profileId)};
+    }});
+}
+
+async function bootstrapProfileIds(database: D1Database,staged=false) {
   const result = await database.prepare(`
     SELECT dp.id
     FROM directory_profiles dp
     LEFT JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
-    WHERE dns.directory_profile_id IS NULL AND dp.category <> 'chovatelske-stanice'
-      AND dp.category NOT IN ('veterinari', 'kynologicke-kluby', 'fyzioterapia', 'dalsie-sluzby')
+    WHERE dns.directory_profile_id IS NULL
+      AND (${staged ? "dp.status<>'archived' AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda='directory' AND f.entity_id=CAST(dp.id AS TEXT)) AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind='directory' AND t.record_id=dp.id)" : "dp.category <> 'chovatelske-stanice' AND dp.category NOT IN ('veterinari','kynologicke-kluby','fyzioterapia','dalsie-sluzby')"})
     ORDER BY dp.id ASC
     LIMIT ?
   `).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
@@ -3561,13 +3577,18 @@ export async function runNotionDirectoryBootstrapSweep(input: {
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
 
-  const bootstrapIds = await bootstrapProfileIds(input.database);
+  const bootstrapIds = await bootstrapProfileIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text");
   summary.selected = bootstrapIds.length;
 
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.category === "chovatelske-stanice" || profile.reviewed) continue;
+      if(!profile)continue;
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await createStagedDirectoryCopy(input.database,input.bindings,dataSourceId,profileId);
+        summary.bootstrapped++;await recordNotionTransfer(input.database,"directory:"+profile.category,"ADMIN_TO_NOTION",1);continue;
+      }
+      if (profile.category === "chovatelske-stanice" || profile.reviewed) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
@@ -3581,7 +3602,7 @@ export async function runNotionDirectoryBootstrapSweep(input: {
     }
   }
 
-  summary.hasMore = (await bootstrapProfileIds(input.database)).length > 0;
+  summary.hasMore = (await bootstrapProfileIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")).length > 0;
   return summary;
 }
 
@@ -4297,11 +4318,16 @@ export async function runNotionDirectorySyncSweep(input: {
 
   // A one-page Gemini save must not bootstrap unrelated canonical profiles.
   // Regular scheduled sync continues to bootstrap as before.
-  const bootstrapIds = input.targetPageId ? [] : await bootstrapProfileIds(input.database);
+  const bootstrapIds = input.targetPageId ? [] : await bootstrapProfileIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text");
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.reviewed || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
+      if(!profile)continue;
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await createStagedDirectoryCopy(input.database,input.bindings,dataSourceId,profileId);
+        summary.bootstrapped++;await recordNotionTransfer(input.database,"directory:"+profile.category,"ADMIN_TO_NOTION",1);continue;
+      }
+      if (profile.reviewed || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
