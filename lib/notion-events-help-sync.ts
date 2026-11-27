@@ -494,7 +494,7 @@ async function saveMapping(input: {
     throw new Error("BASELINE_HASH_MISMATCH");
   }
   if (input.agenda === "events") {
-    await input.database.prepare(`
+    const receipt=await input.database.prepare(`
       INSERT INTO event_notion_sync (
         notion_page_id,event_id,content_hash,notion_last_edited_time,
         psipedia_updated_at,last_synced_at,created_at,updated_at
@@ -506,6 +506,8 @@ async function saveMapping(input: {
         psipedia_updated_at=excluded.psipedia_updated_at,
         last_synced_at=excluded.last_synced_at,
         updated_at=excluded.updated_at
+      WHERE event_notion_sync.notion_page_id=excluded.notion_page_id
+        AND (event_notion_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')
     `).bind(
       input.pageId,
       input.entityId,
@@ -516,13 +518,14 @@ async function saveMapping(input: {
       input.syncedAt,
       input.syncedAt,
     ).run();
+    if(!receipt.success||receipt.meta.changes!==1)throw Error("EVENT_MAPPING_REASSIGNMENT_BLOCKED");
     if (input.snapshot) await recordProfileFieldBaseline({
       database: input.database, agenda: input.agenda, entityId: input.entityId,
       pageId: input.pageId, hash: input.hash, snapshot: input.snapshot, syncedAt: input.syncedAt,
     });
     return;
   }
-  await input.database.prepare(`
+  const receipt=await input.database.prepare(`
     INSERT INTO notion_agenda_sync (
       agenda,notion_page_id,entity_id,content_hash,notion_last_edited_time,
       psipedia_updated_at,last_synced_at,created_at,updated_at
@@ -534,6 +537,8 @@ async function saveMapping(input: {
       psipedia_updated_at=excluded.psipedia_updated_at,
       last_synced_at=excluded.last_synced_at,
       updated_at=excluded.updated_at
+    WHERE notion_agenda_sync.notion_page_id=excluded.notion_page_id
+      AND (notion_agenda_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')
   `).bind(
     input.agenda,
     input.pageId,
@@ -545,6 +550,7 @@ async function saveMapping(input: {
     input.syncedAt,
     input.syncedAt,
   ).run();
+  if(!receipt.success||receipt.meta.changes!==1)throw Error("HELP_MAPPING_REASSIGNMENT_BLOCKED");
   if (input.snapshot) await recordProfileFieldBaseline({
     database: input.database, agenda: input.agenda, entityId: input.entityId,
     pageId: input.pageId, hash: input.hash, snapshot: input.snapshot, syncedAt: input.syncedAt,

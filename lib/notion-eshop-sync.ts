@@ -301,7 +301,7 @@ async function saveMapping(input: {
     "notion_page_id=excluded.notion_page_id,content_hash=excluded.content_hash," +
     "notion_last_edited_time=excluded.notion_last_edited_time,psipedia_updated_at=excluded.psipedia_updated_at," +
     "last_synced_at=excluded.last_synced_at,updated_at=excluded.updated_at " +
-    "WHERE eshop_notion_sync.notion_page_id=excluded.notion_page_id",
+    "WHERE eshop_notion_sync.notion_page_id=excluded.notion_page_id AND (eshop_notion_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')",
   ).bind(
     input.pageId,
     input.shopId,

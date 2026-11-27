@@ -628,6 +628,7 @@ async function saveMapping(input: {
       last_synced_at=excluded.last_synced_at,
       updated_at=excluded.updated_at
     WHERE directory_notion_sync.notion_page_id=excluded.notion_page_id
+      AND (directory_notion_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')
   `).bind(
     input.pageId,
     input.profileId,

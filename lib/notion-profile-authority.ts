@@ -66,7 +66,7 @@ export async function readProfileAuthorityOwner(db:D1Database,identity:FieldIden
     "FROM "+spec.table+" p JOIN "+spec.map+" m ON m."+spec.id+"=p.id "+
     "WHERE p.id=?1 AND m."+spec.page+"=?5"+
     (spec.map==="notion_agenda_sync"?" AND m.agenda=?3":"")+
-    (identity.agenda==="breeds"?" AND m.status='ACTIVE' AND COALESCE(m.work_last_error_code,'')<>'INBOUND_ID_PENDING'":"")
+    (identity.agenda==="breeds"?" AND m.status='ACTIVE' AND COALESCE(m.work_last_error_code,'')<>'INBOUND_ID_PENDING'":" AND m.content_hash<>'INBOUND_ID_PENDING'")
   ).bind(id,spec.kind,identity.agenda,identity.entityId,identity.pageId).first<{status:string;removed:number;fenced:number}>();
   if(!row||row.removed||String(row.status).toLowerCase()==="archived")return "admin";
   if(row.fenced)return "unlocking";
@@ -90,7 +90,7 @@ export function directoryAuthorityWriteGuard(reservation: {identity:FieldIdentit
     AND NOT EXISTS(SELECT 1 FROM partner_resources r JOIN partner_memberships m ON m.resource_id=r.id WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id AND m.revoked_at IS NULL)
     AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind='directory' AND t.record_id=directory_profiles.id)
     AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda='directory' AND f.entity_id=CAST(directory_profiles.id AS TEXT))
-    AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id AND m.notion_page_id=?)
+    AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id AND m.notion_page_id=? AND m.content_hash<>'INBOUND_ID_PENDING')
     AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda='directory' AND s.entity_id=CAST(directory_profiles.id AS TEXT) AND s.notion_page_id=? AND s.field_key=? AND s.version=? AND s.status='PENDING')`,
     params:[identity.pageId,identity.pageId,identity.field,reservation.version]};
 }
