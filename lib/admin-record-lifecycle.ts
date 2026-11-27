@@ -6,7 +6,7 @@ import { notionPageBelongsToDataSource, type NotionOwnedPage } from "./notion-sy
  * source from the browser. The caller supplies only a whitelisted agenda + D1 ID.
  * Apply drizzle/0164 before making any lifecycle mutation.
  */
-export const recordKinds = ["directory","events","help","breeds","articles","adoptions","lost-found","organizations"] as const;
+export const recordKinds = ["directory","events","help","breeds","articles","adoptions","lost-found","organizations","eshops"] as const;
 export type RecordKind = typeof recordKinds[number];
 type RecordSpec = {
   table: string;
@@ -25,12 +25,14 @@ const specs: Record<RecordKind, RecordSpec> = {
   adoptions: { table:"adoption_dogs", title:"name", draft:"DRAFT", publicStatuses:["ACTIVE","RESERVED"], agenda:"adoptions" },
   "lost-found": { table:"lost_found_dog_reports", title:"dog_name", category:"type", draft:"DRAFT", publicStatuses:["ACTIVE","RESOLVED","EXPIRED","ARCHIVED"], agenda:"lost-found" },
   organizations: { table:"help_organizations", title:"name", category:"type", draft:"DRAFT", publicStatuses:["PUBLISHED"], agenda:"organizations" },
+  eshops: {table:"managed_eshops",title:"name",draft:"draft",publicStatuses:["published"]},
 };
 const mappingTables: Partial<Record<RecordKind, { table:string; entity:string }>> = {
   directory: { table:"directory_notion_sync",entity:"directory_profile_id" },
   events: { table:"event_notion_sync",entity:"event_id" },
   breeds: { table:"breed_notion_sync",entity:"breed_id" },
   articles: { table:"article_notion_sync",entity:"article_id" },
+  eshops: {table:"eshop_notion_sync",entity:"eshop_id"},
 };
 type CanonicalRow = Record<string, unknown> & { id:number; slug:string; status:string };
 type NotionTarget = { pageId:string; sourceId:string };
@@ -55,6 +57,7 @@ export type LifecycleBindings = NotionSyncBindings & {
   NOTION_BREEDS_DATA_SOURCE_ID?:string;
   NOTION_BREEDS_WORK_DATA_SOURCE_ID?:string;
   NOTION_ARTICLES_DATA_SOURCE_ID?:string;
+  NOTION_ESHOPS_DATA_SOURCE_ID?:string;
   BUCKET?:R2Bucket;
 };
 const validateId = (id:number) => Number.isSafeInteger(id) && id>0;
@@ -77,11 +80,11 @@ function requireDataSource(id:string) {
   if (!NOTION_UUID.test(id)) throw Error("NOTION_DATA_SOURCE_UNCONFIGURED");
   return id;
 }
-export async function lifecycleSchemaReady(db:D1Database) {
+export async function lifecycleSchemaReady(db:D1Database,kind?:RecordKind) {
   const result = await db.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name IN ('admin_record_tombstones','admin_record_publication_guards')")
     .first<{total:number}>();
   if(result?.total!==2)return false;
-  const triggerNames=recordKinds.flatMap(kind=>[
+  const triggerNames=recordKinds.filter(value=>value!=="eshops"||kind==="eshops").flatMap(kind=>[
     "admin_deleted_"+kind.replace("-","_")+"_insert",
     "admin_removing_"+kind.replace("-","_")+"_update",
     "admin_guarded_"+kind.replace("-","_")+"_delete",
@@ -93,7 +96,12 @@ export async function lifecycleSchemaReady(db:D1Database) {
   const columns=await db.prepare("PRAGMA table_info(admin_record_tombstones)").all<{name:string}>();
   const required=new Set(["notion_targets_json","record_external_key"]);
   for(const column of columns.results??[])required.delete(column.name);
-  return required.size===0;
+  if(required.size!==0)return false;
+  if(kind==="eshops"){
+    const definitions=await db.prepare("SELECT sql FROM sqlite_master WHERE type=\'table\' AND name IN (\'admin_record_tombstones\',\'admin_record_publication_guards\')").all<{sql:string}>();
+    return definitions.results?.length===2&&definitions.results.every(row=>row.sql.includes("\'eshops\'"));
+  }
+  return true;
 }
 async function canonical(db:D1Database,kind:RecordKind,id:number):Promise<CanonicalRow|null> {
   const spec=specs[kind];
@@ -113,6 +121,7 @@ function externalTombstoneKey(kind:RecordKind,row:CanonicalRow):string|null {
     const key=clean(row.import_key);
     return key || null;
   }
+  if(kind==="eshops")return clean(row.website_url).replace(/\/+$/,"").toLowerCase()||null;
   if(kind==="breeds" && Number.isSafeInteger(Number(row.fci_number)) && Number(row.fci_number)>0)
     return String(row.fci_number);
   return null;
@@ -192,7 +201,7 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
     const row=await db.prepare("SELECT notion_page_id FROM "+map.table+" WHERE "+map.entity+"=? LIMIT 1")
       .bind(id).first<{notion_page_id:string}>();
     if (!row?.notion_page_id) return [];
-    const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
+    const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:kind==="eshops"?bindings.NOTION_ESHOPS_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
     return [{pageId:row.notion_page_id,sourceId:clean(source)}];
   }
   const agenda=specs[kind].agenda;
@@ -257,7 +266,7 @@ function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
   // publication is D1-owned there; do not fabricate a Notion property.
   if (kind==="breeds" && !(page.properties as Record<string,unknown>|undefined)?.["Stav"])
     return null;
-  const name=kind==="directory"||kind==="help"||kind==="lost-found"?"Psipedia stav":"Stav";
+  const name=kind==="directory"||kind==="help"||kind==="lost-found"||kind==="eshops"?"Psipedia stav":"Stav";
   if (!(page.properties as Record<string,unknown>|undefined)?.[name])
     throw Error("NOTION_PUBLICATION_PROPERTY_MISSING");
   // Articles must remain Ready so the existing approved Admin republish flow can succeed.
@@ -300,6 +309,7 @@ async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordK
 }
 /** D1 state and a persistent inbound guard are committed before any remote call. */
 export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number) {
+  if(kind==="eshops"&&!await lifecycleSchemaReady(db,kind))throw Error("LIFECYCLE_ESHOPS_SCHEMA_REQUIRED");
   const row=await canonical(db,kind,id);
   if (!row) throw Error("RECORD_NOT_FOUND");
   if (await tombstone(db,kind,id)) throw Error("RECORD_REMOVAL_IN_PROGRESS");
@@ -367,7 +377,7 @@ export async function notionPageHasAdminUnpublishGuard(db:D1Database,pageId:stri
   // the actual schema before preparing SQL that refers to those tables.
   const tables=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' "+
     "AND name IN ('admin_record_publication_guards','directory_notion_sync','event_notion_sync',"+
-    "'breed_notion_sync','breed_notion_workcopy_links','article_notion_sync','notion_agenda_sync')")
+    "'breed_notion_sync','breed_notion_workcopy_links','article_notion_sync','notion_agenda_sync','eshop_notion_sync')")
     .all<{name:string}>();
   const present=new Set((tables.results??[]).map(row=>row.name));
   if(!present.has("admin_record_publication_guards"))return false;
@@ -379,6 +389,7 @@ export async function notionPageHasAdminUnpublishGuard(db:D1Database,pageId:stri
     clauses.push(sql);
     for(let i=0;i<count;i++)params.push(...variants);
   };
+  add("eshop_notion_sync","(g.kind=\'eshops\' AND EXISTS(SELECT 1 FROM eshop_notion_sync m WHERE m.notion_page_id IN (?,?) AND m.eshop_id=g.record_id))");
   add("directory_notion_sync",
     "(g.kind='directory' AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.notion_page_id IN (?,?) AND m.directory_profile_id=g.record_id))");
   add("event_notion_sync",
@@ -468,7 +479,7 @@ async function verifyTrash(bindings:LifecycleBindings,target:NotionTarget,id:num
 function mediaKeys(row:CanonicalRow) {
   const found=new Set<string>();
   for (const [key,value] of Object.entries(row)) {
-    if (typeof value==="string" && /^(?:image_key|og_image_key|main_image_key)$/.test(key)) found.add(value);
+    if (typeof value==="string" && /^(?:image_key|og_image_key|main_image_key|logo_key)$/.test(key)) found.add(value);
     if (typeof value==="string" && /^(?:gallery_json|blocks_json)$/.test(key)) {
       try {
         const walk=(node:unknown,depth:number):void=>{
@@ -617,6 +628,7 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
 }
 export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,
   owner:string,localOnly:boolean,expected:{slug:string;name:string;category:string}) {
+  if(kind==="eshops"&&!await lifecycleSchemaReady(db,kind))throw Error("LIFECYCLE_ESHOPS_SCHEMA_REQUIRED");
   // The owner confirmed the concrete name, category and slug rendered by the
   // preflight dialog. Never delete a renamed/reclassified entity based on a
   // stale confirmation, even when the numeric D1 ID still matches.
