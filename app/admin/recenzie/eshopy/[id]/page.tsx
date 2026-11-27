@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -27,8 +26,7 @@ export default async function AdminEshopEditPage({ params }: { params: Promise<{
       description="Uprav verejný profil, zameranie sortimentu a logo e-shopu."
       actions={<Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>}
     >
-      {review&&<AdminReviewCheckbox entityType="ESHOP" entityId={id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />}
-      <AdminEshopEditor shop={shop} />
+      <AdminEshopEditor shop={shop} initialReview={review} />
     </AdminShell>
   );
 }
