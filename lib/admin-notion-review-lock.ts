@@ -19,6 +19,7 @@ const anchorColumns = {EVENT:"managed_event_id",ORGANIZATION:"help_organization_
 
 /** Only fixed, allowlisted SQL is used to query membership. */
 export function partnerReviewOwnerSql(type: AdminReviewEntityType, entitySql: string): string {
+  if(type==="BREED"||type==="ESHOP")return `(0 AND (${entitySql}) IS NOT NULL)`;
   if(type in helpColumns){
     const col=helpColumns[type as keyof typeof helpColumns];
     return `EXISTS(SELECT 1 FROM partner_help_claims pc WHERE pc.${col}=(${entitySql}) AND pc.status='APPROVED')`;
@@ -69,6 +70,7 @@ export async function readAdminNotionReviewLocks(database:D1Database,agenda:Lock
 export function partnerAdminReviewStatement(database:D1Database,input:{
   type:AdminReviewEntityType;entitySql:string;nowIso:string;actorRef:string;
 }):D1PreparedStatement{
+  if(input.type==="BREED"||input.type==="ESHOP")throw Error("ADMIN_PARTNER_REVIEW_TYPE_UNSUPPORTED");
   const table=({EVENT:"managed_events",ORGANIZATION:"help_organizations",ADOPTION:"adoption_dogs",
     LOST_FOUND:"lost_found_dog_reports",HELP_CASE:"help_cases"} as const)[input.type];
   return database.prepare(`INSERT OR IGNORE INTO admin_entity_reviews(entity_type,entity_id,reviewed_at,reviewed_by)
