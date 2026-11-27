@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { PublicActionButton } from "@/components/public-visual-system";
 import { PublicChoiceInput } from "@/components/public-visual-system/public-form-controls";
 import { PUPPY_EQUIPMENT_GROUPS, PUPPY_EQUIPMENT_STORAGE_KEY, parsePuppyEquipmentProgress, puppyEquipmentProgress } from "@/lib/puppy-equipment";
 import styles from "./puppy-equipment.module.css";
@@ -51,9 +52,9 @@ export function PuppyEquipmentChecklist() {
       <p className={styles.note}>{ready && (session !== null || raw === null) ? "Ukladanie v prehliadači nie je dostupné. Zmeny zostanú iba počas tejto návštevy." : "Zoznam sa ukladá v tomto prehliadači. Bez registrácie; neprenáša sa medzi zariadeniami."}</p>
       <div className={styles.controls}>
         <label className={styles.filter}><PublicChoiceInput checked={remainingOnly} disabled={!ready} onChange={event => setRemainingOnly(event.target.checked)} /> Len nepripravené</label>
-        <button className={styles.secondary} type="button" disabled={!ready || !ids.length} onClick={() => setConfirmReset(true)}>Vynulovať zoznam</button>
+        <PublicActionButton variant="secondary" disabled={!ready || !ids.length} onClick={() => setConfirmReset(true)}>Vynulovať zoznam</PublicActionButton>
       </div>
-      {confirmReset && <div className={styles.confirm} role="group" aria-label="Potvrdenie vynulovania"><p>Odstrániť všetky zaškrtnutia?</p><button type="button" className={styles.secondary} onClick={() => { save([]); setConfirmReset(false); }}>Áno, vynulovať</button><button type="button" className={styles.secondary} onClick={() => setConfirmReset(false)}>Zrušiť</button></div>}
+      {confirmReset && <div className={styles.confirm} role="group" aria-label="Potvrdenie vynulovania"><p>Odstrániť všetky zaškrtnutia?</p><PublicActionButton variant="secondary" onClick={() => { save([]); setConfirmReset(false); }}>Áno, vynulovať</PublicActionButton><PublicActionButton variant="secondary" onClick={() => setConfirmReset(false)}>Zrušiť</PublicActionButton></div>}
     </div>
     <noscript><p>Na odškrtávanie a ukladanie zoznamu je potrebný JavaScript. Položky si môžeš prečítať aj bez neho.</p></noscript>
     <div className={styles.groups}>

@@ -1,0 +1,27 @@
+/* Shared layout only: the public visual system remains the design authority. */
+.panel {
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--ps-border-soft, var(--line));
+  border-radius: var(--ps-radius-card);
+  padding: clamp(14px, 2.2vw, 22px);
+  overflow-wrap: anywhere;
+}
+.panel :is(h2,h3) {
+  font-family: var(--ps-font-heading, inherit);
+  color: var(--ink);
+  font-weight: var(--ps-component-heading-weight, 650);
+  line-height: 1.25;
+}
+.panel h2 { font-size: clamp(1.15rem, 2vw, 1.4rem); margin: 0 0 .5rem; }
+.panel h3 { font-size: 1.05rem; }
+.note {
+  color: var(--muted);
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: 1.5;
+}
+.toolLink { margin-block: .75rem; min-width: 0; }
+@media (max-width: 720px) {
+  .panel { padding: 12px; }
+}

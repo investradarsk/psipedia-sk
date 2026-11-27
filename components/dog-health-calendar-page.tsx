@@ -3,14 +3,14 @@ import { CalendarHeart } from "lucide-react";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
-import { PublicFoundation } from "@/components/public-visual-system";
+import { PublicFoundation, PublicDataCard, PublicActionLink } from "@/components/public-visual-system";
 import { DogHealthCalendar } from "@/components/dog-health-calendar";
 import type { PortalSection, PortalSubpage } from "@/lib/portal";
 import styles from "./dog-health-calendar.module.css";
 
 export function DogHealthCalendarLink({section}:{section:PortalSection}){
   if(!section.subpages.some(s=>s.slug==="zdravotny-kalendar"&&s.visible!==false))return null;
-  return <Link className={styles.toolLink} href="/starostlivost/zdravotny-kalendar"><CalendarHeart size={26} aria-hidden="true"/><span><strong>Zdravotný kalendár psa</strong><small>Eviduj očkovanie, odčervenie a návštevy veterinára na jednom mieste.</small></span><span aria-hidden="true">→</span></Link>;
+  return <PublicDataCard className={styles.toolLink} href="/starostlivost/zdravotny-kalendar" title="Zdravotný kalendár psa" description="Eviduj očkovanie, odčervenie a návštevy veterinára na jednom mieste." icon={<CalendarHeart />} actionLabel="Otvoriť nástroj" />;
 }
 export function DogHealthCalendarPage({section,subpage}:{section:PortalSection;subpage:PortalSubpage}){
   return <PublicFoundation><main id="obsah" className={styles.page}>
@@ -19,7 +19,7 @@ export function DogHealthCalendarPage({section,subpage}:{section:PortalSection;s
     <PageContainer className={styles.container}>
       <p className={styles.intro}>Naplánuj a zaznamenaj starostlivosť o jedného alebo viac psov. Termíny zadávaš podľa odporúčania svojho veterinára a pokynov konkrétneho prípravku. Nástroj neurčuje dávky ani intervaly očkovania či odčervenia a nenahrádza veterinárne vyšetrenie.</p>
       <DogHealthCalendar/>
-      <div className={styles.panel}><h2>Užitočné odkazy</h2><div className={styles.actions}><Link href="/adresar/veterinari">Nájsť veterinára</Link><Link href="/starostlivost/zdravie">Zdravie psa</Link><Link href="/steniatka/ockovanie-a-zdravie">Očkovanie a zdravie šteniatka</Link></div></div>
+      <div className={styles.panel}><h2>Užitočné odkazy</h2><div className={styles.actions}><PublicActionLink variant="secondary" href="/adresar/veterinari">Nájsť veterinára</PublicActionLink><PublicActionLink variant="secondary" href="/starostlivost/zdravie">Zdravie psa</PublicActionLink><PublicActionLink variant="secondary" href="/steniatka/ockovanie-a-zdravie">Očkovanie a zdravie šteniatka</PublicActionLink></div></div>
     </PageContainer>
   </main></PublicFoundation>;
 }
