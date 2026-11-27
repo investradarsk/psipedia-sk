@@ -1921,3 +1921,50 @@ test("V3 breed work-only proposal keeps historical originals and rejects partial
     assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
   }finally{db.close();}
 });
+
+
+test("shared atomic review-on-save preserves prior reviews and aborts stale canonical writes",async()=>{
+  const {reviewOnSaveStatements}=await import("../lib/admin-review-on-save.ts");
+  const {commitEventAdminEdit}=await import("../lib/notion-unified-admin-edits.ts");
+  const {commitHelpV2AdminEdit}=await import("../lib/notion-help-v2-admin-receipts.ts");
+  for(const [type,table] of [["EVENT","managed_events"],["ADOPTION","adoption_dogs"]]){
+    const sqlite=new DatabaseSync(":memory:");
+    try{
+      sqlite.exec(`
+        CREATE TABLE ${table}(id INTEGER PRIMARY KEY,name TEXT,updated_at TEXT,updated_by TEXT);
+        INSERT INTO ${table} VALUES(1,'old','r1','admin');
+        CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER,reviewed_at TEXT,reviewed_by TEXT,PRIMARY KEY(entity_type,entity_id));
+        CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);
+        CREATE TABLE notion_help_admin_edit_intent(edit_id TEXT,agenda TEXT,entity_id INTEGER,notion_page_id TEXT,before_json TEXT);
+        CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,baseline_version TEXT);
+        CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,edit_id TEXT,baseline_version TEXT,canonical_revision TEXT,observed_at TEXT,value_json TEXT,explicit_clear INTEGER,
+          PRIMARY KEY(agenda,entity_id,notion_page_id,field_key));
+      `);
+      const db={
+        prepare(sql){const wrap=args=>({sql,args,bind(...v){return wrap(v)},async run(){
+          const p=sqlite.prepare(sql),rows=/RETURNING|^SELECT/i.test(sql)?p.all(...args):(p.run(...args),[]);
+          return {success:true,results:rows,meta:{changes:sqlite.prepare("SELECT changes() n").get().n}};
+        }});return wrap([])},
+        async batch(statements){sqlite.exec("BEGIN");try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec("COMMIT");return results;}catch(e){sqlite.exec("ROLLBACK");throw e}}
+      };
+      const save=(expected,next,wrongReview=false)=>{
+        const statement=db.prepare("UPDATE "+table+" SET name=?,updated_at=?,updated_by=? WHERE id=1 AND updated_at=?"+(type==="EVENT"?" RETURNING *":"")).bind("new",next,"admin",expected);
+        const companionStatements=reviewOnSaveStatements(db,{type,id:wrongReview?99:1,revision:next,actor:"admin"});
+        const options={id:1,expectedRevision:expected,nextRevision:next,editor:"admin",companionStatements};
+        return type==="EVENT"?commitEventAdminEdit(db,statement,{...options,fields:[]}):
+          commitHelpV2AdminEdit(db,statement,{...options,agenda:"adoptions",table,projection:"json_object('name',p.name)"});
+      };
+      await assert.rejects(save("stale","r2"));
+      assert.equal(sqlite.prepare("SELECT name FROM "+table).get().name,"old");
+      assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_entity_reviews").get().n,0);
+      await assert.rejects(save("r1","r2",true));
+      assert.equal(sqlite.prepare("SELECT name FROM "+table).get().name,"old");
+      assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_entity_reviews").get().n,0);
+      await save("r1","r2");
+      assert.equal(sqlite.prepare("SELECT updated_at FROM "+table).get().updated_at,"r2");
+      assert.equal(sqlite.prepare("SELECT reviewed_at FROM admin_entity_reviews").get().reviewed_at,"r2");
+      await save("r2","r3");
+      assert.equal(sqlite.prepare("SELECT reviewed_at FROM admin_entity_reviews").get().reviewed_at,"r2");
+    }finally{sqlite.close();}
+  }
+});
