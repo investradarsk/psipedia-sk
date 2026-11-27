@@ -141,3 +141,5 @@
 .sync { flex: 1 1 100%; min-width: 0; }
 .status { font-size: var(--admin-ui-type-caption, .83rem); }
 @media (pointer: coarse) { .footer :is(button, a) { min-height: 44px; } }
+
+.sync:empty { display: none; }
