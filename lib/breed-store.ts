@@ -1,3 +1,7 @@
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
+import { breedSqlV2DirectFieldStatements, breedSqlV2CasGuard } from "./breed-sql-v2-writer.mjs";
+import { BREED_EVENT_SCALAR_COLUMNS } from "./notion-breed-workcopy-field-sql.mjs";
+import { mergeManagedBreedEdit } from "./breed-sync-preservation.ts";
 import {
   breedProfileHref,
   canonicalBreedIdsSqlV2,
@@ -1751,6 +1755,82 @@ export async function updateManagedBreed(
   }
   // All successful paths returned the snapshot read inside the transaction.
 }
+/** Staged combined editor: exact canonical revision, only dirty fields,
+ * optional controlled SQL batch and review state in one transaction.
+ * Untouched relationship rows, their provenance and historic prose survive. */
+export async function saveManagedBreedCombined(input:{
+  database:D1Database;before:ManagedBreed;patch:ManagedBreedInput;fields:readonly string[];
+  actor:string;expectedRevision:string;reviewOnSave:boolean;
+  controlledStatements:(revision:string)=>D1PreparedStatement[];
+}){
+  const {database:db,before,actor}=input,id=before.id;
+  if(before.updatedAt!==input.expectedRevision)throw new BreedUpdateConflictError();
+  const now=nextBreedVersion(input.expectedRevision);
+  const merged=mergeManagedBreedEdit(before,input.patch);
+  const value=clean(merged,before);
+  const fieldSet=new Set(input.fields);
+  const columns:Record<string,string>={...BREED_EVENT_SCALAR_COLUMNS,slug:"slug",status:"status",imageKey:"image_key",
+    importKey:"import_key",gallery:"gallery_json",sports:"sports_json",healthRisks:"health_risks_json",
+    goodFor:"good_for_json",consider:"consider_json",sources:"sources_json"};
+  const selected=new Set<string>();
+  const structured:D1PreparedStatement[]=[];
+  const readValue=(field:string)=>field.split(".").reduce<unknown>((v,key)=>
+    v&&typeof v==="object"?(v as Record<string,unknown>)[key]:undefined,value);
+  for(const field of fieldSet){
+    if(Object.hasOwn(columns,field)){selected.add(columns[field]);continue;}
+    if(["relatedBreedIds","relatedArticleIds","directoryProfileIds"].includes(field))continue;
+    if(!/^(?:fciStandard|editorial|seo)\./.test(field))throw Error("BREED_COMBINED_FIELD_UNKNOWN");
+    const statements=breedSqlV2DirectFieldStatements(db,id,field,readValue(field)??null);
+    if(statements.length!==2)throw Error("BREED_COMBINED_FIELD_UNMAPPED");
+    structured.push(...statements);
+  }
+  if(["name","officialFciName","origin","group","fciSection"].some(field=>fieldSet.has(field)))selected.add("search_text");
+  const entries=breedValueEntries(value).filter(entry=>selected.has(entry.column));
+  if(entries.length!==selected.size)throw Error("BREED_COMBINED_COLUMN_UNMAPPED");
+  const update=db.prepare("UPDATE managed_breeds SET "+
+    [...entries.map(entry=>entry.column+"=?"),"updated_at=?","updated_by=?",
+      "published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END"].join(",")+
+    " WHERE id=? AND updated_at=? AND status<>'archived' "+
+    "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=managed_breeds.id) "+
+    "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='breeds' AND entity_id=CAST(managed_breeds.id AS TEXT)) RETURNING id")
+    .bind(...entries.map(entry=>entry.value),now,actor,value.status,now,id,input.expectedRevision);
+  const relations:D1PreparedStatement[]=[];
+  for(const [field,table,key] of [
+    ["relatedArticleIds","breed_article_relations","article_id"],
+    ["directoryProfileIds","breed_directory_relations","profile_id"],
+  ] as const){
+    if(!fieldSet.has(field))continue;
+    const old=before[field],desired=value[field];
+    for(const other of old.filter(other=>!desired.includes(other)))relations.push(
+      db.prepare("DELETE FROM "+table+" WHERE breed_id=? AND "+key+"=?").bind(id,other));
+    for(const other of desired.filter(other=>!old.includes(other))){
+      relations.push(field==="relatedArticleIds"?
+        db.prepare("INSERT INTO breed_article_relations(breed_id,article_id,created_at,created_by) SELECT ?,id,?,? FROM managed_articles WHERE id=?").bind(id,now,actor,other):
+        db.prepare("INSERT INTO breed_directory_relations(breed_id,profile_id,relation_type,source,created_at,created_by) SELECT ?,id,CASE WHEN category='chovatelske-stanice' THEN 'breeding-station' ELSE 'breed-club' END,'manual',?,? FROM directory_profiles WHERE id=? AND category IN ('chovatelske-stanice','chovatelske-kluby')").bind(id,now,actor,other),
+        breedSqlV2CasGuard(db));
+    }
+  }
+  if(fieldSet.has("relatedBreedIds")){
+    if(value.relatedBreedIds.includes(id))throw Error("BREED_RELATED_SELF");
+    relations.push(db.prepare("DELETE FROM breed_related_breeds WHERE breed_id=?").bind(id));
+    for(const [position,other] of value.relatedBreedIds.entries())relations.push(
+      db.prepare("INSERT INTO breed_related_breeds(breed_id,related_breed_id,position) SELECT ?,id,? FROM managed_breeds WHERE id=?").bind(id,position,other),breedSqlV2CasGuard(db));
+  }
+  const results=await db.batch([update,
+    ...(input.reviewOnSave?reviewOnSaveStatements(db,{type:"BREED",id,revision:now,actor}):[breedSqlV2CasGuard(db)]),
+    ...structured,...relations,...input.controlledStatements(now),
+    db.prepare(`${readSelect} WHERE id=?`).bind(id),
+    db.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),
+    db.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id),
+  ]);
+  if(results.some(row=>!row.success)||results[0]?.results?.length!==1)throw new BreedUpdateConflictError();
+  const [breedResult,articleResult,directoryResult]=results.slice(-3);
+  const row=breedResult.results?.[0] as unknown as Row|undefined;
+  if(!row)throw Error("BREED_COMBINED_RELOAD_FAILED");
+  return fromRow(row,{articles:(articleResult.results as RelationIdRow[]).map(item=>item.id),
+    directory:(directoryResult.results as RelationIdRow[]).map(item=>item.id)});
+}
+
 export async function deleteManagedBreed(id: number) {
   const database = requireDb();
   await ensure(database);
