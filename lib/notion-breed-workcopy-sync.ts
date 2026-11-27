@@ -181,7 +181,8 @@ async function reserveBreedField(database: D1Database, bindings: BreedWorkCopyBi
   const identity = { agenda: "breeds" as const, entityId: String(link.breed_id),
     pageId: link.work_notion_page_id, field };
   const receipt = await readUnifiedAdminEdit(database, identity, observed.revision);
-  const reservation = await reserveUnifiedField({ database, identity, historicalBaseline: null,
+  const reservation = await reserveUnifiedField({ database, identity, authorityBindings: bindings,
+    authorityProperty: observed.page.properties?.[BREED_NOTION_SCHEMA.find(entry=>entry.id===field)?.notion ?? ""], historicalBaseline: null,
     notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction });
   return { ...observed, reservation };
 }
@@ -553,7 +554,7 @@ export async function recoverBreedV2Field(database:D1Database,bindings:BreedWork
   const link=await getActiveLink(database,id);
   if(!link||link.work_notion_page_id!==pageId)throw Error("BREED_V2_RECOVERY_SCOPE");
   if(!BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField)&&field!=="fciNumber")throw Error("BREED_V2_RECOVERY_SCOPE");
-  if(direction==="observe"&&await repairLegacyBreedDuplicate(database,bindings,link,field))return;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"&&direction==="observe"&&await repairLegacyBreedDuplicate(database,bindings,link,field))return;
   const planned=await reserveBreedField(database,bindings,link,field,direction);
   if(direction==="pull"&&planned.reservation){
     const fresh=await observeUnifiedBreedField(database,bindings,link,field);
