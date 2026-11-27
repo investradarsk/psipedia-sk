@@ -1286,12 +1286,19 @@ export async function getBreedDetailRelations(
   };
 }
 
-function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEditorialValues = false) {
+function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEditorialValues = false, allowUnknownDraft = false) {
   const text = (value: unknown, max = 1000) =>
     String(value ?? "")
       .trim()
       .slice(0, max);
-  const score = (value: unknown) => Math.min(5, Math.max(1, Number(value) || 3));
+  const score = (value: unknown) => {
+    if(allowUnknownDraft&&(value===null||value===undefined||value===0)){
+      if(input.status==="published")throw Error("BREED_DRAFT_REQUIRED_RATINGS");
+      return 0;
+    }
+    if(allowUnknownDraft&&(!Number.isInteger(value)||Number(value)<1||Number(value)>5))throw Error("BREED_DRAFT_RATING_INVALID");
+    return Math.min(5, Math.max(1, Number(value) || 3));
+  };
   const strings = cleanBreedEditorialList;
   const ids = (value: unknown) =>
     Array.isArray(value)
@@ -1447,7 +1454,9 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEd
     imageKey: input.imageKey ? text(input.imageKey, 700) : null,
     gallery,
     fciNumber,
-    fciGroup: Math.min(10, Math.max(1, Number(input.fciGroup) || 1)),
+    fciGroup: allowUnknownDraft&&(input.fciGroup===0||input.fciGroup==null)
+      ? (input.status==="published"?(()=>{throw Error("BREED_DRAFT_REQUIRED_FCI_GROUP")})():0)
+      : Math.min(10, Math.max(1, Number(input.fciGroup) || 1)),
     fciSection: text(input.fciSection, 160),
     fciSectionNumber: text(input.fciSectionNumber, 80),
     officialFciName,
@@ -1604,6 +1613,50 @@ async function syncRelations(
 ) {
   await database.batch(breedRelationStatements(database, breedId, value, user));
 }
+/** The inbound creator supplies only validated observed fields. 0 is a
+ * storage sentinel for unknown mandatory numeric draft cells, never a score.
+ * The work-only mapping, parent and structured facts commit atomically.
+ * No normal Admin creation path or outgoing Notion POST is called. */
+export async function createNotionWorkOnlyBreedDraft(input:{
+  database:D1Database;payload:ManagedBreedInput;controlled:Record<string,unknown>;
+  pageId:string;sourceId:string;remoteRevision:string;lockOwnerPage:string;
+}){
+  const db=input.database;
+  await ensure(db);
+  const actor="notion-breed-sync@psipedia.sk";
+  const value=clean({...input.payload,status:"draft",editorialComplete:false},undefined,false,true);
+  const now=new Date().toISOString();
+  const columns=[...BREED_ROW_VALUE_COLUMNS,"created_at","updated_at","published_at","created_by","updated_by"];
+  const raw=values(value);
+  if(raw.length!==BREED_ROW_VALUE_COLUMNS.length)throw Error("BREED_SQL_ONLY_INSERT_COLUMNS_MISMATCH");
+  const normalizedPage=input.pageId.replaceAll("-","").toLowerCase();
+  const statement=db.prepare("INSERT INTO managed_breeds ("+columns.join(",")+") SELECT "+columns.map(()=>"?").join(",")+
+    " WHERE NOT EXISTS(SELECT 1 FROM managed_breeds WHERE slug=? OR lower(trim(name))=lower(trim(?)) OR (? IS NOT NULL AND fci_number=?))"+
+    " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND (record_slug=? OR lower(trim(record_name))=lower(trim(?)) OR (? IS NOT NULL AND record_external_key=CAST(? AS TEXT))))"+
+    " AND NOT EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE replace(lower(work_notion_page_id),'-','')=? OR replace(lower(original_notion_page_id),'-','')=?)"+
+    " AND NOT EXISTS(SELECT 1 FROM breed_notion_sync WHERE replace(lower(notion_page_id),'-','')=?)"+
+    " AND EXISTS(SELECT 1 FROM gemini_notion_review_locks WHERE notion_page_id=? AND owner=?)")
+    .bind(...raw,now,now,null,actor,actor,value.slug,value.name,value.fciNumber,value.fciNumber,
+      value.slug,value.name,value.fciNumber,value.fciNumber,normalizedPage,normalizedPage,normalizedPage,normalizedPage,input.lockOwnerPage);
+  const facts=input.controlled;
+  const receipt=JSON.stringify(facts);
+  const lookup="(SELECT id FROM managed_breeds WHERE slug=?)";
+  const results=await db.batch([
+    statement,breedSqlV2CasGuard(db),
+    ...breedSqlV2NewBreedStatements(db,value.slug,value),
+    db.prepare("INSERT INTO breed_public_facts(breed_id,height_min_cm,height_max_cm,weight_min_kg,weight_max_kg,lifespan_min_years,lifespan_max_years,origin_countries_json,coat_types_json,use_types_json) VALUES("+lookup+",?,?,?,?,?,?,?,?,?)")
+      .bind(value.slug,facts.heightMinCm,facts.heightMaxCm,facts.weightMinKg,facts.weightMaxKg,facts.lifespanMinYears,facts.lifespanMaxYears,
+        JSON.stringify(facts.originCountries),JSON.stringify(facts.coatTypes),JSON.stringify(facts.useTypes)),
+    db.prepare("INSERT INTO breed_notion_controlled_values(breed_id,values_json,notion_values_json,revision,updated_at) VALUES("+lookup+",?,?,0,?)")
+      .bind(value.slug,receipt,receipt,now),
+    db.prepare("INSERT INTO breed_notion_workcopy_links(breed_id,work_notion_page_id,work_data_source_id,canonical_slug,fci_number,work_last_error_code,work_notion_last_edited_time,status,activated_at,created_at,updated_at) VALUES("+lookup+",?,?,?,?,'INBOUND_ID_PENDING',?,'ACTIVE',?,?,?)")
+      .bind(value.slug,input.pageId,input.sourceId,value.slug,value.fciNumber,input.remoteRevision,now,now,now),
+  ]);
+  const id=Number(results[0]?.meta?.last_row_id);
+  if(!results.every(row=>row.success)||!Number.isSafeInteger(id)||id<1)throw Error("BREED_INBOUND_CREATE_UNVERIFIED");
+  return {id,revision:now};
+}
+
 export async function createManagedBreed(input: ManagedBreedInput, user: string) {
   const database = requireDb();
   await ensure(database);
@@ -1768,7 +1821,7 @@ export async function saveManagedBreedCombined(input:{
   const now=nextBreedVersion(input.expectedRevision);
   const merged=mergeManagedBreedEdit(before,input.patch);
   if(Object.hasOwn(input.patch,"status")&&input.patch.status!=="published"&&input.patch.status!=="draft")throw Error("BREED_COMBINED_STATUS_INVALID");
-  const value=clean(merged,before);
+  const value=clean(merged,before,false,true);
   const fieldSet=new Set(input.fields);
   const columns:Record<string,string>={...BREED_EVENT_SCALAR_COLUMNS,slug:"slug",status:"status",imageKey:"image_key",
     importKey:"import_key",gallery:"gallery_json",sports:"sports_json",healthRisks:"health_risks_json",
@@ -1878,6 +1931,12 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
         WHERE b.fci_number IS NULL
           OR b.fci_number <= 0
           OR COALESCE(TRIM(b.import_key), '') = ''
+          OR b.fci_group NOT BETWEEN 1 AND 10
+          OR b.energy NOT BETWEEN 1 AND 5 OR b.trainability NOT BETWEEN 1 AND 5
+          OR b.family NOT BETWEEN 1 AND 5 OR b.children NOT BETWEEN 1 AND 5
+          OR b.other_dogs NOT BETWEEN 1 AND 5 OR b.apartment NOT BETWEEN 1 AND 5
+          OR b.grooming NOT BETWEEN 1 AND 5 OR b.shedding NOT BETWEEN 1 AND 5 OR b.prey_drive NOT BETWEEN 1 AND 5
+          OR EXISTS(SELECT 1 FROM breed_notion_workcopy_links l WHERE l.breed_id=b.id AND l.work_last_error_code='INBOUND_ID_PENDING')
       ))
     RETURNING id
   `,
