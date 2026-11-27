@@ -76,18 +76,22 @@ function text(value: string | null) {
 
 export function AdminOrganizationEditor({
   organization,
+  initialReview=null,
   initialLocations = [],
   automationSuggestions = [],
   automationSuggestionsPromise,
   returnHref = "/admin/organizacie",
 }: {
   organization?: OrganizationPublicationAdminItem | null;
+  initialReview?:{reviewed:boolean;reviewedAt:string}|null;
   initialLocations?: OrganizationLocationAdminRecord[];
   automationSuggestions?: CanonicalUpdateSuggestion[];
   automationSuggestionsPromise?: Promise<OrganizationSuggestionsResult>;
   returnHref?: string;
 }) {
   const router = useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
   const [location, setLocation] = useState<OrganizationLocationAdminRecord | null>(() => canonicalOrganizationLocation(initialLocations));
   const [addressDraft, setAddressDraft] = useState<OrganizationAddressDraft>(() =>
@@ -182,16 +186,18 @@ export function AdminOrganizationEditor({
       let organizationId = organization?.id ?? createdOrganizationId.current;
       // Avoid touching an unchanged organization row just to save its address.
       // In particular, this preserves its updated_at and Notion mirror.
-      if (!organizationId || organizationChanged) {
+      const reviewOnSave=Boolean(organizationId&&review&&!review.reviewed&&lockWithSave&&!addressChanged);
+      if (!organizationId || organizationChanged || reviewOnSave) {
         const response = await fetch(organizationId ? "/api/admin/organizations/" + organizationId : "/api/admin/organizations", {
           method: organizationId ? "PUT" : "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(organizationId ? { payload: draft, expectedUpdatedAt } : draft),
+          body: JSON.stringify(organizationId ? { payload: draft, expectedUpdatedAt,reviewOnSave } : draft),
         });
-        const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string };
+        const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string;review?:{reviewed:boolean;reviewedAt:string}|null };
         if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
         organizationId = body.item.id;
         if (!organization) createdOrganizationId.current = organizationId;
+        if(body.review){setReview(body.review);if(body.review.reviewed&&!review?.reviewed)router.refresh();}
         setExpectedUpdatedAt(body.item.updatedAt);
         const persistedDraft = organizationAdminInputFromCandidate(body.item);
         serverIdentityChanged = Boolean(organization &&
@@ -273,6 +279,7 @@ export function AdminOrganizationEditor({
           onNavigate={setActiveOrganizationSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora organizácie" ready={hydrated} />
         <div className={styles.content}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
+          {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaná organizácia: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave&&!addressDirty} disabled={saving||addressDirty} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label>{addressDirty&&<small>Pri zmene adresy najprv ulož adresu. Odkontrolovanie je dostupné po jej uložení.</small>}</div>}
           <div className="admin-event-fields">
       {automationSuggestionsPromise
         ? <AdminOrganizationSuggestions promise={automationSuggestionsPromise} onAccepted={applyAutomationUpdate} />
