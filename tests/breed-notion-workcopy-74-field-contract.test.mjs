@@ -160,3 +160,29 @@ test("a new Notion breed can be an incomplete private draft without fabricated r
   untitled.properties["Názov plemena"]={type:"title",title:[]};
   assert.equal(readInboundBreedDraft(untitled,BREED_NOTION_SCHEMA),null);
 });
+
+
+test("structured breed authority rejects malformed or truncated lists and accepts explicit blank",async()=>{
+  const {verifiedBreedStructuredProperty:verify,breedOwnedMediaKey,validateBreedStructuredValue}=await import("../lib/notion-breed-structured-authority.mjs");
+  const cell=value=>({type:"rich_text",rich_text:value===""?[]:[{type:"text",plain_text:value}]});
+  const present=value=>({present:true,value});
+  const sport=[{key:"aport",label:"Aportovanie",rating:null,note:""}];
+  assert.equal(verify("sports",cell(JSON.stringify(sport)),present(sport),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("sports",cell(""),present([]),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("sports",cell("{bad"),present([]),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("sports",undefined,present([]),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("sports",{...cell(""),has_more:true},present([]),BREED_NOTION_SCHEMA),false);
+  const badSport=[{...sport[0],rating:8}];
+  assert.equal(verify("sports",cell(JSON.stringify(badSport)),present(badSport),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("sports",cell(JSON.stringify(sport)),present([]),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("goodFor",cell(""),present([]),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("sources",cell("FCI"),present([{label:"FCI",url:""}]),BREED_NOTION_SCHEMA),true);
+  const gallery=[{imageUrl:"/media/breeds/test.webp",imageKey:"breeds/test.webp",alt:"Pes",caption:"",credit:""}];
+  assert.equal(verify("gallery",cell(JSON.stringify(gallery)),present(gallery),BREED_NOTION_SCHEMA),true);
+  assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageKey:"articles/unrelated.webp"}]),false);
+  assert.equal(breedOwnedMediaKey("https://psipedia.sk/media/breeds/test.webp"),"breeds/test.webp");
+  assert.equal(breedOwnedMediaKey("https://example.com/media/breeds/test.webp"),null);
+  assert.equal(breedOwnedMediaKey("/media/breeds/../secret.webp"),null);
+  assert.equal(verify("image",{type:"url",url:null},present(""),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("image",{type:"url"},present(""),BREED_NOTION_SCHEMA),false);
+});
