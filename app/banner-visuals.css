@@ -64,16 +64,16 @@
   --ps-bnr-border: rgba(23, 53, 43, 0.3);
   border-color: var(--ps-bnr-border);
 }
-.ps-public-banner-frame[data-banner-size="small"] {
+.ps-public-banner-frame[data-banner-visual][data-banner-size="small"] {
   --ps-bnr-padding: 14px 16px;
   --ps-bnr-title-size: 1.15rem;
   --ps-bnr-radius: 16px;
 }
-.ps-public-banner-frame[data-banner-size="medium"] {
+.ps-public-banner-frame[data-banner-visual][data-banner-size="medium"] {
   --ps-bnr-title-size: clamp(1.15rem, 2.8cqi, 1.7rem);
 }
-.ps-public-banner-frame[data-banner-size="large"] {
-  --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
+.ps-public-banner-frame[data-banner-visual][data-banner-size="large"] {
+  --ps-bnr-padding: clamp(18px, 3%, 36px);
   --ps-bnr-title-size: clamp(1.15rem, 2.8cqi, 2.15rem);
 }
 /* Remove the old photo art without altering text, anchors, promo targeting
@@ -149,10 +149,10 @@
   .ps-public-banner-frame[data-banner-visual][data-banner-size] {
     --ps-bnr-padding: 17px 16px;
   }
-  .ps-public-banner-frame[data-banner-size="small"] {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size="small"] {
     --ps-bnr-padding: 13px 14px;
   }
-  .ps-public-banner-frame[data-banner-size="large"] {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size="large"] {
     --ps-bnr-padding: 22px 18px;
   }
 }
