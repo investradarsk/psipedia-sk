@@ -94,3 +94,13 @@ test("5/10 Notion status remains independent of local saves and cannot leak acro
   assert.match(read("components/admin-directory-editor.tsx"), /state="disabled" label="Pozastavená/);
   assert.match(read("components/admin-article-editor.tsx"), /data-admin-editor-notion-receipt=\{receipt.status\}/);
 });
+
+test("5/10 event, breed and directory show scoped write receipts without promising a live remote state", () => {
+  for (const name of ["event", "breed", "directory"]) {
+    const src = read("components/admin-" + name + "-editor.tsx");
+    assert.match(src, /<AdminEditorSyncReceipt status=\{lastNotionReceipt\}/);
+  }
+  const receipt = read("components/admin-editor-sync-status.tsx");
+  assert.match(receipt, /status === "unchanged" \? null/);
+  assert.match(receipt, /scope \+ " · " \+ result.label/);
+});

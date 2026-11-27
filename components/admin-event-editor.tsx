@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminEditorSyncReceipt } from "@/components/admin-editor-sync-status";
+
 import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
@@ -89,6 +91,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [lastNotionReceipt, setLastNotionReceipt] = useState<string>();
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
   const [locationSectionVisited, setLocationSectionVisited] = useState(false);
@@ -202,6 +205,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         return;
       }
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
+      setLastNotionReceipt(data.notionFieldSync);
       setStatus(data.event.status);
       setExpectedUpdatedAt(data.event.updatedAt);
       setSavedSnapshot(editorSnapshot);
@@ -254,6 +258,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         actions={
           <EditorActionBar
             dirty={dirty} pending={saving} uploading={uploading}
+            sync={<AdminEditorSyncReceipt status={lastNotionReceipt} scope="Posledné uloženie podujatia" />}
             secondary={<>
               {event && <details className={styles.moreActions} data-admin-event-more-actions>
                 <summary>Ďalšie akcie</summary>

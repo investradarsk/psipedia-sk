@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminEditorSyncReceipt } from "@/components/admin-editor-sync-status";
+
 import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
@@ -107,6 +109,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
   const [uploading,setUploading]=useState(false);
   const uploadPending = useRef(false);
   const [message,setMessage]=useState("");
+  const [lastNotionReceipt, setLastNotionReceipt] = useState<string>();
   const [error,setError]=useState("");
   const [activeBreedSection,setActiveBreedSection]=useState("breed-overview");
   const chooseBreedSection = useProfileEditorSectionPager(activeBreedSection, setActiveBreedSection);
@@ -287,6 +290,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
         if (formEditRevisionRef.current === submittedRevision) setDirty(false);
       }
       const notionStatus=data.notionEditorialWriteback?.status;
+      setLastNotionReceipt(notionStatus);
       const notionPending=notionStatus==="pending" ||
         notionStatus==="workcopy-inactive" ||
         notionStatus==="not-linked" || notionStatus==="disabled";
@@ -439,6 +443,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na plemená"}
       actions={<EditorActionBar
         dirty={dirty} pending={saving} uploading={uploading}
+        sync={<AdminEditorSyncReceipt status={lastNotionReceipt} scope="Posledný prenos redakčných polí" />}
         secondary={
           <details className={styles.moreActions} data-breed-more-actions>
             <summary>Ďalšie akcie</summary>
