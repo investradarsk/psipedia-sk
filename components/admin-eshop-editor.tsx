@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -21,7 +22,8 @@ function tagsFromText(value: string) {
     .filter(Boolean);
 }
 
-export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
+export function AdminEshopEditor({ shop,initialReview=null }: { shop: ManagedEshop;initialReview?:{reviewed:boolean;reviewedAt:string}|null }) {
+  const [review,setReview]=useState(initialReview);
   const [name, setName] = useState(shop.name);
   const [slug, setSlug] = useState(shop.slug);
   const [websiteUrl, setWebsiteUrl] = useState(shop.websiteUrl);
@@ -68,6 +70,11 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    let reviewOnSave=false;
+    if(review&&!review.reviewed){
+      reviewOnSave=window.confirm("E-shop ešte nie je odkontrolovaný. Chceš uložiť zmeny a zároveň ho označiť ako Odkontrolované?");
+      if(!reviewOnSave&&!window.confirm("Uložiť bez uzamknutia? Notion zostane autoritou profilu."))return;
+    }
     setSaving(true);
     setMessage("");
     setError("");
@@ -77,6 +84,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           expectedUpdatedAt:persistedRevision,
+          reviewOnSave,
           name,
           slug,
           websiteUrl,
@@ -88,9 +96,10 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           status,
         }),
       });
-      const data = await response.json() as { shop?: ManagedEshop; error?: string };
+      const data = await response.json() as { shop?: ManagedEshop; error?: string;review?:{reviewed:boolean;reviewedAt:string} };
       if (!response.ok || !data.shop) throw new Error(data.error || "E-shop sa nepodarilo uložiť.");
       setPersistedRevision(data.shop.updatedAt);
+      if(data.review)setReview(data.review);
       setName(data.shop.name);
       setSlug(data.shop.slug);
       setWebsiteUrl(data.shop.websiteUrl);
@@ -117,6 +126,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
 
   return (
     <form className={styles.editor} noValidate onSubmit={save}>
+      {review&&<AdminReviewCheckbox key={String(review.reviewed)+review.reviewedAt} entityType="ESHOP" entityId={shop.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate disabled={saving||dirty} onReviewChange={setReview}/>}
       <EditorWorkspace
         mode="page"
         title={"E-shop — " + (name || "Úprava profilu")}
