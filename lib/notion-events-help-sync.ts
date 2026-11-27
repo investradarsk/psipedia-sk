@@ -720,6 +720,8 @@ async function syncAgenda(input: {
   /** Explicit Admin before/after delta; never compare the entire Notion page. */
   adminChangedFields?: readonly string[];
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&input.manualDirection)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const summary = emptyAgenda(input.definition, input.isEnabled, input.ready);
   if (!input.isEnabled || !input.ready) return summary;
 
@@ -885,7 +887,7 @@ async function syncAgenda(input: {
     if(!mapping&&input.mode==="sync"&&!input.targetPageId&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
       try{
         const agenda=input.definition.key;
-        const created=await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda,id:entityId,sourceId:target.dataSourceId,
+        const created=await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda,id:entityId,sourceId:target.dataSourceId!,
           async snapshot(){
             const current=(await input.definition.load(input.database,entityId)).find(row=>sourceId(row)===entityId);
             if(!current)throw Error("PROFILE_FIRST_CREATE_CANONICAL_MISSING");
