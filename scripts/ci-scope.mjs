@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { planDistinctPackageSuites } from "./ci-test-groups.mjs";
 
 export const CI_SCOPE_VERSION = 8;
 
@@ -618,7 +619,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const after = execFileSync("git", ["show", `${headSha}:package.json`], { encoding: "utf8" });
     const changed = changedPackageTestScriptNames(before, after);
     if (!changed.length) throw new Error("No safe changed test scripts detected; refusing to skip full validation");
-    for (const name of changed) {
+    const plan = planDistinctPackageSuites(changed, JSON.parse(after).scripts);
+    for (const name of plan.skipped) {
+      process.stdout.write(`Skipping already covered pure npm test suite: ${name}\n`);
+    }
+    for (const name of plan.run) {
       process.stdout.write(`Running changed npm test command: ${name}\n`);
       execFileSync("npm", ["run", name], { stdio: "inherit" });
     }

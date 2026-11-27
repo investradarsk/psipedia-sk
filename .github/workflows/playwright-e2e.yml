@@ -101,7 +101,7 @@ jobs:
         run: npm test
       - name: Shared-worker cache and sitemap safety contracts
         if: steps.required-scope.outputs.full_core == 'true' && contains(steps.required-scope.outputs.scopes, 'SHARED_CORE')
-        run: node --experimental-strip-types --test tests/public-html-cache-safety.test.mjs tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs
+        run: node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs
       - name: Bounded PR build and global safety contracts
         if: steps.required-scope.outputs.bounded_core == 'true'
         run: npm run test:config && npm run test:deploy-safety && npm run build

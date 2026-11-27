@@ -1,0 +1,7 @@
+# CI consolidation — 3/10 duplicate coverage
+
+Baseline 5f36501b4f089205ef61c24a7bb7f2f62b284760. Recursive lexical expansion of all npm test scripts: no identical file+flag duplicates within individual existing npm aggregates. Across full npm test and the eight transitional groups, 301 distinct lexical entries overlap (including opaque commands); not 301 proven equivalent runtime executions. Git tree inspection found no byte-identical conventional test/spec files. One exact cross-group file+flag overlap (admin attention header performance). Distinct loaders are retained, including the admin global search contexts. Similar names alone do not justify deleting files.
+
+Implemented: remove one exact repeated cache-safety invocation from the central full shared-worker step, where npm test already runs it. Preserve both sitemap safety files and required status names. New contract asserts full suite coverage. Add conservative pure-suite deduplication to the changed-package-test path: only skip complete already-covered npm leaf invocations with the same lifecycle identity, exact command, no hooks; opaque commands reset evidence, missing scripts fail, partial overlap retained, cyclic scripts are not optimized. Existing standalone npm entrypoints unchanged. New tests cover these cases. Next workflow consolidation must map remaining cross-workflow overlaps and preserve unique contexts; no claim all 301 entries can be removed.
+
+No production changes. Full CI and runtime execution pending; static source and manifest inspection only.
