@@ -162,6 +162,7 @@ export function HomeMagazineBanner({
 }) {
   return (
     <PublicMagazineBanner
+      size="large"
       anchorId={anchorId}
       desktopColors={desktopColors}
       desktopCopy={desktopCopy}

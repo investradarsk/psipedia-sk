@@ -550,6 +550,7 @@ export default async function BreedDetailPage({ params }: Props) {
               <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
               <PublicMagazineBanner
                 compact
+                size="small"
                 eyebrow="Adresár Psipedia"
                 title="Užitočné odkazy"
                 description="Kluby, chovatelia a tréneri na jednom mieste."

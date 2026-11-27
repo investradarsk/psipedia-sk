@@ -57,8 +57,8 @@ test("all six admin views use one real-banner adapter rather than copying its JS
   ];
   const adapter = read("components/admin-visual-library-banner-preview.tsx");
   assert.match(adapter, /<PublicMagazineBanner/);
-  assert.match(adapter, /compact=\{banner\.group === "clanky" \|\| directorySidebar\}/);
-  assert.match(adapter, /const directorySidebar = banner\.id\.startsWith\("adresar:"\)/);
+  assert.match(adapter, /<PublicMagazineBanner\s+compact/);
+  assert.match(adapter, /const previewSize = size \?\? defaultBannerDraft\(banner, 0\)\.size/);
   assert.match(adapter, /photoTone=\{banner\.photoTone\}/);
   assert.match(adapter, /copy\?\.label \?\? banner\.ctaLabel/);
   for (const path of names) {

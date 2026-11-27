@@ -127,7 +127,7 @@ export async function DirectoryPage({
       <PublicMagazineBanner
         compact
         visual="light"
-        size="small"
+        size="medium"
         testId="directory-map-cta"
         eyebrow="Služby v okolí"
         title="Nájdi služby na mape"
@@ -214,7 +214,7 @@ export async function DirectoryPage({
                     compact
                     visual="dark"
                     photoTone="care"
-                    size="small"
+                    size="large"
                     testId="directory-provider-cta"
                     eyebrow="Pre poskytovateľov"
                     title="Poskytuješ služby pre psov?"
@@ -272,7 +272,7 @@ export async function DirectoryPage({
                           Zobraziť kategóriu {category.label} <span aria-hidden="true">→</span>
                         </Link>
                         {category.slug === directoryCategories[0]?.slug ? mapBanner : category.slug !== directoryCategories.at(-1)?.slug ? (
-                          <PublicMagazineBanner compact size="small" testId={`directory-category-${category.slug}`} eyebrow={category.label} title={`Nájdite ${category.searchObject} vo svojom okolí`} description={`Pozrite si kategóriu ${category.label} na mape.`} label="Zobraziť na mape" href={mapHref(filters, category.slug)} />
+                          <PublicMagazineBanner compact size="medium" testId={`directory-category-${category.slug}`} eyebrow={category.label} title={`Nájdite ${category.searchObject} vo svojom okolí`} description={`Pozrite si kategóriu ${category.label} na mape.`} label="Zobraziť na mape" href={mapHref(filters, category.slug)} />
                         ) : null}
                       </section>
                     );

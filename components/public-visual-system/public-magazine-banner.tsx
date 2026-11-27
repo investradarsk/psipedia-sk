@@ -1,7 +1,7 @@
 import { PublicHeading } from "@/components/public-heading";
 import { PublicActionLink } from "./public-visual-system";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
 import { PublicBannerFrame, type PublicBannerVisual, type PublicBannerSize } from "./public-banner-frame";
@@ -61,33 +61,15 @@ export function PublicMagazineBanner({
   desktopCopy?: { eyebrow: string; title: string; description: string; ctaLabel: string } | null;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
-  const bg =
-    desktopColors?.background === "sage"
-      ? "#e1ebdf"
-      : desktopColors?.background === "cream"
-        ? "#f9f1e5"
-        : desktopColors?.background === "white"
-          ? "#ffffff"
-          : undefined;
-  const buttonBg =
-    desktopColors?.button === "green"
-      ? "#20543e"
-      : desktopColors?.button === "red"
-        ? "#b44939"
-        : undefined;
-  const desktopStyle = {
-    "--ps-visual-desktop-bg": bg,
-    "--ps-visual-desktop-button": buttonBg,
-  } as CSSProperties;
+  // Legacy custom background/button values remain readable for saved drafts.
+  // Rendering uses only the approved two themes and three size presets.
   return (
     <PublicBannerFrame
       as="section"
       visual={visual ?? (photoTone ? "dark" : "light")}
-      size={size ?? (compact ? "small" : "medium")}
+      size={size ?? (compact ? "small" : "large")}
       data-banner-desktop-visual={desktopColors?.visual}
-      data-banner-desktop-size={desktopColors?.size}
       id={anchorId}
-      style={desktopColors ? desktopStyle : undefined}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}
       className={[
         compact ? "home-magazine-banner" : "shell home-magazine-banner",
@@ -176,7 +158,7 @@ export function PublicMagazineBanner({
   );
 }
 
-/** The shared text, CTA and spacing contract for magazine and context banners. */
+/** Canonical text and action structure for internal editorial promotions. */
 export function PublicBannerContent({
   eyebrow,
   title,
@@ -189,6 +171,10 @@ export function PublicBannerContent({
   icon,
   className,
   actionVariant = "primary",
+  headingAs = "h2",
+  headingClassName,
+  copyClassName,
+  actionsClassName,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -201,16 +187,21 @@ export function PublicBannerContent({
   icon?: ReactNode;
   className?: string;
   actionVariant?: "primary" | "secondary";
+  /** Semantic level is independent of the common banner visual. */
+  headingAs?: "h2" | "h3";
+  headingClassName?: string;
+  copyClassName?: string;
+  actionsClassName?: string;
 }) {
   return (
     <div
       className={[styles.bannerContent, className].filter(Boolean).join(" ")}
       data-public-banner-content
     >
-      <div className={styles.bannerCopy}>
+      <div className={[styles.bannerCopy, copyClassName].filter(Boolean).join(" ")} data-public-banner-copy>
         {icon}
         {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
-        <PublicHeading role="section" as="h2" id={headingId}>
+        <PublicHeading role="section" as={headingAs} id={headingId} className={headingClassName}>
           {title}
         </PublicHeading>
         {description ? (
@@ -220,7 +211,7 @@ export function PublicBannerContent({
         ) : null}
       </div>
       {actions ? (
-        <div data-public-banner-actions>{actions}</div>
+        <div className={actionsClassName} data-public-banner-actions>{actions}</div>
       ) : links?.length ? (
         <nav className={styles.links} aria-label="Užitočné odkazy">
           {links.map((link) => (

@@ -3,13 +3,13 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("public V9 frame shares scoped foundation and keeps urgent surface separate", () => {
-  const css = read("app/banner-visuals.css").split("/* V2-04")[1];
-  assert.ok(css.includes(":root:not(:has([data-admin-workspace]))"));
-  assert.match(css, /--ps-bnr-gradient: var\(--ps-premium-gradient\)/);
-  assert.match(css, /--ps-bnr-kicker: var\(--ps-premium-kicker-on-dark\)/);
+test("canonical banner frame shares the existing brand palette and keeps urgent surface separate", () => {
+  const css = read("app/banner-visuals.css");
+  assert.match(css, /--ps-bnr-gradient: var\(--ps-bnr-dark-gradient\)/);
+  assert.match(css, /--ps-bnr-dark-gradient: linear-gradient\(115deg, #36735e 0%, #235743 42%, #102f26 100%\)/);
+  assert.match(css, /--ps-bnr-kicker: #f7f2e9/);
   assert.match(css, /\[data-banner-semantic="urgent"\]\s*\{\s*--ps-bnr-gradient: none/);
-  assert.match(css, /font-family: var\(--ps-font-heading\)/);
+  assert.match(css, /font-family: var\(--ps-bnr-heading-font\)/);
   assert.match(css, /background: transparent/);
 });
 test("both rankings share V9 styling and retain real data and keyboard-operable windows", () => {

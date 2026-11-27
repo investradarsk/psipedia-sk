@@ -1,4 +1,5 @@
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { defaultBannerDraft } from "@/lib/visual-library-drafts";
 import type { VisualBanner } from "@/lib/visual-library-banners";
 import type { PublicBannerVisual, PublicBannerSize } from "./public-visual-system/public-banner-frame";
 
@@ -29,12 +30,13 @@ export function AdminVisualLibraryBannerPreview({
   visual?: PublicBannerVisual;
   size?: PublicBannerSize;
 }) {
-  const directorySidebar = banner.id.startsWith("adresar:");
+  const previewSize = size ?? defaultBannerDraft(banner, 0).size;
   return (
+    <div style={{ width: "100%", maxWidth: previewSize === "small" ? 320 : previewSize === "medium" ? 760 : undefined, marginInline: "auto" }}>
     <PublicMagazineBanner
-      compact={banner.group === "clanky" || directorySidebar}
+      compact
       visual={visual ?? (banner.id === "adresar:poskytovatelia" ? "dark" : undefined)}
-      size={size ?? (directorySidebar ? "small" : undefined)}
+      size={previewSize}
       photoTone={banner.photoTone}
       testId={testId}
       eyebrow={copy?.eyebrow ?? banner.eyebrow}
@@ -43,5 +45,6 @@ export function AdminVisualLibraryBannerPreview({
       label={copy?.label ?? banner.ctaLabel}
       href={banner.ctaHref}
     />
+    </div>
   );
 }
