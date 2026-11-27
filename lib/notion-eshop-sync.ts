@@ -1,3 +1,4 @@
+import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
@@ -571,11 +572,11 @@ async function recentPages(bindings: NotionEshopSyncBindings, dataSourceId: stri
   return response.results ?? [];
 }
 
-async function bootstrapIds(database: D1Database) {
+async function bootstrapIds(database: D1Database,staged=false) {
   const result = await database.prepare(
     "SELECT shop.id FROM managed_eshops shop " +
     "LEFT JOIN eshop_notion_sync ens ON ens.eshop_id=shop.id " +
-    "WHERE ens.eshop_id IS NULL ORDER BY shop.id ASC LIMIT ?1",
+    "WHERE ens.eshop_id IS NULL "+(staged?"AND shop.status<>\'archived\' AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=\'eshops\' AND f.entity_id=CAST(shop.id AS TEXT)) AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=\'eshops\' AND t.record_id=shop.id) ":"")+"ORDER BY shop.id ASC LIMIT ?1",
   ).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
   return (result.results ?? []).map((row) => Number(row.id)).filter(Number.isSafeInteger);
 }
@@ -1077,14 +1078,23 @@ export async function runNotionEshopBootstrapSweep(input: {
   if (!summary.schemaReady) return summary;
 
   const dataSourceId = input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim();
-  const ids = await bootstrapIds(input.database);
+  const ids = await bootstrapIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text");
   summary.selected = ids.length;
 
   for (const id of ids) {
     try {
       const shop = await getManagedEshopById(id, input.database);
       if (!shop) continue;
-      await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId, shop });
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda:"eshops",id,sourceId:dataSourceId,
+          async snapshot(){
+            const current=await getManagedEshopById(id,input.database);
+            if(!current)throw Error("ESHOP_CANONICAL_MISSING");
+            const hash=await snapshotHash(profileSnapshot(current));
+            const review=await input.database.prepare("SELECT 1 AS reviewed FROM admin_entity_reviews WHERE entity_type='ESHOP' AND entity_id=?").bind(id).first<{reviewed:number}>();
+            return {revision:current.updatedAt,hash,properties:notionProperties(current,hash,current.updatedAt),reviewed:!!review};
+          }});
+      }else await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId, shop });
       summary.bootstrapped += 1;
     } catch (error) {
       summary.failed += 1;
@@ -1096,7 +1106,7 @@ export async function runNotionEshopBootstrapSweep(input: {
     }
   }
 
-  summary.hasMore = (await bootstrapIds(input.database)).length > 0;
+  summary.hasMore = (await bootstrapIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")).length > 0;
   return summary;
 }
 
