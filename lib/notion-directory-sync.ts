@@ -1,4 +1,4 @@
-import { directoryAuthorityWriteGuard } from "./notion-profile-authority.ts";
+import { directoryAuthorityWriteGuard, profileAuthorityTextFieldAllowed } from "./notion-profile-authority.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
@@ -23,8 +23,8 @@ import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
 import { directoryFilterRegistry, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
-import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
-import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
+import { selectiveNotionProperties, sameNotionProperty } from "@/lib/notion-selective-property-patch";
+import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,projectCanonicalServiceRelation,type CatalogRelationLookup}
   from "./service-catalog-notion-relations";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { resolveGeminiPublicSlug } from "./gemini-public-slug";
@@ -772,17 +772,37 @@ async function writeProfileToNotion(input: {
     // Never overwrite a Notion review edit as a side effect of saving prose.
     delete (properties as Partial<typeof properties>)["Odkontrolované"];
   }
+  const stagedUnlock=input.ownerUnlock&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  let verifiedStructured:Record<string,unknown>|undefined;
   let page: NotionPage;
   if (input.pageId) {
     const current = await fetchNotionPage(input.bindings, input.pageId);
     if (current.id !== input.pageId || !notionDirectoryPageBelongsToSource(current, input.dataSourceId) ||
         (input.ownerUnlock && (propertyText(current, "Psipedia ID") !== String(input.profile.id) ||
-         propertyCheckbox(current, "Odkontrolované"))))
+         propertyCheckbox(current, "Odkontrolované")!==Boolean(stagedUnlock))))
       throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
-    const adapted = adaptDirectoryNotionTextProperties(properties, current.properties ?? {});
+    const structured=stagedUnlock?await stagedDirectoryStructuredProperties(input.database,input.bindings,input.profile,current.properties??{}):{};
+    const adapted = adaptDirectoryNotionTextProperties({...properties,...structured,...(stagedUnlock?{"Odkontrolované":checkbox(true)}:{})}, current.properties ?? {});
+    if(stagedUnlock){
+      // Missing/truncated property is not a verified target.
+      for(const [name,wanted] of Object.entries(adapted)){
+        const raw=current.properties?.[name] as Record<string,unknown>|undefined,type=Object.keys(wanted as Record<string,unknown>)[0];
+        if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||raw.has_more===true||
+          (Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25))throw Error("DIRECTORY_STRUCTURED_EXPORT_INCOMPLETE: "+name);
+      }
+      verifiedStructured=structured;
+    }
     const patch = selectiveNotionProperties(current.properties ?? {}, adapted);
     await assertWritePermitted();
     page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
+    if(stagedUnlock){
+      page=await fetchNotionPage(input.bindings,input.pageId);
+      if(page.id!==input.pageId||!notionDirectoryPageBelongsToSource(page,input.dataSourceId))throw Error("DIRECTORY_STRUCTURED_EXPORT_IDENTITY");
+      assertStagedDirectoryEcho(page,adapted);
+      const latest=await getManagedDirectoryProfileById(input.profile.id,input.database);
+      if(!latest||latest.updatedAt!==input.profile.updatedAt||JSON.stringify(await stagedDirectoryStructuredProperties(input.database,input.bindings,latest,page.properties??{}))!==JSON.stringify(verifiedStructured))throw Error("DIRECTORY_STRUCTURED_EXPORT_CONCURRENT_CHANGE");
+      await assertWritePermitted();
+    }
   } else {
     page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
   }
@@ -900,6 +920,10 @@ export async function completeDirectoryReviewedOwnerUnlock(input: {
     state.profile_updated_at, mapping.notion_page_id).first<{profile_id: number}>();
   if (released?.profile_id !== input.profileId)
     throw new Error("DIRECTORY_OWNER_UNLOCK_CONCURRENT_CHANGE");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const flag=await syncDirectoryReviewedWithNotion({database:input.database,bindings:input.bindings,profileId:input.profileId});
+    if(flag!=="pushed"&&flag!=="unchanged")throw Error("DIRECTORY_OWNER_UNLOCK_CHECKBOX_PENDING");
+  }
   return "unlocked";
 }
 
@@ -1334,17 +1358,72 @@ async function recentNotionPages(
   return response.results ?? [];
 }
 
+/** Exact SQL-backed structured projection, not a second data model.
+ * Only provisioned metadata fields are eligible; required registered facet,
+ * relation and catalog schemas fail closed rather than exporting a partial copy. */
+async function stagedDirectoryStructuredProperties(database:D1Database,bindings:NotionDirectorySyncBindings,
+  profile:ManagedDirectoryProfile,schema:Record<string,unknown>):Promise<Record<string,unknown>>{
+  const properties:Record<string,unknown>={};
+  const type=(name:string)=>(schema[name] as {type?:unknown}|undefined)?.type;
+  const required=(name:string,expected:string)=>{if(type(name)!==expected)throw Error("DIRECTORY_STRUCTURED_SCHEMA_MISSING: "+name);};
+  const categories=new Set([profile.category,...(profile.additionalCategories??[])]);
+  const rows=await database.prepare("SELECT category,filter_id,value_text FROM directory_profile_filter_values WHERE profile_id=? ORDER BY filter_id").bind(profile.id).all<{category:string;filter_id:string;value_text:string}>();
+  if(!rows.success||!Array.isArray(rows.results))throw Error("DIRECTORY_STRUCTURED_FILTER_READ_FAILED");
+  for(const def of directoryFilterRegistry.filter(def=>categories.has(def.category))){
+    const name=breederFacetNotionProperties[def.id];required(name,"select");
+    const matching=rows.results.filter(row=>row.filter_id===def.id&&row.category===def.category);
+    if(matching.length>1)throw Error("DIRECTORY_STRUCTURED_FILTER_DUPLICATE");
+    const raw=matching[0]?.value_text;
+    const normalized=normalizeDirectoryFilterValue(def,raw);
+    if(raw!==undefined&&normalized.status!=="known")throw Error("DIRECTORY_STRUCTURED_FILTER_INVALID");
+    properties[name]=select(normalized.status==="known"?notionFacetLabel(normalized.value):"");
+  }
+  for(const name of PILOT_DIRECTORY_METADATA_FIELDS){
+    if(!profileAuthorityTextFieldAllowed({agenda:"directory",entityId:String(profile.id),pageId:"projection",field:"meta:"+name})||Object.hasOwn(properties,name))continue;
+    const kind=type(name);
+    if(kind!=="rich_text"&&kind!=="url"&&kind!=="email"&&kind!=="phone_number")continue;
+    if(DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(name)&&name!=="Ordinačné hodiny"&&kind!=="rich_text")continue;
+    const value=readDirectoryPublicMetadataValue(profile.importData,name);
+    properties[name]=kind==="rich_text"?richText(value):{[kind]:value||null};
+  }
+  if(["chovatelske-stanice","chovatelske-kluby"].includes(profile.category)){
+    const chosen=await getBreederRelationSelection(database,profile.id);
+    const candidates=await listBreederRelationOptions(database);
+    if(!chosen)throw Error("DIRECTORY_STRUCTURED_RELATION_MISSING");
+    const fields:BreederRelationField[]=profile.category==="chovatelske-stanice"?["breedIds","clubIds"]:["breedIds"];
+    for(const field of fields){
+      const name=BREEDER_NOTION_RELATION_FIELDS[field],options=field==="breedIds"?candidates.breeds:candidates.clubs;
+      required(name,"rich_text");
+      if(options.length>=(field==="breedIds"?500:1000))throw Error("DIRECTORY_STRUCTURED_RELATION_OPTIONS_INCOMPLETE");
+      const value=formatBreederRelationText(chosen[field],options);
+      if(value===null)throw Error("DIRECTORY_STRUCTURED_RELATION_UNKNOWN_ID");
+      const decoded=resolveBreederRelationText(value,options);
+      if(decoded.status==="unmatched"||!sameBreederRelationIds(decoded.ids,chosen[field]))throw Error("DIRECTORY_STRUCTURED_RELATION_AMBIGUOUS");
+      properties[name]=richText(value);
+    }
+  }
+  required("Služby z katalógu","relation");
+  Object.assign(properties,await projectCanonicalServiceRelation(database,bindings,profile.id,profile.category));
+  return properties;
+}
+function assertStagedDirectoryEcho(page:NotionPage,expected:Record<string,unknown>){
+  for(const [name,wanted] of Object.entries(expected)){
+    const type=Object.keys(wanted as Record<string,unknown>)[0],raw=page.properties?.[name] as Record<string,unknown>|undefined;
+    if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||raw.has_more===true||
+      (Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25)||!sameNotionProperty(raw,wanted))
+      throw Error("DIRECTORY_STRUCTURED_EXPORT_UNVERIFIED: "+name);
+  }
+}
 async function createStagedDirectoryCopy(database:D1Database,bindings:NotionDirectorySyncBindings,dataSourceId:string,profileId:number){
-  const schema=(await notionRequest<{properties?:Record<string,unknown>}>(bindings,"/data_sources/"+encodeURIComponent(dataSourceId))).properties??{};
   return ensureFirstProfileNotionCopy({database,bindings,agenda:"directory",id:profileId,sourceId:dataSourceId,
-    async snapshot(){
+    async snapshot(schema){
       const profile=await getManagedDirectoryProfileById(profileId,database);
       if(!profile||profile.status==="archived")throw Error("DIRECTORY_FIRST_CREATE_MISSING");
       const monitor=await getMediaSourceMonitorForEntity(database,"DIRECTORY_PROFILE",profileId);
       const sourceImageUrl=monitor?.sourceImageUrl||externalSourceImageUrl(profile.imageUrl);
       const hash=await snapshotHash(profileSnapshot(profile,sourceImageUrl));
       const geo=await loadGeoMirror(database,profileId);
-      const properties=adaptDirectoryNotionTextProperties(notionProfileProperties(profile,geo??null,hash,profile.updatedAt,sourceImageUrl),schema);
+      const properties=adaptDirectoryNotionTextProperties({...notionProfileProperties(profile,geo??null,hash,profile.updatedAt,sourceImageUrl),...await stagedDirectoryStructuredProperties(database,bindings,profile,schema)},schema);
       return {revision:profile.updatedAt,hash,properties,reviewed:await directoryProfileNotionSyncLocked(database,profileId)};
     }});
 }

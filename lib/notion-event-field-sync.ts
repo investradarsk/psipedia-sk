@@ -217,6 +217,7 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
   if(await isAdminNotionSyncLocked(db,"events",id))throw Error("EVENT_SYNC_LOCKED");
   validate(path,value,live);
   if (path === "imageUrl"&&!reservation?.profileAuthority) {
+    if(typeof value!=="string")throw Error("TEXT_EXPECTED");
     // A blank Notion URL is not proof that the owner deleted an Admin-uploaded file.
     if (!value.trim()) return false;
     // Notion keeps an absolute URL, while Psipedia stores its own media paths.
@@ -254,7 +255,7 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
   const now=nextManagedEventUpdatedAt(live.updatedAt);
   // SQL identifiers and JSON paths are from compile-time allowlists;
   // content is always parameter-bound. Revision guard prevents lost updates.
-  const assignment=owned?"image_url=?,image_key=?,image_display=NULL,thumbnail_display_json=NULL,detail_display_json=NULL":scalar?scalar+"=?":"seo_json=json_set(COALESCE(seo_json,'{}'),?,?)";
+  const assignment=owned?"image_url=?,image_key=?,thumbnail_display_json=NULL,detail_display_json=NULL":scalar?scalar+"=?":"seo_json=json_set(COALESCE(seo_json,'{}'),?,?)";
   const args=owned?[owned.url,owned.key]:scalar?[value]:["$."+seo,value];
   const authority=reservation?.profileAuthority===true;
   const guard=authority

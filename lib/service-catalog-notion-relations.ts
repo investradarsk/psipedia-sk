@@ -95,7 +95,8 @@ async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item
   ).bind(profileId).all<D1Row>();
   // Only service IDs belong to the Notion relation. Tri-state attributes
   // are independent V3 choices and must never be treated as invalid services.
-  const selected=(result.results??[]).map(x=>x.option_id).filter(id=>id.startsWith("svc."));
+  if(!result.success||!Array.isArray(result.results))throw Error("SERVICES_RELATION_LOCAL_READ_FAILED");
+  const selected=result.results.map(x=>x.option_id).filter(id=>id.startsWith("svc."));
   // A category removal cannot implicitly deselect a historical YES.
   // Review it explicitly instead of silently deleting a Notion relation.
   if(selected.some(id=>!known.has(id)))throw Error("SERVICES_RELATION_CATEGORY_CHANGED_REVIEW");
@@ -281,4 +282,19 @@ async function syncAuthoritativeCatalogRelation(input:Parameters<typeof syncProf
     JSON.stringify(final.authorityProperty)!==JSON.stringify(live.authorityProperty))throw Error("SERVICES_RELATION_CHANGED_BEFORE_BASELINE");
   await confirmUnifiedField(db,reservation,final.notion,final.psipedia);
   return "pulled";
+}
+
+/** Read-only exact projection shared by first-copy and reviewed owner unlock. */
+export async function projectCanonicalServiceRelation(db:D1Database,bindings:NotionSyncBindings,profileId:number,category:string){
+  const membership=await loadServiceProfileMembership(db,profileId);
+  if(!membership||membership.primary!==category||membership.status==="archived")throw Error("SERVICES_RELATION_PROFILE_CATEGORY_CHANGED");
+  const selected=await canonicalYes(db,profileId,await canonicalItems(db,membership.categories));
+  if(selected.length>=25||new Set(selected).size!==selected.length)throw Error("SERVICES_RELATION_COMPLETE_READ_REQUIRED");
+  const lookup=selected.length?await loadNotionCatalogRelationLookup(bindings):null;
+  const relation=selected.map(id=>{
+    const page=lookup?.serviceToPage.get(id);
+    if(!page||lookup?.pageToService.get(page)!==id)throw Error("SERVICES_RELATION_UNKNOWN_ID");
+    return {id:page};
+  });
+  return {[PROPERTY]:{relation}};
 }

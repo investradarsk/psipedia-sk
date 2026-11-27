@@ -171,8 +171,8 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
       const value=reservation ? reservation.value : observation.psipedia.value;
       if(direction==="pull"){
         const proof=reservation?.profileAuthority&&field==="Hlavný obrázok URL"?await verifyProfileOwnedMedia("organizations",value,input.bindings.BUCKET):undefined;
-         const fresh=await observe(input,field,false);
-        if(fresh.revision!==observation.revision || !fresh.notion.present || fresh.notion.value!==value ||
+        const fresh=await observe(input,field,false);
+        if(fresh.revision!==observation.revision || (reservation?.profileAuthority&&fresh.page.last_edited_time!==observation.page.last_edited_time) || !fresh.notion.present || fresh.notion.value!==value ||
           !fresh.psipedia.present || fresh.psipedia.value!==observation.psipedia.value ||
           JSON.stringify(fresh.location)!==JSON.stringify(observation.location))
           throw Error("ORGANIZATION_V2_SOURCE_CHANGED");

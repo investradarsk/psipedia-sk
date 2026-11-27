@@ -2129,3 +2129,14 @@ test("profile media accepts only exact public agenda-scoped R2 assets or an expl
   assert.throws(()=>requireProfileMediaProof("events","",media));
   assert.deepEqual(calls,["events/2026/ok.webp","events/2026/missing.webp"]);
 });
+
+test("Notion relation verification rejects incomplete, duplicate and foreign IDs",async()=>{
+  const {sameNotionProperty}=await import("../lib/notion-selective-property-patch.ts");
+  const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222";
+  const desired={relation:[{id},{id:other}]};
+  assert.equal(sameNotionProperty({type:"relation",has_more:false,relation:[{id:other},{id}]},desired),true);
+  assert.equal(sameNotionProperty({type:"relation",has_more:true,relation:desired.relation},desired),false);
+  assert.equal(sameNotionProperty({type:"relation",relation:desired.relation},desired),false);
+  assert.equal(sameNotionProperty({type:"relation",has_more:false,relation:[{id},{id}]},desired),false);
+  assert.equal(sameNotionProperty({type:"relation",has_more:false,relation:[]},{relation:[]}),true);
+});

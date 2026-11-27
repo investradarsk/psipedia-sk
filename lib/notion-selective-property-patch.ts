@@ -44,6 +44,18 @@ export function sameNotionProperty(remote: unknown, desired: unknown): boolean {
     const from = richText(old[type]), to = richText(next[type]);
     return from !== null && to !== null && from === to;
   }
+  if ("relation" in next) {
+    if(old.type!=="relation"||old.has_more!==false)return false;
+    const ids=(raw:unknown)=>{
+      if(!Array.isArray(raw)||raw.length>=25)return null;
+      const values=raw.map(item=>obj(item)?.id);
+      if(values.some(id=>typeof id!=="string"||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id)))return null;
+      const normalized=(values as string[]).map(id=>id.toLowerCase());
+      return new Set(normalized).size===normalized.length?normalized.sort():null;
+    };
+    const a=ids(old.relation),b=ids(next.relation);
+    return a!==null&&b!==null&&JSON.stringify(a)===JSON.stringify(b);
+  }
   if ("multi_select" in next) {
     const names = (v: unknown) => Array.isArray(v) ? v.map(x => obj(x)?.name).sort() : null;
     const a = names(old.multi_select), b = names(next.multi_select);
