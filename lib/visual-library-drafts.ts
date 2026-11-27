@@ -23,7 +23,7 @@ export function defaultBannerDraft(banner: VisualBanner, variantIndex: number): 
     description: variant?.description ?? banner.description,
     ctaLabel: variant?.ctaLabel ?? banner.ctaLabel,
     visual: banner.photoTone || banner.id === "adresar:poskytovatelia" ? "dark" : "light",
-    size: banner.id === "help:closing" ? "large" : banner.group === "clanky" || banner.id.startsWith("adresar:") ? "small" : "medium",
+    size: banner.group === "clanky" ? "small" : banner.id === "adresar:mapa" || banner.id === "plemena:kluby" ? "medium" : "large",
     background: "original",
     button: "original",
     scope: "one",
