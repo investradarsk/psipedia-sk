@@ -41,6 +41,7 @@ export async function saveBreedNotionField(input:{
   actor?:string;
   expectedRevision?:string;
   recordAdminReceipt?:boolean;
+  authorityReservation?: import("./notion-unified-field-transfer.ts").FieldReservation;
 }):Promise<{updated:boolean;breed:ManagedBreed}> {
   if (!Number.isSafeInteger(input.breedId) || input.breedId<1)
     throw Error("BREED_EVENT_PSI_ID_INVALID");
@@ -80,16 +81,25 @@ export async function saveBreedNotionField(input:{
     const sqlOnlyObjectField=/^(?:fciStandard|editorial|seo)\./.test(input.field);
     const assignments=sqlOnlyObjectField?[]:patch.assignments;
     const params=sqlOnlyObjectField?[]:patch.params;
+    const authority=input.authorityReservation?.profileAuthority===true;
+    const guard=authority
+      ? " AND status<>'archived' AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='BREED' AND entity_id=managed_breeds.id)"+
+        " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=managed_breeds.id)"+
+        " AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='breeds' AND entity_id=CAST(managed_breeds.id AS TEXT))"+
+        " AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=managed_breeds.id AND status='ACTIVE' AND work_notion_page_id=?)"+
+        " AND EXISTS(SELECT 1 FROM notion_unified_field_state WHERE agenda='breeds' AND entity_id=CAST(managed_breeds.id AS TEXT) AND notion_page_id=? AND field_key=? AND version=? AND status='PENDING')"
+      : "";
     const sql="UPDATE managed_breeds SET "+
       [...assignments,"updated_at=?","updated_by=?"].join(",")+
-      " WHERE id=? AND updated_at=? RETURNING id";
+      " WHERE id=? AND updated_at=?"+guard+" RETURNING id";
     {
       // CAS + exactly one canonical SQL cell in ONE D1 transaction;
       // shadow mode additionally retains the old JSON object update.
       // The guard rolls back everything if an independent writer won.
       const statements=[
         input.database.prepare(sql)
-          .bind(...params,next,input.actor??actor,input.breedId,before.updatedAt),
+          .bind(...params,next,input.actor??actor,input.breedId,before.updatedAt,
+            ...(authority?[input.authorityReservation!.identity.pageId,input.authorityReservation!.identity.pageId,input.authorityReservation!.identity.field,input.authorityReservation!.version]:[])),
         breedSqlV2CasGuard(input.database),
         ...breedSqlV2DirectFieldStatements(input.database,input.breedId,
           input.field,input.value),
