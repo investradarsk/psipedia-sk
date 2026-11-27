@@ -1,3 +1,4 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
@@ -49,10 +50,13 @@ export async function PUT(request: Request, { params }: Props) {
     const before = await getManagedEshopById(id);
     if (!before) return Response.json({ error: "E-shop sa nenašiel." }, { status: 404 });
 
-    const body = await request.json() as ManagedEshopUpdateInput & {expectedUpdatedAt?:unknown};
+    const body = await request.json() as ManagedEshopUpdateInput & {expectedUpdatedAt?:unknown;reviewOnSave?:unknown};
+    const authority=(env as unknown as TargetedNotionSaveBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const reviewOnSave=authority&&body.reviewOnSave===true;
+    if(reviewOnSave&&!unifiedEshopEnabled())return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
     if(unifiedEshopEnabled()&&(typeof body.expectedUpdatedAt!=='string'||body.expectedUpdatedAt!==before.updatedAt))
       return Response.json({error:'E-shop sa medzičasom zmenil. Obnov stránku.'},{status:409});
-    const shop = await updateManagedEshop(id, body, auth.user.email,undefined,unifiedEshopEnabled()?before.updatedAt:undefined);
+    const shop = await updateManagedEshop(id, body, auth.user.email,undefined,unifiedEshopEnabled()?before.updatedAt:undefined,reviewOnSave);
     if (!shop) return Response.json({ error: "E-shop sa nenašiel." }, { status: 404 });
 
     if (before.logoKey && before.logoKey !== shop.logoKey) {
@@ -61,7 +65,7 @@ export async function PUT(request: Request, { params }: Props) {
     }
 
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "eshops", entityId: shop.id, beforeEshop: before });
-    return Response.json({ shop, notionFieldSync });
+    return Response.json({ shop, notionFieldSync, ...(authority?{review:await getAdminEntityReview("ESHOP",id)}:{}) });
   } catch (error) {
     return errorResponse(error);
   }
