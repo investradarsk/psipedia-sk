@@ -62,6 +62,16 @@ export async function POST(request: Request) {
       (data.entity?.type !== "page" && data.entity?.entity_type !== "page")) {
     return Response.json({ received: true, result: "ignored" });
   }
+  // Remote deletion warnings must be durable even if the ordinary inbox
+  // flag is disabled. Never acknowledge a mapped deletion only in memory.
+  if (data.type === "page.deleted") {
+    try {
+      await enqueueNotionWebhook(bindings.DB, data, body);
+      return Response.json({ received: true, result: "queued" });
+    } catch {
+      return new Response(null, { status: 503 });
+    }
+  }
   // Safe staged rollout: this PR can be merged before protected migration
   // 0145. Until D1 is provisioned and the owner enables the flag, preserve
   // the previously deployed synchronous contract rather than returning 503.
