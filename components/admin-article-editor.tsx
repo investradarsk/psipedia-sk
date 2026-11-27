@@ -25,7 +25,7 @@ import {facebookScheduleInstant,facebookWallTime,type FacebookImagePost} from "@
 import Link from "next/link";
 
 import type { AdminArticleBreedOption } from "@/lib/breed-store";
-import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
+import { articleBlockLabels, createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   articlePortalSectionOptions,
   portalSections as defaultPortalSections,
@@ -270,7 +270,8 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-blocks");
-  const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
+  const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string; blockId?: string } | null>(null);
+  const [qaBlockFocusRequest, setQaBlockFocusRequest] = useState<{ blockId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
   const allowNavigationRef = useRef(false);
@@ -292,6 +293,7 @@ export function AdminArticleEditor({
     const panel = document.getElementById(qaFocusRequest.sectionId);
     if (panel?.hidden) return;
     panel?.focus({ preventScroll: true });
+    if (qaFocusRequest.blockId) setQaBlockFocusRequest({ blockId: qaFocusRequest.blockId });
   }, [activeArticleSection, qaFocusRequest]);
 
   const focusResult = () => window.requestAnimationFrame(() => {
@@ -575,7 +577,7 @@ export function AdminArticleEditor({
           const targetSectionId = targetId === "article-content" ? "article-basics" : targetId;
           const visibleTargetId = targetSectionId === "article-basics" ? "article-blocks" : targetSectionId;
           chooseArticleSection(visibleTargetId);
-          setQaFocusRequest({ sectionId: visibleTargetId });
+          setQaFocusRequest({ sectionId: visibleTargetId, blockId: firstBlocker?.blockId });
         }
         throw new Error(data.error || "Článok sa nepodarilo uložiť.");
       }
@@ -853,13 +855,19 @@ export function AdminArticleEditor({
               <div><span>QA</span><div><h2>{qaIssues.some((item) => item.severity === "BLOCKER") ? "Chýbajú povinné údaje" : "Vyžaduje kontrolu"}</h2><p>Publikačná kontrola našla {qaIssues.length} {qaIssues.length === 1 ? "položku" : "položiek"}. Koncept môžeš ďalej ukladať.</p></div></div>
             </div>
             <ul>
-              {qaIssues.map((item, index) => (
-                <li key={`${item.code}-${item.blockId ?? item.field}-${index}`}>
-                  <strong>{item.severity}: {item.message}</strong>
+              {qaIssues.map((item, index) => {
+                const blockIndex = blocks.findIndex(block => block.id === item.blockId);
+                const block = blocks[blockIndex];
+                return <li key={`${item.code}-${item.blockId ?? item.field}-${index}`}>
+                  <strong>{item.severity === "BLOCKER" ? "Bráni publikovaniu" : item.severity === "WARNING" ? "Upozornenie" : "Informácia"}: {item.message}</strong>
                   <div>{item.suggestedAction}</div>
-                  <small>Kód: {item.code}{item.blockId ? ` · blok ${item.blockId}` : ""}</small>
-                </li>
-              ))}
+                  {block && <small>Blok {blockIndex + 1} · {articleBlockLabels[block.type]}</small>}
+                  {item.blockId && <button type="button" onClick={() => {
+                    chooseArticleSection("article-blocks");
+                    setQaFocusRequest({ sectionId: "article-blocks", blockId: item.blockId });
+                  }}>Prejsť na problém</button>}
+                </li>;
+              })}
             </ul>
           </section>
         )}
@@ -1186,6 +1194,7 @@ export function AdminArticleEditor({
             takeawayRichText={takeawayRichText}
             takeaway={takeaway}
             blocks={blocks}
+            qaBlockFocusRequest={activeArticleSection === "article-blocks" ? qaBlockFocusRequest : null}
             promoUtcDay={promoUtcDay}
             currentArticleId={article?.id}
             onUploadingChange={setUploading}
@@ -1197,6 +1206,7 @@ export function AdminArticleEditor({
               setTakeaway(fields.takeaway);
               setTakeawayRichText(fields.takeawayRichText);
               setBlocks(fields.blocks);
+              setQaBlockFocusRequest(null);
               setEditorDirty(true);
             }}
           />
