@@ -81,7 +81,8 @@ test("Only one D1 writer for full form: no implicit field diff and no second cle
   assert.match(admin, /if \(editedPaths && !fullProfileSave\)/);
   assert.match(admin, /!fullProfileSave && Array\.isArray\(rawExplicitlyClearedContacts\)/);
   assert.match(admin, /const fieldPreserved = !fullProfileSave && editedPaths/);
-  assert.match(admin, /const safeOptionalFields = fullProfileSave/);
+  assert.match(admin, /const safeOptionalFields = preserveUntouchedDirectoryContacts/);
+  assert.match(admin, /fullProfileSave \? fullContactPaths : editedPaths/);
   assert.match(admin, /directoryContactValueMismatches\(expectedContactValues/);
   assert.match(notion, /isDirectoryAdminWritebackEcho\(/);
   assert.match(notion, /UPDATE directory_notion_sync SET notion_last_edited_time = \?/);
