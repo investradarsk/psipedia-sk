@@ -46,8 +46,10 @@ function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 }
 
-export function AdminEventEditor({ event, initialInternalNotes = "", automationSuggestions = [], returnHref = "/admin/podujatia" }: { event?: DogEvent; initialInternalNotes?: string; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
+export function AdminEventEditor({ event, initialInternalNotes = "", initialReview=null, automationSuggestions = [], returnHref = "/admin/podujatia" }: { event?: DogEvent; initialInternalNotes?: string; initialReview?:{reviewed:boolean;reviewedAt:string}|null; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
   const router = useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [title, setTitle] = useState(event?.title ?? "");
   const [slug, setSlug] = useState(event?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(event));
@@ -184,7 +186,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ expectedUpdatedAt: event ? expectedUpdatedAt : undefined, title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageAlt, internalNotes, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
+        body: JSON.stringify({ reviewOnSave:Boolean(event&&review&&!review.reviewed&&lockWithSave), expectedUpdatedAt: event ? expectedUpdatedAt : undefined, title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageAlt, internalNotes, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
           eventEditorialChangedFields: event ? eventChangedAdminFields(
             JSON.parse(savedSnapshot) as Record<string,unknown>,
             JSON.parse(editorSnapshot) as Record<string,unknown>,
@@ -192,7 +194,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       });
       const data = await response.json() as {
         event?: DogEvent; error?: string; code?: string; fieldWarnings?: string[];
-        notionFieldSync?: string; notionWarnings?: string[]; savedToD1?: boolean;
+        notionFieldSync?: string; notionWarnings?: string[]; savedToD1?: boolean; review?:{reviewed:boolean;reviewedAt:string}|null;
       };
       if (response.status === 409 && data.code === "EVENT_VERSION_CONFLICT") {
         // Preserve all unsaved edits. Reloading automatically would lose them.
@@ -200,6 +202,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         return;
       }
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
+      if(data.review){setReview(data.review);if(data.review.reviewed&&!review?.reviewed)router.refresh();}
       setStatus(data.event.status);
       setExpectedUpdatedAt(data.event.updatedAt);
       setSavedSnapshot(editorSnapshot);
@@ -272,6 +275,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       >
         <form id="event-editor-v3-form" noValidate className={`admin-event-editor ${styles.eventForm}`} onSubmit={(submitEvent) => { submitEvent.preventDefault(); if (!saving && !uploading) void save(status); }}>
           <AdminFormFeedback message={message} error={error} pending={saving} />
+          {review&&!review.reviewed&&<div role="status"><p>Neodkontrolované podujatie: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={event ? { entityType: "EVENT", canonicalEntityId: event.id } : undefined} onAccepted={applyAutomationUpdate} />
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Názov a stručné predstavenie pre kalendár podujatí.</p></div></div></div>
