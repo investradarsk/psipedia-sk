@@ -1270,7 +1270,8 @@ export async function recoverEshopV2Field(database:D1Database,bindings:NotionEsh
   if(observed.shop.status==="archived")throw Error("ESHOP_V2_ARCHIVED");
   const historical=await readProfileFieldBaseline({database,agenda:"eshops",entityId:id,pageId,expectedHash:mapping.content_hash});
   const identity={agenda:"eshops" as const,entityId:String(id),pageId,field};
-  await reserveUnifiedField({database,identity,notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
+  await reserveUnifiedField({database,identity,authorityBindings:bindings,
+    authorityProperty:observed.page.properties?.[field === "description" ? "Popis" : ""],notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.shop.updatedAt)});
 }
