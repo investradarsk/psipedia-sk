@@ -610,7 +610,7 @@ export function AdminBreedEditor({ breed, initialReview=null, returnHref = "/adm
             <AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning"/>
           </label>
           <div className="admin-field"><span>FCI skupina</span><select aria-label="FCI skupina" value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>
-            {FCI_GROUP_OPTIONS.map(([number,label])=><option key={number} value={number}>{number}. {label}</option>)}</select></div>
+            {review&&form.fciGroup===0&&<option value={0}>Nevyplnené</option>}{FCI_GROUP_OPTIONS.map(([number,label])=><option key={number} value={number}>{number}. {label}</option>)}</select></div>
           <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={e=>change("fciSection",e.target.value)} /></label>
           {breed && !controlledLoading && controlledRevision===null && <p role="status" className={styles.validation}>
             Štruktúrované údaje zatiaľ nie sú pre tento profil prepojené s Notionom. Dostupné sú pôvodné polia; údaje zostanú v Admine.
@@ -630,7 +630,7 @@ export function AdminBreedEditor({ breed, initialReview=null, returnHref = "/adm
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>03 · Povaha v číslach</h2><p>Osem nezávislých hodnotení od 1 do 5.</p></div></div>
         <div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}>
-          <span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={e=>change(key,Number(e.target.value))}/></label>)}</div>
+          <span>{label}</span><input type="number" min="1" max="5" value={review&&form[key]===0?"":form[key]} placeholder={review?"Nevyplnené":undefined} onChange={e=>change(key,Number(e.target.value))}/></label>)}</div>
       </div>
     </AdminEditorSection>
 
