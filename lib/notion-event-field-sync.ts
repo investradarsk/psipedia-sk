@@ -79,6 +79,7 @@ function valueFromPage(raw:unknown,field:EventNotionField):string|boolean|null{
   return typeof value==="string"?value:null;
 }
 function pilotEnabled(bindings: EventFieldSyncBindings) {
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
   return bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
 }
 function eventObservation(value: unknown, present: boolean, field: EventNotionField): FieldObservation {
@@ -356,6 +357,7 @@ export async function syncEventAdminFields(input:{
   database:D1Database;bindings:EventFieldSyncBindings;eventId:number;
   changedFields:readonly EventNotionField[];
 }):Promise<SyncStatus>{
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return "disabled";
   if(input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED!=="true" ||
       !available(input.bindings))return "disabled";
   if(!Number.isSafeInteger(input.eventId)||input.eventId<1)return "unlinked";
