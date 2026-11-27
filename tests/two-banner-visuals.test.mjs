@@ -197,3 +197,24 @@ test("both themes and every banner size place CTA beneath copy, not in a right c
   assert.match(read("components/content-hub-cta.tsx"), /data-public-banner-actions/);
   assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /data-public-banner-actions/);
 });
+
+
+test("internal editorial promotion adapters share the canonical copy and action structure", () => {
+  const magazine = read("components/public-visual-system/public-magazine-banner.tsx");
+  assert.match(magazine, /data-public-banner-content/);
+  assert.match(magazine, /data-public-banner-copy/);
+  assert.match(magazine, /data-public-banner-description/);
+  assert.match(magazine, /data-public-banner-actions/);
+  assert.match(magazine, /as=\{headingAs\}/);
+  for (const file of [
+    "components/public-visual-system/public-context-banner.tsx",
+    "components/editorial-section.tsx",
+    "components/content-hub-cta.tsx",
+  ]) assert.match(read(file), /<PublicBannerContent/);
+  const hub = read("components/content-hub-cta.tsx");
+  assert.match(hub, /headingAs="h3"/);
+  assert.match(hub, /\{urgent \? \(/);
+  assert.match(hub, /data-banner-semantic=\{cta.key === "health-urgent" \? "urgent" : undefined\}/);
+  assert.match(read("components/article-promo.tsx"), /<PublicMagazineBanner/);
+  assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
+});
