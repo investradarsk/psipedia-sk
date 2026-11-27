@@ -1,10 +1,12 @@
-import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit } from "./notion-unified-field-sync.ts";
+import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit, type ProfileAuthorityContext } from "./notion-unified-field-sync.ts";
+import { readProfileAuthorityOwner, profileAuthorityEnabled, profileAuthorityTextFieldAllowed, type ProfileAuthorityBindings } from "./notion-profile-authority.ts";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 
 export type FieldReservation = {
   identity: FieldIdentity;
   version: number;
   value: unknown;
+  profileAuthority?: true;
 };
 
 /** Reserve one field before attempting any cross-system write. Existing PENDING
@@ -19,9 +21,49 @@ export async function reserveUnifiedField(input: {
   direction: "pull" | "push" | "observe";
   psipediaEdit?: ScopedFieldEdit;
   notionEdit?: ScopedFieldEdit;
+  authorityBindings?: ProfileAuthorityBindings;
+  authorityProperty?: unknown;
 }): Promise<FieldReservation | null> {
   const { database, identity } = input;
   const old = await readUnifiedFieldState(database, identity);
+  if (profileAuthorityEnabled(input.authorityBindings)) {
+    const owner = await readProfileAuthorityOwner(database,identity);
+    const authority: ProfileAuthorityContext = {
+      owner, fieldAllowed: profileAuthorityTextFieldAllowed(identity),
+      notionValidated: isVerifiedAuthorityText(input.authorityProperty,input.notion),
+    };
+    const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
+    if(old?.status==="PENDING"){
+      const age=Date.now()-Date.parse(old.updatedAt);
+      if(!Number.isFinite(age)||age<600_000)throw Error("UNIFIED_FIELD_PENDING_RECOVERY");
+      // Resolve uncertain earlier writes only from fresh equality. A new
+      // observation on a later attempt can then obtain a new pull reservation.
+      const equal=decision.action==="unchanged";
+      const recovered=await writeUnifiedFieldState(database,identity,old.version,{
+        baselineVersion:equal?crypto.randomUUID():old.baselineVersion,
+        baseline:equal?decision.value:old.baseline,notion:old.notion,psipedia:old.psipedia,
+        notionEdit:undefined,psipediaEdit:undefined,status:equal?"SYNCED":"REVIEW",
+        reason:equal?null:"RECOVERY_DIVERGED",
+      });
+      if(recovered===null)throw Error("UNIFIED_FIELD_CONCURRENT_RECOVERY");
+      if(equal)return null;
+      throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
+    }
+    const unchanged=decision.action==="unchanged";
+    const allowed=decision.action==="pull"&&input.direction==="pull";
+    const reason=unchanged||allowed?null:decision.action==="review"?decision.reason:"NOTION_AUTHORITY_PULL_REQUIRED";
+    const version=await writeUnifiedFieldState(database,identity,old?.version??null,{
+      baselineVersion:unchanged?crypto.randomUUID():old?.baselineVersion,
+      baseline:unchanged?decision.value:old?.baseline,
+      notion:input.notion.present?input.notion.value:undefined,
+      psipedia:input.psipedia.present?input.psipedia.value:undefined,
+      notionEdit:undefined,psipediaEdit:undefined,status:unchanged?"SYNCED":allowed?"PENDING":"REVIEW",reason,
+    });
+    if(version===null)throw Error("UNIFIED_FIELD_CONCURRENT_RESERVATION");
+    if(unchanged||input.direction==="observe")return null;
+    if(!allowed)throw Error(reason??"UNIFIED_FIELD_REVIEW");
+    return {identity,version,value:decision.value,profileAuthority:true};
+  }
   // Observation-only recovery may establish equality or record a conflict;
   // it must never grant permission to mutate canonical or remote content.
   if (old?.status === "PENDING") {
@@ -120,6 +162,8 @@ export async function confirmUnifiedField(
   database: D1Database, reservation: FieldReservation,
   notion: FieldObservation, psipedia: FieldObservation,
 ): Promise<void> {
+  if(reservation.profileAuthority && await readProfileAuthorityOwner(database,reservation.identity)!=="notion")
+    throw Error("UNIFIED_FIELD_AUTHORITY_CHANGED");
   const decision = decideUnifiedField({
     identity: reservation.identity,
     baseline: { value: reservation.value, version: String(reservation.version) },
@@ -143,7 +187,22 @@ export async function confirmUnifiedField(
 /** Recheck the actual reservation immediately before external side effects.
  * The provider has no CAS; this reduces, but cannot eliminate, that gap. */
 export async function assertUnifiedReservationCurrent(database:D1Database,reservation:FieldReservation){
+  if(reservation.profileAuthority && await readProfileAuthorityOwner(database,reservation.identity)!=="notion")
+    throw Error("UNIFIED_FIELD_AUTHORITY_CHANGED");
   const state=await readUnifiedFieldState(database,reservation.identity);
   if(!state||state.version!==reservation.version||state.status!=="PENDING")
     throw Error("UNIFIED_FIELD_RESERVATION_INVALIDATED");
+}
+
+
+/** Independently prove an exact, complete rich-text observation. A decoder
+ * fallback, wrong type, partial pagination or missing property is not a clear. */
+export function isVerifiedAuthorityText(raw:unknown,observation:FieldObservation):boolean{
+  if(!observation.present||typeof observation.value!=="string"||!raw||typeof raw!=="object")return false;
+  const prop=raw as Record<string,unknown>;
+  if(prop.type!=="rich_text"||prop.has_more===true||!Array.isArray(prop.rich_text)||prop.rich_text.length>=25)return false;
+  const parts=prop.rich_text as Array<{plain_text?:unknown;type?:unknown}>;
+  if(parts.some(part=>!part||typeof part.plain_text!=="string"||part.type==="mention"))return false;
+  const normalize=(value:string)=>value.replace(/\r\n?/g,"\n").trim();
+  return normalize(parts.map(part=>part.plain_text).join(""))===normalize(observation.value);
 }
