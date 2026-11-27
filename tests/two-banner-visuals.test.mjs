@@ -63,8 +63,8 @@ test("article, contextual, help and content CTA banners reuse the same frame", (
   }
   const magazine = read("components/public-visual-system/public-magazine-banner.tsx");
   assert.match(magazine, /visual=\{visual \?\? \(photoTone \? "dark" : "light"\)\}/);
-  assert.match(magazine, /size=\{size \?\? \(compact \? "small" : "medium"\)\}/);
-  assert.match(magazine, /data-banner-desktop-size=\{desktopColors\?\.size\}/);
+  assert.match(magazine, /size=\{size \?\? \(compact \? "small" : "large"\)\}/);
+  assert.doesNotMatch(magazine, /data-banner-desktop-size/);
   const editor = read("components/admin-visual-library-editor.tsx");
   assert.match(editor, /Vizuál banneru/);
   assert.match(editor, /Veľkosť banneru/);
@@ -110,7 +110,8 @@ test("banner CTA stacks in a narrow desktop sidebar based on its own width", () 
 
   assert.match(article, /<ArticlePromo[\s\S]*?\bcompact\s*\/>/);
   assert.match(promo, /compact=\{compact\}/);
-  assert.match(magazine, /size=\{size \?\? \(compact \? "small" : "medium"\)\}/);
+  assert.match(promo, /size=\{compact \? "small" : "medium"\}/);
+  assert.match(magazine, /size=\{size \?\? \(compact \? "small" : "large"\)\}/);
   assert.match(read("app/globals.css"), /\.shell\s*\{\s*width:\s*min\(var\(--ps-content-max\)/);
 });
 
@@ -238,4 +239,18 @@ test("non-urgent internal banner actions use one opaque branded visual and typog
   assert.match(common, /font: 650 0\.875rem/);
   assert.doesNotMatch(css, /--ps-glass-dark-cta|--ps-glass-sheen/);
   assert.match(css, /--ps-bnr-heading-font: "Psipedia Newsreader"/);
+});
+
+
+test("placement determines public banner size, not the saved desktop draft", () => {
+  const directory = read("components/directory-page.tsx");
+  const events = read("components/events-page.tsx");
+  const magazine = read("components/public-visual-system/public-magazine-banner.tsx");
+  assert.match(directory, /visual="light"\s+size="medium"\s+testId="directory-map-cta"/);
+  assert.match(directory, /size="large"\s+testId="directory-provider-cta"/);
+  assert.match(events, /size="large"\s+photoTone="volunteer"\s+testId="events-organizer-cta"/);
+  assert.match(read("components/event-listing-results.tsx"), /size="medium"\s+testId=\{\x60event-category-/);
+  assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /size="large"/);
+  assert.doesNotMatch(magazine, /data-banner-desktop-size/);
+  assert.doesNotMatch(read("app/banner-visuals.css"), /data-banner-desktop-size/);
 });
