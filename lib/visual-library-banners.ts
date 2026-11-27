@@ -82,7 +82,7 @@ const pageBanners: VisualBanner[] = [
     uses: [{
       url: "https://psipedia.sk/adresar",
       label: "Adresár – služby pre psov",
-      placement: "Pravý bočný panel · prechod na mapu",
+      placement: "Hlavný stĺpec vedľa filtrov · prechod na mapu",
       evidence: "verified-in-code",
       anchorId: CTA_DIRECTORY_MAP_ANCHOR,
     }],
@@ -100,7 +100,7 @@ const pageBanners: VisualBanner[] = [
     uses: [{
       url: "https://psipedia.sk/adresar",
       label: "Adresár – služby pre psov",
-      placement: "Pravý bočný panel · pre poskytovateľov",
+      placement: "Celá šírka nad filtrami · pre poskytovateľov",
       evidence: "verified-in-code",
     }],
   },

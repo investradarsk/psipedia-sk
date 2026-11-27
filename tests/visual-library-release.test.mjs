@@ -45,12 +45,15 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   assert.match(css, /\.magazine\[data-visual-library-desktop-published="true"\] \.desktopCopy\s*\{\s*display:\s*inline;/);
   assert.match(home, /desktopCopy=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopCopy=\{breedClubBannerColors\}/);
-  assert.match(css, /var\(--ps-visual-desktop-button/);
+  const visual = read("app/banner-visuals.css");
+  assert.match(visual, /data-banner-desktop-visual="light"/);
+  assert.match(visual, /data-banner-desktop-visual="dark"/);
+  assert.doesNotMatch(css, /var\(--ps-visual-desktop-button/);
   assert.match(home, /getPublishedDesktopBannerColorsBatch\(\["homepage:profil", "help:lost-found"\]\)/);
   assert.match(atlas, /getPublishedDesktopBannerColors\("plemena:kluby"\)/);
   assert.match(home, /desktopColors=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopColors=\{breedClubBannerColors\}/);
-  assert.match(editor, /Publikovať texty, vizuál a veľkosť/);
+  assert.match(editor, /Publikovať texty a vizuál/);
   assert.match(editor, /Vrátiť publikované zmeny/);
   assert.doesNotMatch(editor, /window\.localStorage/);
 });
@@ -76,7 +79,7 @@ test("desktop-only text is responsive inside the original semantic heading and C
   const store=read("lib/visual-library-edit-store.ts");
   // One heading and one CTA link, with viewport-specific text descendants.
   assert.equal((component.match(/<PublicHeading\b/g)||[]).length, 1);
-  assert.match(component, /<PublicHeading role="section" as="h2" id=\{headingId\}>/);
+  assert.match(component, /<PublicHeading role="section" as=\{headingAs\} id=\{headingId\}/);
   assert.equal((component.match(/<PublicActionLink\b/g)||[]).length, 1);
   assert.match(component, /<PublicActionLink\s+href=\{href\}\s+variant=\{actionVariant\}\s+className="button button--dark"/);
   assert.match(component, /<span className=\{styles\.mobileCopy\}>\{title\}<\/span>/);

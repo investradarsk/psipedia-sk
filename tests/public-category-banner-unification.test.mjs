@@ -38,13 +38,15 @@ test("categories precede the shared organizer CTA, affiliate and calendar", () =
   assert.match(source, /<PublicMagazineBanner[\s\S]*?testId="events-organizer-cta"/);
 });
 
-test("contextual coral banners use cream rather than pale pink", () => {
+test("contextual coral banners use the common light palette rather than a local color", () => {
   const css = read("components/public-visual-system/public-context-banner.module.css");
-  const tone = css.match(/\.tone_coral\s*\{([^}]+)\}/)?.[1];
+  const source = read("components/public-visual-system/public-context-banner.tsx");
+  const shared = read("app/banner-visuals.css");
+  assert.match(source, /visual=\{tone === "forest" \? "dark" : "light"\}/);
+  const tone = css.match(/\.tone_coral,\s*\.tone_sand\s*\{([^}]+)\}/)?.[1];
   assert.ok(tone);
-  assert.match(tone, /#f8f4eb/);
-  assert.match(tone, /border-left:\s*3px solid/);
-  assert.doesNotMatch(tone, /#fff0ea/);
+  assert.doesNotMatch(tone, /background:|border-left:/);
+  assert.match(shared, /--ps-bnr-bg: #f7f2e9/);
 });
 
 test("event period remains a separate, labeled navigator", () => {

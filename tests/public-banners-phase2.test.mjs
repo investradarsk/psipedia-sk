@@ -12,10 +12,11 @@ test("banner frames have one shared source across contextual, homepage and artic
   const help = read("components/public-visual-system/public-help-banner.module.css");
   assert.match(design, /--ps-banner-radius: var\(--ps-radius-filter\)/);
   assert.match(design, /--ps-banner-border: var\(--ps-border-soft\)/);
-  assert.match(context, /border: 1px solid var\(--ps-banner-border/);
-  assert.match(context, /border-radius: var\(--ps-banner-radius/);
-  assert.match(magazine, /border: 1px solid var\(--ps-banner-border/);
-  assert.match(magazine, /border-radius: var\(--ps-banner-radius/);
+  const shared = read("app/banner-visuals.css");
+  assert.match(shared, /border: 1px solid var\(--ps-bnr-border\)/);
+  assert.match(shared, /border-radius: var\(--ps-bnr-radius\)/);
+  assert.doesNotMatch(context, /border-radius: var\(--ps-banner-radius/);
+  assert.doesNotMatch(magazine, /border-radius: var\(--ps-banner-radius/);
   assert.match(editorial, /border: 1px solid var\(--ps-banner-border/);
   assert.match(editorial, /border-radius: var\(--ps-banner-radius/);
   assert.match(help, /\.reportBanner \{[\s\S]*?border-radius: var\(--ps-banner-radius/);
@@ -39,7 +40,7 @@ test("public notices share banner geometry and have separate informational, warn
   assert.match(source, /appearance === "default" && styles\[tone\]/);
 });
 
-test("the compact/foto banner variants keep their own responsive layouts and destinations", () => {
+test("legacy banner adapters retain their semantic hooks and destinations", () => {
   const context = read("components/public-visual-system/public-context-banner.tsx");
   const css = read("components/public-visual-system/public-context-banner.module.css");
   const help = read("components/public-visual-system/public-help-banner.tsx");
@@ -51,8 +52,8 @@ test("the compact/foto banner variants keep their own responsive layouts and des
     read("components/public-visual-system/public-magazine-banner.tsx"),
     /<PublicActionLink/,
   );
-  assert.match(css, /\.tone_forest \{/);
-  assert.match(css, /\.tone_coral \{/);
+  assert.match(css, /\.tone_forest,/);
+  assert.match(css, /\.tone_coral,/);
   assert.match(css, /\.inline > \.copy \{/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(help, /href="\/pomoc-psom\/nahlasit-psa-v-nudzi"/);

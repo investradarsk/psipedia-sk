@@ -455,7 +455,7 @@ test("PUBLIC-UX-FOUNDATION-1 provides a reusable compact contextual banner", () 
   assert.match(banner, /loading=\{image\.loading \?\? "lazy"\}/);
   assert.match(banner, /width=\{image\.width \?\? 720\}/);
   assert.match(banner, /height=\{image\.height \?\? 480\}/);
-  assert.match(bannerCss, /display:\s*grid/);
+  assert.match(read("app/banner-visuals.css"), /\[data-public-banner-content\]\s*\{[^}]*display:\s*grid/);
   assert.match(banner, /PublicBannerContent/);
   assert.match(bannerCss, /@media \(max-width: 720px\)[\s\S]*aspect-ratio:\s*16 \/ 7/);
   assert.match(publicIndex, /PublicContextBanner/);
@@ -502,12 +502,11 @@ test("DS-4 shared banners own organizer layout without page-local CSS overrides"
   const eventsCss = read("components/events-public.module.css");
   assert.match(component, /inline\?: boolean/);
   assert.match(component, /data-public-context-banner-layout/);
-  assert.match(events, /<PublicMagazineBanner\s+compact\s+size="medium"\s+photoTone="volunteer"\s+testId="events-organizer-cta"/);
-  assert.match(styles, /\.inline > \.copy[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/);
-  assert.match(
-    styles,
-    /@media \(max-width: 720px\)[\s\S]*\.inline > \.copy > a[\s\S]*min-height: 48px/,
-  );
+  assert.match(events, /<PublicMagazineBanner\s+compact\s+size="large"\s+photoTone="volunteer"\s+testId="events-organizer-cta"/);
+  const sharedBannerCss = read("app/banner-visuals.css");
+  assert.doesNotMatch(styles, /grid-template-columns:/);
+  assert.match(sharedBannerCss, /\[data-public-banner-content\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important/);
+  assert.match(sharedBannerCss, /@container ps-editorial-banner \(max-width: 520px\)[\s\S]*min-height: 48px/);
   assert.doesNotMatch(eventsCss, /\.calendarOrganizer \[data-public-context-banner\]/);
 });
 
@@ -524,8 +523,8 @@ test("DS-4 promotional, image and safety banners preserve distinct content with 
     /data-home-banner=\{testId\}/,
   );
   assert.match(
-    homeCss,
-    /\.magazine:global\(\.home-magazine-banner \.button\)[\s\S]*min-height: 48px/,
+    read("app/banner-visuals.css"),
+    /@media \(max-width: 720px\)[\s\S]*min-height: 48px/,
   );
   assert.match(help, /lostFoundSubmitPromo/);
   assert.match(helpCss, /\.overviewPromo_(care|rescue|volunteer)\s*\{/);
@@ -536,7 +535,7 @@ test("DS-4 promotional, image and safety banners preserve distinct content with 
   assert.match(hubCss, /\.card\[data-health-urgent\][\s\S]*border-left: 4px solid/);
 });
 
-test("context CTA reuses semantic PublicActionLink without changing its existing local style", () => {
+test("context CTA reuses semantic PublicActionLink with the canonical banner visual", () => {
   const hub = read("components/content-hub-cta.tsx");
   const sourceLink = source
     .split("export function PublicActionLink(")[1]

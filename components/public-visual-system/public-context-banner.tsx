@@ -2,7 +2,7 @@ import { PublicBannerContent } from "./public-magazine-banner";
 import type { ReactElement, ReactNode } from "react";
 import { PublicIcon } from "./public-visual-system";
 import styles from "./public-context-banner.module.css";
-import { PublicBannerFrame } from "./public-banner-frame";
+import { PublicBannerFrame, type PublicBannerSize } from "./public-banner-frame";
 
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -28,6 +28,7 @@ export function PublicContextBanner({
   icon,
   tone = "forest",
   inline = false,
+  size = "large",
   className,
 }: {
   eyebrow?: ReactNode;
@@ -40,6 +41,7 @@ export function PublicContextBanner({
   tone?: PublicContextBannerTone;
   /** Compact row for contextual CTAs; the default/photo layout is unchanged. */
   inline?: boolean;
+  size?: PublicBannerSize;
   className?: string;
 }) {
   const hasCta = Boolean(ctaLabel && ctaHref);
@@ -48,6 +50,7 @@ export function PublicContextBanner({
   return (
     <PublicBannerFrame
       visual={tone === "forest" ? "dark" : "light"}
+      size={size}
       className={cx(
         styles.banner,
         styles[`tone_${tone}`],

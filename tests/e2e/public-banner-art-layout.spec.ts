@@ -34,7 +34,7 @@ test("banner art uses its own right lane on wide home promos", async ({ page }) 
   expect(result!.artVisible).toBe(true);
 });
 
-test("narrow directory cards hide dog art without obscuring buttons", async ({ page }) => {
+test("directory content banners reserve artwork space according to their actual width", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/adresar");
   const banner = page.locator("[data-directory-map-cta] [data-public-banner-frame]").first();
@@ -47,12 +47,17 @@ test("narrow directory cards hide dog art without obscuring buttons", async ({ p
     const button = action.getBoundingClientRect();
     return {
       width: outer.width,
-      dogHidden: getComputedStyle(art, "::after").display === "none",
+      contentWidth: outer.width - parseFloat(getComputedStyle(element).borderLeftWidth) - parseFloat(getComputedStyle(element).borderRightWidth) - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight),
+      size: element.getAttribute("data-banner-size"),
+      dogVisible: getComputedStyle(art, "::after").display !== "none",
+      artBelowAction: art.getBoundingClientRect().top >= button.bottom - 1,
+      rightLane: outer.right - button.right >= outer.width * .19,
       actionInside: button.left >= outer.left && button.right <= outer.right + 1,
     };
   });
   expect(result).not.toBeNull();
-  expect(result!.width).toBeLessThan(520);
-  expect(result!.dogHidden).toBe(true);
+  expect(result!.size).toBe("medium");
+  expect(result!.dogVisible).toBe(true);
+  expect(result!.contentWidth <= 520 ? result!.artBelowAction : result!.rightLane).toBe(true);
   expect(result!.actionInside).toBe(true);
 });
