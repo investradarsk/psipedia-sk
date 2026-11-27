@@ -7,10 +7,13 @@ import { getPublicOrganizationBySlug } from "../lib/help-organization-store.ts";
 import { OrganizationLocationAdminValidationError } from "../lib/organization-location-admin.ts";
 import {
   createOrganizationLocationFromAdmin,
+  planCombinedOrganizationAddress,
   deleteOrganizationLocationFromAdmin,
   OrganizationLocationMutationConflictError,
   updateOrganizationLocationFromAdmin,
 } from "../lib/organization-location-admin-write.ts";
+import { commitOrganizationAdminEdit } from "../lib/notion-organization-admin-receipts.ts";
+import { reviewOnSaveStatements } from "../lib/admin-review-on-save.ts";
 import { listOrganizationLocationsAdmin } from "../lib/organization-location-admin-store.ts";
 
 const migration = readFileSync(new URL("../drizzle/0040_organization_locations_foundation.sql", import.meta.url), "utf8");
@@ -31,7 +34,7 @@ class SqliteD1Database {
   async batch(statements) {
     this.database.exec("BEGIN");
     try {
-      const results = statements.map((statement) => { const result = statement.statement.run(...statement.values); return { meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } }; });
+      const results = statements.map((statement) => { const result = statement.statement.run(...statement.values); return { success:true, meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } }; });
       this.database.exec("COMMIT"); return results;
     } catch (error) { this.database.exec("ROLLBACK"); throw error; }
   }
@@ -286,4 +289,41 @@ test("MAP-AUTO-1C integration has one canonical lifecycle entrypoint and no prov
   assert.match(map, /o\.archived_at IS NULL/);
   assert.doesNotMatch(publication, /DELETE FROM geo_points|UPDATE geo_points/);
   assert.match(bulk, /changeOrganizationPublicationFromAdmin/);
+});
+
+
+test("combined organization address and review roll back on concurrent location changes",async()=>{
+  const {sqlite,db}=makeDatabase();
+  try{
+    sqlite.exec(`
+      ALTER TABLE help_organizations ADD COLUMN updated_by TEXT;
+      CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER,reviewed_at TEXT,reviewed_by TEXT,PRIMARY KEY(entity_type,entity_id));
+      CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT);
+      CREATE TABLE notion_help_admin_edit_intent(edit_id TEXT,agenda TEXT,entity_id INTEGER,notion_page_id TEXT,before_json TEXT);
+      CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,baseline_version TEXT);
+      CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,edit_id TEXT,baseline_version TEXT,canonical_revision TEXT,observed_at TEXT,value_json TEXT,explicit_clear INTEGER,PRIMARY KEY(agenda,entity_id,notion_page_id,field_key));
+    `);
+    const original=await createOrganizationLocationFromAdmin(2,locationPayload(),db);
+    assert.ok(original);
+    const revision=sqlite.prepare("SELECT updated_at FROM help_organizations WHERE id=2").get().updated_at;
+    const next="2026-11-27T22:30:00.000Z";
+    const attempt=async expected=>{
+      const plan=await planCombinedOrganizationAddress(db,2,{expected,payload:locationPayload({city:"Levice"})});
+      return commitOrganizationAdminEdit(db,db.prepare("UPDATE help_organizations SET name=?,updated_at=?,updated_by=? WHERE id=2 AND updated_at=?").bind("Nový názov",next,"owner",revision),
+        {id:2,expectedRevision:revision,nextRevision:next,editor:"owner",companionStatements:[...reviewOnSaveStatements(db,{type:"ORGANIZATION",id:2,revision:next,actor:"owner"}),...plan.statements]});
+    };
+    // Google can change the location independently of the parent revision.
+    sqlite.prepare("UPDATE organization_locations SET city='Trnava' WHERE id=?").run(original.id);
+    await assert.rejects(attempt(original));
+    assert.equal(sqlite.prepare("SELECT name FROM help_organizations WHERE id=2").get().name,"Druhá organizácia");
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_entity_reviews").get().n,0);
+    const [fresh]=await listOrganizationLocationsAdmin(2,db);
+    await attempt(fresh);
+    assert.equal(sqlite.prepare("SELECT name FROM help_organizations WHERE id=2").get().name,"Nový názov");
+    assert.equal(sqlite.prepare("SELECT reviewed_by FROM admin_entity_reviews WHERE entity_id=2").get().reviewed_by,"owner");
+    assert.equal((await listOrganizationLocationsAdmin(2,db))[0].city,"Levice");
+    assert.equal((await listOrganizationLocationsAdmin(2,db))[0].id,original.id);
+    await assert.rejects(attempt(fresh));
+    assert.equal((await listOrganizationLocationsAdmin(2,db)).length,1);
+  }finally{sqlite.close();}
 });
