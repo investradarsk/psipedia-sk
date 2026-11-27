@@ -1,3 +1,4 @@
+import { getDirectoryFilterDefinition, normalizeDirectoryFilterValue } from "./directory-filter-contract.ts";
 import { resolveBreederRelationText, sameBreederRelationIds, type BreederNameOption } from "./breeder-relation-text.ts";
 import { verifiedBreedStructuredProperty, breedStructuredAuthorityFields } from "./notion-breed-structured-authority.mjs";
 import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
@@ -37,7 +38,9 @@ export async function reserveUnifiedField(input: {
         ? verifiedBreedStructuredProperty(identity.field,input.authorityProperty,input.notion,BREED_NOTION_SCHEMA)
         : identity.agenda==="directory"&&["qualifications","relation:breedIds","relation:clubIds"].includes(identity.field)
           ? isVerifiedDirectoryStructuredProperty(identity.field,input.authorityProperty,input.notion)
-          : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
+          : identity.agenda==="directory"&&identity.field.startsWith("facet:")
+            ? isVerifiedDirectoryFacetProperty(identity.field,input.authorityProperty,input.notion)
+            : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
     };
     const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
     if(old?.status==="PENDING"){
@@ -271,4 +274,21 @@ export function isVerifiedDirectoryStructuredProperty(field:string,raw:unknown,o
   const result=resolveBreederRelationText(text,wrapper.candidates as BreederNameOption[]);
   return result.status!=="unmatched"&&observed.value.every(id=>Number.isSafeInteger(id)&&id>0)&&
     new Set(observed.value).size===observed.value.length&&sameBreederRelationIds(result.ids,observed.value as number[]);
+}
+
+/** Only a real select:null is a clear; a missing name, wrong schema or
+ * unknown option is never interpreted as an empty category filter. */
+export function isVerifiedDirectoryFacetProperty(field:string,raw:unknown,observed:FieldObservation):boolean{
+  const parts=field.split(":");
+  const def=parts.length===3&&parts[0]==="facet"?getDirectoryFilterDefinition(parts[2]):undefined;
+  if(!def||def.category!==parts[1]||!observed.present||!raw||typeof raw!=="object")return false;
+  const cell=raw as {type?:unknown;has_more?:unknown;select?:unknown};
+  if(cell.type!=="select"||cell.has_more===true||!Object.hasOwn(cell,"select"))return false;
+  if(cell.select===null)return observed.value===null;
+  if(!cell.select||typeof cell.select!=="object")return false;
+  const label=(cell.select as {name?:unknown}).name;
+  if(typeof label!=="string"||!label.trim())return false;
+  const aliases:Record<string,string>={"Ambulancia":"ambulance","Klinika":"clinic","Nemocnica":"hospital","Neznáme":"unknown"};
+  const normalized=normalizeDirectoryFilterValue(def,Object.hasOwn(aliases,label)?aliases[label]:label);
+  return normalized.status==="known"&&normalized.value===observed.value;
 }

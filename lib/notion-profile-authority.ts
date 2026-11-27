@@ -1,3 +1,4 @@
+import { getDirectoryFilterDefinition } from "./directory-filter-contract.ts";
 import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
 import { breedWorkcopyPhysicalProperty } from "./breed-notion-workcopy-field-contract.mjs";
 import { breedControlledKeys } from "./breed-workcopy-controlled.mjs";
@@ -28,6 +29,10 @@ const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
   eshops:["name","websiteUrl","description","sourceUrl","focusTags","logoUrl"],
 };
 export function profileAuthorityTextFieldAllowed(identity:FieldIdentity):boolean {
+  if(identity.agenda==="directory"&&identity.field.startsWith("facet:")){
+    const parts=identity.field.split(":");
+    return parts.length===3&&getDirectoryFilterDefinition(parts[2])?.category===parts[1];
+  }
   return textFields[identity.agenda]?.includes(identity.field)===true;
 }
 

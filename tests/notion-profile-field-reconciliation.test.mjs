@@ -1994,3 +1994,21 @@ test("V3 directory structured proof distinguishes real blanks from malformed or 
   assert.equal(verify("relation:breedIds",relation("Labrador",[{id:1,name:"Labrador"},{id:2,name:"Labrador"}]),obs([1])),false);
   assert.equal(verify("relation:breedIds",relation("Labrador"),obs([2])),false);
 });
+
+test("V3 directory facets require exact registry scope and typed explicit selects",async()=>{
+  const {isVerifiedDirectoryFacetProperty:verify}=await import("../lib/notion-unified-field-transfer.ts");
+  const obs=value=>({present:true,value});
+  const select=name=>({type:"select",select:name===null?null:{name}});
+  const field="facet:veterinari:veterinari.facility_type";
+  assert.equal(verify(field,select("Ambulancia"),obs("ambulance")),true);
+  assert.equal(verify(field,select(null),obs(null)),true);
+  assert.equal(verify(field,{type:"select"},obs(null)),false);
+  assert.equal(verify(field,select(""),obs(null)),false);
+  assert.equal(verify(field,select("not registered"),obs(null)),false);
+  assert.equal(verify(field,{...select(null),has_more:true},obs(null)),false);
+  assert.equal(verify("facet:treneri:veterinari.facility_type",select("Ambulancia"),obs("ambulance")),false);
+  const emergency="facet:veterinari:veterinari.emergency";
+  assert.equal(verify(emergency,select("Nie"),obs("no")),true);
+  assert.equal(verify(emergency,select("Neznáme"),obs("unknown")),true);
+  assert.equal(verify(emergency,select("Neznáme"),obs(null)),false);
+});

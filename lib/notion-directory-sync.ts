@@ -2083,7 +2083,7 @@ async function syncUnifiedDirectoryOperationalFields(input: {
     if (!fresh || fresh.updatedAt !== profile.updatedAt ||
         await directoryProfileNotionSyncLocked(database, profileId)) throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
     const identity: FieldIdentity = { agenda: "directory", entityId: String(profileId), pageId, field: fieldKey };
-    return { profile, page, key, identity,
+    return { profile, page, key, identity, authorityProperty:property(page,key),
       notion: { present: true as const, value: remote },
       psipedia: { present: true as const, value: local } };
   }
@@ -2095,12 +2095,13 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       const observed = await observe(field);
       const receipt = await readUnifiedAdminEdit(database, observed.identity, observed.profile.updatedAt);
       const reservation = await reserveUnifiedField({
-        database, identity: observed.identity, authorityBindings: bindings, historicalBaseline: null,
+        database, identity: observed.identity, authorityBindings: bindings, authorityProperty:observed.authorityProperty, historicalBaseline: null,
         notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction,
       });
       if (!reservation) continue;
       const live = await observe(field);
       if (live.profile.updatedAt !== observed.profile.updatedAt ||
+          (reservation.profileAuthority&&(live.page.last_edited_time!==observed.page.last_edited_time||JSON.stringify(live.authorityProperty)!==JSON.stringify(observed.authorityProperty))) ||
           live.notion.value !== observed.notion.value || live.psipedia.value !== observed.psipedia.value)
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
       await assertUnifiedReservationCurrent(database,reservation);
@@ -2113,9 +2114,10 @@ async function syncUnifiedDirectoryOperationalFields(input: {
         } else {
           const previous = Date.parse(live.profile.updatedAt);
           const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
+          const guard=reservation.profileAuthority?directoryAuthorityWriteGuard(reservation,profileId,live.identity.field):{sql:"",params:[]};
           const canonical = database.prepare(
-            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id",
-          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt);
+            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+" RETURNING id",
+          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt,...guard.params);
           const mirror = planDirectory0170FilterSqlMirror({ profileId,
             category: live.profile.category as ServiceFilterCategory,
             values: { [field.field]: live.notion.value }, updatedAt: now, actor: SYSTEM_ACTOR });
