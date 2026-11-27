@@ -157,25 +157,25 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       >
       <fieldset className={styles.fields} disabled={saving}>
       <EditorSection id="eshop-basics" className={styles.card}>
-        <div className={styles.heading}>
+        <div className={styles.heading} data-admin-profile-heading>
           <span>01</span>
           <div><h2>Základ profilu</h2><p>Názov, verejný web a popis e-shopu.</p></div>
         </div>
-        <div className={styles.grid}>
-          <label><span>Názov</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label>
-          <label><span>Adresa profilu</span><input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))} required /></label>
-          <label className={styles.wide}><span>Web e-shopu</span><input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} /></label>
-          <div className={styles.wide}><label><span>Popis</span><AdminLexicalTextField rows={6} value={description} onChange={setDescription} ariaLabel="Popis e-shopu" /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
-          <label className={styles.wide}><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
+        <div className={styles.grid} data-admin-profile-field-grid>
+          <label data-admin-profile-field><span>Názov</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label>
+          <label data-admin-profile-field><span>Adresa profilu</span><input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))} required /></label>
+          <label className={styles.wide} data-admin-profile-field><span>Web e-shopu</span><input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} /></label>
+          <div className={styles.wide}><label data-admin-profile-field><span>Popis</span><AdminLexicalTextField rows={6} value={description} onChange={setDescription} ariaLabel="Popis e-shopu" /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
+          <label className={styles.wide} data-admin-profile-field><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
         </div>
       </EditorSection>
 
       <EditorSection id="eshop-tags" className={styles.card}>
-        <div className={styles.heading}>
+        <div className={styles.heading} data-admin-profile-heading>
           <span>02</span>
           <div><h2>Zameranie sortimentu</h2><p>Nie je to ďalšia kategória. Sú to jednoduché štítky, podľa ktorých návštevník hneď pochopí, na čo sa e-shop zameriava.</p></div>
         </div>
-        <label className={styles.tagField}>
+        <label className={styles.tagField} data-admin-profile-field>
           <span>Zameranie</span>
           <textarea
             rows={7}
@@ -191,7 +191,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       </EditorSection>
 
       <EditorSection id="eshop-images" className={styles.card}>
-        <div className={styles.heading}>
+        <div className={styles.heading} data-admin-profile-heading>
           <span>03</span>
           <div><h2>Logo</h2><p>Nahraj logo do Psipedia úložiska alebo použi verejnú URL.</p></div>
         </div>
@@ -200,18 +200,18 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           <div className={styles.logoActions}>
             <AdminSingleImageUpload label={logoUrl ? "Nahrať iné logo" : "Nahrať logo"}
               onFile={uploadLogo} busy={uploading} disabled={saving} onRejected={setError}/>
-            <label><span>URL loga</span><input value={logoUrl} onChange={(event) => { setLogoUrl(event.target.value); setLogoKey(""); }} placeholder="https://… alebo /media/…" /></label>
+            <label data-admin-profile-field><span>URL loga</span><input value={logoUrl} onChange={(event) => { setLogoUrl(event.target.value); setLogoKey(""); }} placeholder="https://… alebo /media/…" /></label>
             {logoUrl ? <button type="button" className={styles.remove} onClick={() => { setLogoUrl(""); setLogoKey(""); }}>Odstrániť logo</button> : null}
           </div>
         </div>
       </EditorSection>
 
       <EditorSection id="eshop-publication" className={styles.card}>
-        <div className={styles.heading}>
+        <div className={styles.heading} data-admin-profile-heading>
           <span>04</span>
           <div><h2>Publikácia</h2><p>Určuje, či je profil viditeľný návštevníkom.</p></div>
         </div>
-        <label className={styles.statusField}>
+        <label className={styles.statusField} data-admin-profile-field>
           <span>Stav</span>
           <select value={status} onChange={(event) => setStatus(event.target.value as ManagedEshop["status"])}>
             <option value="published">Publikovaný</option>
