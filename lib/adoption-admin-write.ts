@@ -1,3 +1,4 @@
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitAdoptionV2AdminEdit, ADOPTION_V2_FIELDS, isAdoptionV2Field, adoptionV2Value } from "./notion-adoption-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
@@ -105,6 +106,7 @@ export async function updateAdoptionFromAdmin(
   expectedUpdatedAt: string,
   database?: AdoptionD1Database,
   recordUnifiedReceipt = false,
+  reviewOnSave=false,
 ) {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new AdoptionConcurrentEditError();
@@ -118,8 +120,10 @@ export async function updateAdoptionFromAdmin(
   const statement = db.prepare(
     `UPDATE adoption_dogs SET ${MUTABLE_COLUMNS.map((column) => `${column} = ?`).join(", ")} WHERE id = ? AND updated_at = ?`,
   ).bind(...writeValues(prepared), id, expectedUpdatedAt);
+  if(reviewOnSave&&!recordUnifiedReceipt)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   const result = (recordUnifiedReceipt ? await commitAdoptionV2AdminEdit(db,statement,{
     id,expectedRevision:expectedUpdatedAt,nextRevision:prepared.updatedAt,editor:prepared.updatedBy,
+    companionStatements:reviewOnSave?reviewOnSaveStatements(db as unknown as D1Database,{type:"ADOPTION",id,revision:prepared.updatedAt,actor:prepared.updatedBy}):[],
   }) : await statement.run()) as RunResult;
   const changes = Number(result.meta?.changes ?? result.changes ?? 0);
   if (changes !== 1) throw new AdoptionConcurrentEditError();
