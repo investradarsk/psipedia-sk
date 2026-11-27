@@ -50,10 +50,10 @@ export type BreedWorkCopyBindings = NotionSyncBindings & {
 };
 
 type ShadowLink = {
-  breed_id: number; original_notion_page_id: string;
+  breed_id: number; original_notion_page_id: string|null;
   work_notion_page_id: string;
-  original_data_source_id: string; work_data_source_id: string;
-  canonical_slug: string; fci_number: number;
+  original_data_source_id: string|null; work_data_source_id: string;
+  canonical_slug: string; fci_number: number|null;
   status: string; work_sync_receipt: string | null;
 };
 type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
