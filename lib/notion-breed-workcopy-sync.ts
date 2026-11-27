@@ -66,6 +66,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const normalized = (id: string) => id.replaceAll("-", "").toLowerCase();
 
 function requireWorkCopyOnly(bindings: BreedWorkCopyBindings) {
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
   if (!notionFlagEnabled(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED))
     return false;
   if (notionFlagEnabled(bindings.NOTION_BREED_SYNC_ENABLED))
