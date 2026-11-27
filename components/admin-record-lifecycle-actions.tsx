@@ -24,6 +24,7 @@ function errorText(value:string) {
     NOTION_MAPPING_AMBIGUOUS:"Notion má protichodné prepojenia na tento záznam. Odstránenie bolo bezpečne zastavené.",
     NOTION_MAPPING_INVALID:"Prepojená Notion stránka má neplatné ID. Odstránenie bolo zastavené pred zmenou údajov.",
     NOTION_DATA_SOURCE_UNCONFIGURED:"Nie je nakonfigurovaná overiteľná databáza Notion. Odstránenie sa nezačalo.",
+    LIFECYCLE_ESHOPS_SCHEMA_REQUIRED:"Odstránenie e-shopov vyžaduje schválené rozšírenie existujúcej D1 evidencie.",
     LIFECYCLE_MIGRATION_0164_REQUIRED:"Pred použitím je potrebné spustiť D1 migráciu 0164.",
   };
   return messages[value]??"Operácia sa nepodarila. Skontroluj stav a prípadne ju zopakuj ("+value+").";
