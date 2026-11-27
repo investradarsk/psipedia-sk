@@ -132,10 +132,10 @@ test("SEO receipt integration covers inbound, draft, and targeted writeback", as
   const source = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
   assert.match(source, /decodeArticleSeoReceipt\(mapping\.content_hash\)\.hash === contentHash/);
   assert.match(source, /encodeArticleSeoReceipt\(contentHash, page\)/);
-  assert.match(source, /encodeArticleSeoReceipt\(hash, verified\)/);
+  assert.match(source, /encodeArticleSeoReceipt\(finalHash, verified\)/);
   assert.match(source, /encodeArticleSeoReceipt\(finalHash, verifiedPage\)/);
   assert.match(source, /articleSeoExplicitClears\(page, previousSeo\)\.has\("ogImageUrl"\)/);
-  assert.match(source, /notionPageToManagedArticleInput\(page, blocks, existing \?\? undefined, previousSeo, explicitSeo\)/);
+  assert.match(source, /notionPageToManagedArticleInput\(\s*page, blocks, existing \?\? undefined, previousSeo, explicitSeo,/);
 });
 
 
@@ -156,7 +156,7 @@ test("latest signed SEO edit overrides even a formerly empty Notion field", asyn
   assert.equal(resolved.metaDescription, "Old description");
   const code = await import("node:fs/promises")
     .then(m => m.readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8"));
-  assert.match(code, /articleApplySignedFields\(sourcePayload, existing, signedFields\)/);
+  assert.match(code, /articleApplySignedFields\(inboundPayload, existing, signedFields\)/);
   const dispatch = await import("node:fs/promises")
     .then(m => m.readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8"));
   assert.match(dispatch, /changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);

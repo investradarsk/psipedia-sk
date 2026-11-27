@@ -178,3 +178,18 @@ test("calendar history accepts event listings and excludes individual event deta
   }
   assert.match(client, /const type = eventsListingType\(url\.pathname\);\s*if \(!type\) return;/);
 });
+
+test("Back restores the selected day's month even without a calendar month in the URL", async () => {
+  const { resolveCalendarMonth } = await import("../lib/event-calendar-view.ts");
+  const source = client.slice(client.indexOf("function restore()"), client.indexOf('window.addEventListener("popstate"'));
+  const restore = new Function("window", "eventsListingType", "eventMonthFilterFromParam",
+    "resolveCalendarMonth", "eventTimeFilterFromParam", "navigateRef", "today", "parseEventListing",
+    source + "\nreturn restore;");
+  const day = "2027-02-12";
+  let view;
+  restore({ location: { href: "https://psipedia.sk/podujatia?den=" + day } }, () => "Všetky",
+    value => value, resolveCalendarMonth, () => "upcoming",
+    { current: (_url, next) => { view = next; } }, "2026-11-26", ({ den }) => ({ day: den }))();
+  assert.equal(view.day, day);
+  assert.equal(view.month, "2027-02");
+});

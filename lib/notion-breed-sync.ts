@@ -329,8 +329,7 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
       || notionUrlProperty(page,"Hlavný obrázok URL").startsWith(SITE_URL+"/images/")
       ? notionUrlProperty(page,"Hlavný obrázok URL").slice(SITE_URL.length)
       : notionUrlProperty(page,"Hlavný obrázok URL"),
-    accent: (["forest","coral","gold","blue"].includes(notionSelectProperty(page,"Farba akcentu"))
-      ? notionSelectProperty(page,"Farba akcentu") : "forest") as ManagedBreedInput["accent"],
+    accent: "forest",
     editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
     origin: notionRichTextProperty(page, "Krajina pôvodu"),
     group: notionRichTextProperty(page, "Skupina"),

@@ -19,7 +19,8 @@ test("workspace uses lightweight actionable overview while canonical event histo
  assert.doesNotMatch(ui,/href="\/admin\/operations"/);
  assert.match(ui,/href="\/admin\/mapy"/);
  assert.doesNotMatch(ui,/href="\/admin\/kvalita"/);
- assert.match(read("components/admin-workspace-dashboard.tsx"),/href="\/admin\/kvalita"/);
+ assert.match(read("components/admin-workspace-dashboard.tsx"),/href="\/admin\/kvalita#navrhy-na-schvalenie"/);
+ assert.match(read("components/admin-missing-quality-dashboard.tsx"), /<section id="navrhy-na-schvalenie"[^>]*className=\{styles.results\}/);
  assert.doesNotMatch(ui,/shown\.map|data\.items\.map/);
  assert.doesNotMatch(ui,/Math\.random\(\)/);
 });

@@ -123,7 +123,8 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   const continuousEditor = readFileSync("components/admin-article-continuous-editor.tsx", "utf8");
   assert.match(continuousEditor, /To najdôležitejšie/);
   assert.match(continuousEditor, /Zhrnutie je nepovinné/);
-  assert.match(articleEditor, /Vizuálne nastavenia <small>nepovinné<\/small>/);
+  assert.doesNotMatch(articleEditor, /article-accent|Farebný akcent/);
+  assert.match(articleEditor, /const accent = "forest";/);
 
   assert.match(blockEditor, /richText={block\.richText}/);
   assert.match(blockEditor, /pendingDeleteId/);

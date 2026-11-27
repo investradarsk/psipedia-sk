@@ -24,7 +24,6 @@ const GROUPS = [
   {id:"date",label:"Dátumy a časy"},
   {id:"other",label:"Ostatné"},
 ];
-function plural(n:number) { return n===1?"nález":n>1&&n<5?"nálezy":"nálezov"; }
 function safeQualityHref(value:string):string|null {
   try { const url=new URL(value); return ["https:","http:"].includes(url.protocol)?url.href:null; }
   catch { return null; }
@@ -88,6 +87,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const [manualLimit,setManualLimit]=useState(5);
   const [manualBusy,setManualBusy]=useState(false);
   const [manualProgress,setManualProgress]=useState("");
+  const [imageSearch, setImageSearch] = useState<{ id: number; pending?: boolean; message?: string; error?: string } | null>(null);
   const [manualResults,setManualResults]=useState<ManualQualityResponse|null>(null);
   const [profileFilter,setProfileFilter]=useState("");
   const [preview,setPreview]=useState<string|null>(null);
@@ -102,6 +102,14 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const countGroup=(g:string)=>areaItems.filter(x=>g==="all"||x.field_group===g).length;
   const shown=areaItems.filter(x=>(group==="all"||x.field_group===group)&&
     x.profile_label.toLocaleLowerCase("sk").includes(profileFilter.trim().toLocaleLowerCase("sk")));
+  const hiddenEdit = editingProposalId !== null && !shown.some(p => p.id === editingProposalId);
+  const editedProposal = hiddenEdit ? items.find(p => p.id === editingProposalId) : undefined;
+
+  function cancelCorrection() {
+    setEditingProposalId(null);
+    setCorrectedValue("");
+  }
+
   async function manualRequest(payload:Record<string,unknown>):Promise<ManualQualityResponse> {
     const response=await fetch("/api/admin/data-quality/missing/manual",{
       method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload),
@@ -141,15 +149,19 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   }
   async function findOtherImage(p:MissingQualityProposal){
     if(manualBusy||busy!==null||bulkBusy||!data.manualReady)return;
-    setManualBusy(true);setManualProgress("");
-    try{
-      const result=await manualRequest({area:p.area,group:"image",mode:"alternative",
-        entityType:p.entity_type,entityId:p.entity_id});
-      setManualProgress(result.found?
-        "Pridaný nový návrh obrázka na schválenie pre "+p.profile_label+".":
-        "Pre "+p.profile_label+" sa ďalší použiteľný obrázok nenašiel.");
+    setManualBusy(true);
+    setImageSearch({ id: p.id, pending: true });
+    try {
+      const result = await manualRequest({ area: p.area, group: "image", mode: "alternative",
+        entityType: p.entity_type, entityId: p.entity_id });
+      setImageSearch({
+        id: p.id,
+        message: result.found ? "Nový návrh obrázka čaká na schválenie." : "Ďalší vhodný obrázok sa nenašiel.",
+      });
       router.refresh();
-    } catch(error){setManualProgress(error instanceof Error?error.message:"Hľadanie zlyhalo.");}
+    } catch (error) {
+      setImageSearch({ id: p.id, error: error instanceof Error ? error.message : "Obrázok sa nepodarilo vyhľadať." });
+    }
     finally{setManualBusy(false);}
   }
   async function decide(item:MissingQualityProposal,action:"accept"|"reject",value?:string) {
@@ -169,7 +181,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     finally{setBusy(null)}
   }
   async function rejectVisible(ids:number[]) {
-    if(!ids.length||busy!==null||bulkBusy||manualBusy)return;
+    if(!ids.length||busy!==null||bulkBusy||manualBusy||editingProposalId!==null)return;
     setBulkBusy(true);setNotice("");setNoticeError(false);
     try{
       const rejected:number[]=[];
@@ -303,10 +315,10 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         </div>)}</div>
       </details>:null}
     </details>
-    <section className={styles.results}>
+    <section id="navrhy-na-schvalenie" aria-labelledby="quality-proposals-title" className={styles.results}>
       <div className={styles.heading}>
-        <h2>{AREAS.find(a=>a.id===area)?.label}</h2>
-        <span>{areaItems.length} {plural(areaItems.length)} na schválenie</span>
+        <h2 id="quality-proposals-title">Návrhy na schválenie · {AREAS.find(a=>a.id===area)?.label}</h2>
+        <span role="status">Zobrazené: {shown.length} z {areaItems.length}</span>
       </div>
       <div className={styles.profileSearch}><label htmlFor="quality-profile-filter">Vyhľadať profil</label>
         <input id="quality-profile-filter" value={profileFilter} onChange={e=>setProfileFilter(e.target.value)} placeholder="Názov profilu" />
@@ -324,7 +336,22 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       </div>
       <AdminFormFeedback error={noticeError?notice:undefined} message={!noticeError?notice:undefined} className={styles.notice}/>
       <p className={styles.subtle}>Filtre a vyhľadávanie profilu pracujú s načítanou stránkou (najviac 100 nálezov).</p>
-      {shown.length===0?<div className={styles.empty}>Pre zvolené filtre na načítanej strane nie sú žiadne návrhy.</div>:(
+      {hiddenEdit && <div className={styles.draftNotice}>
+        <span>{editedProposal
+          ? `Rozpísaná úprava: ${editedProposal.profile_label} · ${editedProposal.field_label}`
+          : "Upravovaný návrh už na tejto strane nie je dostupný."}</span>
+        {editedProposal && <button type="button" className={styles.reject} onClick={() => {
+          setArea(editedProposal.area);
+          setGroup(editedProposal.field_group);
+          setProfileFilter(editedProposal.profile_label);
+        }}>Pokračovať v úprave</button>}
+        <button type="button" className={styles.reject} disabled={busy !== null} onClick={cancelCorrection}>Zrušiť úpravu</button>
+      </div>}
+      {shown.length===0?<div className={styles.empty}>
+        {areaItems.length ? <>Žiadny návrh nezodpovedá výberu.{" "}
+          <button type="button" className={styles.reject} onClick={()=>{setGroup("all");setProfileFilter("");}}>Zrušiť filtre</button>
+        </> : "V tejto oblasti na načítanej strane nie sú žiadne návrhy."}
+      </div>:(
         <>
           <div className={styles.list}>
             {shown.map(p=><article className={styles.item} key={p.id}>
@@ -347,7 +374,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                     {editingProposalId===p.id?
                       <div className={styles.inlineCorrection}>
                         <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>
-                        <input id={"quality-correction-"+p.id} type="text"
+                        <input id={"quality-correction-"+p.id} type="text" autoFocus
                           value={correctedValue} maxLength={2048} disabled={busy!==null||bulkBusy||manualBusy}
                           onChange={event=>setCorrectedValue(event.target.value)} />
                         <small>Uloženie zároveň schváli nález a doplní údaj do profilu. Pôvodný nález: {p.value}</small>
@@ -368,6 +395,9 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                   <span className={styles.source}>Overený obrázok uložený v Psipedia na schválenie.</span>:null}
                 {p.field_group==="image"&&brokenImages.includes(p.id)?
                   <span className={styles.lastError}>Náhľad nefunguje. Tento obrázok neschvaľuj; vyhľadaj iný.</span>:null}
+                {imageSearch?.id === p.id && <AdminFormFeedback
+                  pending={imageSearch.pending} pendingLabel="Hľadám ďalší obrázok…"
+                  message={imageSearch.message} error={imageSearch.error} />}
                 {p.source_url&&p.source_url!==p.value&&safeQualityHref(p.source_url)?<a className={styles.source} href={safeQualityHref(p.source_url)!} rel="noopener noreferrer" target="_blank">Otvoriť zdroj ↗</a>:null}
               </div>
               <div className={styles.actions}>
@@ -375,7 +405,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                   <AdminActionButton variant="primary" className={styles.accept} disabled={busy!==null||bulkBusy||manualBusy||!correctedValue.trim()}
                     onClick={()=>void decide(p,"accept",correctedValue)}>Schváliť upravený údaj</AdminActionButton>
                   <button type="button" className={styles.reject} disabled={busy!==null}
-                    onClick={()=>{setEditingProposalId(null);setCorrectedValue("");}}>Zrušiť</button>
+                    onClick={cancelCorrection}>Zrušiť</button>
                 </>:<>
                   {["web","social","phone","email"].includes(p.field_group)&&<button type="button" className={styles.desktopEdit} disabled={busy!==null||bulkBusy||manualBusy||editingProposalId!==null}
                     onClick={()=>{setEditingProposalId(p.id);setCorrectedValue(p.value);}}>Upraviť v tabuľke</button>}
@@ -388,7 +418,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
             </article>)}
           </div>
           <div className={styles.footer}>
-            <AdminActionButton variant="destructive" className={styles.rejectAll} onClick={()=>setPendingRejectIds(shown.map(p=>p.id))} disabled={bulkBusy||busy!==null||manualBusy}>
+            <AdminActionButton variant="destructive" className={styles.rejectAll} onClick={()=>setPendingRejectIds(shown.map(p=>p.id))} disabled={bulkBusy||busy!==null||manualBusy||editingProposalId!==null}>
               {bulkBusy?"Zamietam…":`Zamietnuť všetky zobrazené (${shown.length})`}
             </AdminActionButton>
           </div>

@@ -436,7 +436,7 @@ export const portalSections: PortalSection[] = [
     accent: "coral",
     eyebrow: "Praktická pomoc",
     description: "Adopcia, útulky, záchrana, dočasná opatera a overené možnosti pomoci.",
-    intro: "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Hlavný prehľad ukazuje len výber aktuálnych možností; celý zoznam nájdete v každej kategórii.",
+    intro: "Adopcie, útulky, stratené a nájdené psy, dočasná opatera a zbierky na jednom mieste.",
     articleEnabled: false,
     subpages: [
       { slug: "adopcia", label: "Psy na adopciu", description: "Psy hľadajúce bezpečný a zodpovedný domov." },

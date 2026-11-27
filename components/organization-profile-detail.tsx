@@ -43,7 +43,7 @@ function ContactLink({
       target={external ? "_blank" : undefined}
       rel={external ? "noreferrer" : undefined}
     >
-      {value}{external ? " ↗" : ""}
+      {value}
     </a>
   );
 }
@@ -99,7 +99,7 @@ export function OrganizationProfileDetail({
           value: (
             <ContactLink
               href={contact.href}
-              value={contact.value}
+              value={contact.label === "Web" ? "Otvoriť web" : contact.label === "Facebook" || contact.label === "Instagram" ? contact.label : contact.value}
               external={contact.external}
             />
           ),

@@ -235,3 +235,16 @@ a.value {color:#145ca5;}
     width: 100%;
   }
 }
+
+.draftNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.draftNotice span {
+  flex: 1 1 240px;
+  overflow-wrap: anywhere;
+}

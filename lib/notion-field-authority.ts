@@ -99,7 +99,7 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
   {
     scope:"articles",title:"Články",family:"Obsah",active:true,
     fields:[
-      ["title","Názov","Názov"],["excerpt","Krátky popis","Meta description"],
+      ["title","Názov","Názov"],["excerpt","Krátky popis","Perex"],
       ["intro","Úvod","Obsah (bloky stránky)"],["blocks","Obsah článku","Obsah (bloky stránky)"],
       ["seoTitle","SEO titulok","SEO title"],["metaDescription","Meta popis","Meta description"],
       ["socialCaption","Popis na sociálne siete","Popis na sociálne siete"],

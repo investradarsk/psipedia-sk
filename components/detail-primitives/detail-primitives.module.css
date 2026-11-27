@@ -1479,3 +1479,16 @@
 .note {
   font-size: var(--ps-type-label, .8125rem);
 }
+
+/* Public contact links share a compact wrapping row. */
+.socialLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  min-width: 0;
+}
+.socialLinks > span {
+  min-width: 0;
+  max-width: 100%;
+}

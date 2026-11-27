@@ -31,7 +31,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   // Quality has one priority shortcut; known empty queues live in a compact disclosure.
   await expect(page.locator('a[href="/admin/operations?source=PARTNER_CLAIM_REVIEW"]')).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
   await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveCount(0);
-  await expect(page.locator('a[href="/admin/kvalita"][class*="metricCard"]')).toHaveAttribute("href", "/admin/kvalita");
+  await expect(page.locator('a[href="/admin/kvalita#navrhy-na-schvalenie"][class*="metricCard"]')).toHaveAttribute("href", "/admin/kvalita#navrhy-na-schvalenie");
   const completedQueues = page.locator("[data-admin-completed-queues]");
   if (await completedQueues.count()) {
     await expect(completedQueues.locator("summary")).toBeVisible();
@@ -453,6 +453,8 @@ test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes",
   const mobile = info.project.name === "mobile-chromium";
   await page.setViewportSize({ width: mobile ? 390 : 1440, height: 850 });
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  // The streaming dashboard can expose links before the Admin router hydrates.
+  await expect(page.locator("[data-admin-sidebar]")).toHaveAttribute("data-admin-hydrated", "true");
   const shortcuts = page.locator("[data-admin-dashboard-shortcuts]");
   await expect(shortcuts.getByRole("link", { name: "Všetky profily" })).toHaveAttribute("href", "/admin/adresar");
   await expect(shortcuts.locator('a[href="/admin/sluzby-pre-psov"], a[href="/admin/pomoc-psom"]')).toHaveCount(0);

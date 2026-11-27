@@ -90,6 +90,8 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
             async first() {
               calls.push(["sql-first", sql]);
               if (sql.includes("SELECT notion_page_id, article_id, content_hash")) return { ...mapping };
+              if (sql.includes("SELECT article_id, content_hash, last_synced_at")) return { ...mapping };
+              if (sql.includes("SELECT breed_id FROM breed_notion_")) return null;
               if (sql.includes("SELECT status, updated_at FROM managed_articles"))
                 return { status: article.status, updated_at: article.updatedAt };
               if (sql.includes("SELECT * FROM article_notion_editorial_outbox")) return journal.deleted ? null : { ...journal };
@@ -97,6 +99,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
             },
             async run() {
               calls.push(["sql-run", sql]);
+              if (sql.trimStart().startsWith("INSERT INTO article_notion_sync")) return { meta: { changes: 1 } };
               if (sql.startsWith("UPDATE article_notion_editorial_outbox SET lease_owner = ?")) {
                 if (journal.deleted || (journal.lease_owner && journal.lease_until > args[5])) {
                   return { meta: { changes: 0 } };
@@ -131,6 +134,10 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
             },
           };
         },
+        async first() {
+          if (sql.includes("sqlite_master")) return null;
+          throw Error("Unexpected SELECT: " + sql);
+        },
       };
     },
   };
@@ -139,6 +146,10 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
     const url = new URL(endpoint);
     const method = options.method ?? "GET";
     calls.push([method, url.pathname]);
+    if (url.pathname === "/v1/data_sources/synthetic-articles/query" && method === "POST") {
+      const { filter } = JSON.parse(options.body);
+      return Response.json({ results: filter.or ? [structuredClone(notion)] : [], has_more: false });
+    }
     if (url.pathname === "/v1/pages/" + pageId) {
       if (method === "GET") {
         pageReads++;
@@ -213,7 +224,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
     set unsafeRemoteChange(v) { unsafeRemoteChange = v; },
     planner, fetchMock };
 }
-async function loadWriter(h) {
+async function loadWriter(h, overrides = {}, exportName = "writeBackDraftArticleContentToNotion") {
   const source = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -287,13 +298,180 @@ async function loadWriter(h) {
     exports, module: { exports },
     require(name) {
       if (!(name in dependencies)) throw Error("Unexpected import: " + name);
-      return dependencies[name];
+      return { ...dependencies[name], ...overrides[name] };
     },
     fetch: h.fetchMock, Response, Request, Headers, URL, URLSearchParams,
     TextEncoder, crypto, Date, JSON, console,
   }, { timeout: 1500 });
-  return exports.writeBackDraftArticleContentToNotion;
+  return exports[exportName];
 }
+
+for (const status of ["draft", "published"]) {
+  test(`targeted Notion updates preserve unrelated fields on a ${status} article`, async () => {
+    const h = setup();
+    const pageId = h.notion.id;
+    h.notion.parent = { type: "data_source_id", data_source_id: "synthetic-articles" };
+    h.notion.properties.Stav.select.name = status === "published" ? "Publikované" : "Ready";
+    h.notion.properties.Perex = { id: "opaque-perex", rich_text: rich("Samostatný redakčný perex článku.") };
+    h.notion.properties["Meta description"].id = "opaque-seo";
+    h.notion.properties["Prepojené plemená"] = {
+      id: "opaque-breeds",
+      relation: [{ id: "b2222222-2222-4222-8222-222222222222" }],
+    };
+    h.notion.properties["Zdroj obrázka"].url = "https://example.test/old-photo-source";
+    const untouched = {
+      takeaway: "Hlavná myšlienka uložená v Admine.",
+      sources: [{ label: "Redakčný zdroj", url: "https://example.test/editorial-source" }],
+      accent: "gold",
+      imageCreditUrl: "https://example.test/verified-photo-source",
+      imageAlt: "Titulná fotografia z Adminu",
+      showUpdated: true,
+    };
+    const local = {
+      ...h.article, ...untouched, status, category: "Výživa", portalSection: "starostlivost",
+      portalSubpage: "vyziva", relatedBreedIds: [160],
+      excerpt: "Pôvodný perex uložený v Admine.", image: "/original.webp", imageKey: "original.webp",
+    };
+    let stored = { ...local };
+    const sweep = await loadWriter(h, {
+      "./notion-article-seo-properties": {
+        articleSeoFromNotion: (page) => ({
+          metaDescription: page.properties["Meta description"].rich_text[0].plain_text,
+        }),
+        articleSeoSignedChangedFields: (_page, ids) =>
+          new Set(ids.includes("opaque-seo") ? ["metaDescription"] : []),
+      },
+      "@/lib/article-store": {
+        getManagedArticleById: async () => stored,
+        updateManagedArticle: async (id, data) => {
+          assert.equal(id, local.id);
+          stored = { ...stored, ...data, seo: { description: data.metaDescription } };
+          return stored;
+        },
+      },
+      "@/lib/article-promo": { preserveArticlePromoBlocks: (_old, incoming) => incoming },
+    }, "runNotionArticleSyncSweep");
+    const send = (property, eventType = "page.properties_updated") => sweep({
+      database: h.db, bindings: { ...h.bindings, NOTION_ARTICLES_DATA_SOURCE_ID: "synthetic-articles" },
+      targetPageId: pageId, eventType, changedPropertyIds: [property],
+    });
+    assert.equal((await send("opaque-perex")).updated, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    const assertUntouched = () => {
+      for (const [key, value] of Object.entries(untouched)) {
+        assert.deepEqual(stored[key], value, key);
+      }
+    };
+    assertUntouched();
+    assert.equal(stored.seo.description, local.seo.description);
+    h.notion.properties["Meta description"].rich_text = rich("Samostatný upravený opis pre SEO.");
+    assert.equal((await send("opaque-seo")).updated, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    assert.equal(stored.seo.description, "Samostatný upravený opis pre SEO.");
+    assertUntouched();
+    h.notion.properties["Kredit fotografie"] = {
+      id: "opaque-credit", rich_text: rich("Autor doplnený v Notione"),
+    };
+    assert.equal((await send("opaque-credit")).updated, 1);
+    assert.equal(stored.imageCredit, "Autor doplnený v Notione");
+    assertUntouched();
+    h.blocks[0].paragraph.rich_text = rich("Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
+    assert.equal((await send("", "page.content_updated")).updated, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    assert.equal(stored.intro, "Úvod článku má teraz úplne iný obsah ako publikovaný perex.");
+    assertUntouched();
+    h.notion.properties.Perex.rich_text = rich("");
+    assert.equal((await send("opaque-perex")).failed, 1);
+    assert.equal(stored.excerpt, "Samostatný redakčný perex článku.");
+    assert.equal(stored.imageKey, local.imageKey);
+    assert.deepEqual(stored.relatedBreedIds, [160]);
+    assert.equal(h.calls.some(([method, sql]) =>
+      method === "sql-first" && sql.includes("FROM breed_notion_")), false);
+
+    assert.equal((await send("opaque-breeds")).failed, 1);
+    assert.deepEqual(stored.relatedBreedIds, [160]);
+    h.notion.properties["Prepojené plemená"].relation = [{ id: "invalid-id" }];
+    assert.equal((await send("opaque-breeds")).failed, 1);
+    assert.deepEqual(stored.relatedBreedIds, [160]);
+    h.notion.properties["Prepojené plemená"].relation = [];
+    assert.equal((await send("opaque-breeds")).updated, 1);
+    assert.deepEqual(Array.from(stored.relatedBreedIds), []);
+  });
+}
+test("regular Notion article sync retains draft fields maintained by the Admin editor", async () => {
+  const h = setup();
+  const untouched = {
+    accent: "gold",
+    author: "Redakčný autor",
+    authorProfileId: 42,
+    takeaway: "Hlavná myšlienka uložená v Admine.",
+    takeawayRichText: { version: 1, content: [] },
+    sources: [{ label: "Redakčný zdroj", url: "https://example.test/editorial-source" }],
+    showUpdated: true,
+    contentUpdatedAt: "2026-11-26T10:30:00.000Z",
+  };
+  const local = {
+    ...h.article, ...untouched, updatedBy: "notion-sync@psipedia.sk",
+    category: "Výživa", portalSection: "starostlivost", portalSubpage: "vyziva",
+    excerpt: "Pôvodný perex uložený v Admine.", relatedBreedIds: [160],
+  };
+  let written;
+  const sweep = await loadWriter(h, {
+    "@/lib/article-store": {
+      getManagedArticleById: async () => local,
+      updateManagedArticle: async (_id, data) => {
+        written = data;
+        return local;
+      },
+    },
+    "@/lib/article-promo": { preserveArticlePromoBlocks: (_old, incoming) => incoming },
+  }, "runNotionArticleSyncSweep");
+  h.notion.properties["Názov"].title = rich("Upravený titul v Notione");
+  const result = await sweep({
+    database: h.db, bindings: { ...h.bindings, NOTION_ARTICLES_DATA_SOURCE_ID: "synthetic-articles" },
+  });
+  assert.equal(result.updated, 1);
+  assert.equal(written.title, "Upravený titul v Notione");
+  assert.equal(written.excerpt, local.excerpt);
+  for (const [key, value] of Object.entries(untouched)) assert.deepEqual(written[key], value, key);
+});
+
+test("regular Notion article sync retains attribution for the published Admin photo", async () => {
+  const h = setup();
+  h.notion.properties.Stav.select.name = "Publikované";
+  h.notion.properties["Kredit fotografie"] = { rich_text: rich("Starý kredit v Notione") };
+  h.notion.properties["Zdroj obrázka"].url = "https://example.test/old-photo-source";
+  h.notion.properties["Názov"].title = rich("Upravený titul v Notione");
+  const local = {
+    ...h.article, status: "published", updatedBy: "notion-sync@psipedia.sk",
+    category: "Výživa", portalSection: "starostlivost", portalSubpage: "vyziva",
+    excerpt: "Pôvodný perex uložený v Admine.", relatedBreedIds: [160],
+    image: "/admin-photo.webp", imageKey: "admin-photo.webp",
+    imageCredit: "Overený autor fotografie",
+    imageCreditUrl: "https://example.test/admin-photo-source",
+  };
+  let written;
+  const sweep = await loadWriter(h, {
+    "@/lib/article-store": {
+      getManagedArticleById: async () => local,
+      updateManagedArticle: async (_id, data) => {
+        written = data;
+        return local;
+      },
+    },
+    "@/lib/article-promo": { preserveArticlePromoBlocks: (_old, incoming) => incoming },
+  }, "runNotionArticleSyncSweep");
+  const result = await sweep({
+    database: h.db, bindings: { ...h.bindings, NOTION_ARTICLES_DATA_SOURCE_ID: "synthetic-articles" },
+  });
+  assert.equal(result.updated, 1);
+  assert.equal(written.title, "Upravený titul v Notione");
+  assert.equal(written.imageUrl, local.image);
+  assert.equal(written.imageKey, local.imageKey);
+  assert.equal(written.imageCredit, local.imageCredit);
+  assert.equal(written.imageCreditUrl, local.imageCreditUrl);
+});
+
 test("disabled content writeback performs zero database or Notion I/O", async () => {
   const h = setup({ enabled: false });
   const writer = await loadWriter(h);

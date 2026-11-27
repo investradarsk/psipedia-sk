@@ -55,7 +55,7 @@ type ShadowLink = {
 type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
 const skippedSpecial = new Set<string>([
   // Only virtual aggregates and relationships without real Notion columns.
-  "fciStandard", "editorial", "relatedBreedIds",
+  "accent", "fciStandard", "editorial", "relatedBreedIds",
   "relatedArticleIds", "directoryProfileIds",
 ]);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

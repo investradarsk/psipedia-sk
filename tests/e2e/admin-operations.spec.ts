@@ -45,7 +45,7 @@ test("alerts center, shared bell and four inbox views are accessible and respons
 
   const filter = page.getByRole("search", { name: "Filtrovať upozornenia" });
   await expect(filter).toHaveAttribute("method", "get");
-  await expect(filter.getByLabel("Zobrazenie")).toHaveValue("unread");
+  await expect(page.getByRole("navigation", { name: "Zobrazenie upozornení" }).getByRole("link", { name: /^Neprečítané/ })).toHaveAttribute("aria-current", "page");
   await expect(filter.getByLabel("Zdroj")).toHaveValue("all");
   await expect(filter.getByLabel("Priorita")).toHaveValue("all");
 
@@ -227,4 +227,15 @@ test("technical tools and maps have separate working admin entries without horiz
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
   await expect(page).toHaveURL(/\/admin\/mapy$/);
+});
+
+
+test("the pending shortcut opens outstanding work and clearing filters keeps the current view", async ({ page }) => {
+  await page.goto("/admin/operations?view=history&priority=HIGH");
+  const filter = page.getByRole("search", { name: "Filtrovať upozornenia" });
+  await filter.getByRole("link", { name: "Vyčistiť filtre" }).click();
+  await expect(page).toHaveURL(/view=history#centrum-pozornosti$/);
+  await page.getByRole("link", { name: /Otvoriť úlohy na vybavenie/ }).click();
+  await expect(page).toHaveURL(/view=pending#centrum-pozornosti$/);
+  await expect(page.getByRole("navigation", { name: "Zobrazenie upozornení" }).getByRole("link", { name: /^Na vybavenie/ })).toHaveAttribute("aria-current", "page");
 });

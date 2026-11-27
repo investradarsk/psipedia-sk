@@ -80,7 +80,7 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
   assert.match(articlePage, /items: articles\.map\(/);
   assert.match(breedPage, /listPublishedCanonicalBreedAtlasCards\(\)/);
   assert.match(breedPage, /items: breeds\.map\(/);
-  assert.match(sectionPage, /slug === "podujatia" \? retryTransientPublicRead\(\(\) => getPublishedEventListing\(parseEventListing\(rawSearchParams\)\)\)/);
+  assert.match(sectionPage, /slug === "podujatia" \? retryTransientPublicRead\(\(\) => getPublishedEventListing\(parseEventListing\(rawSearchParams\)\), \{ stage: "events_listing" \}\)/);
   assert.match(sectionPage, /items: eventList\.map\(/);
   assert.match(directoryPage, /listPublishedDirectoryProfiles\(\{/);
   assert.match(directoryPage, /items: result\.profiles\.map\(/);

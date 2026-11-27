@@ -55,7 +55,7 @@ export function ArticleCard({
       }
       topicHref={topicHref ?? presentation.topicHref}
       actionLabel={actionLabel ?? presentation.actionLabel}
-      accent={article.accent}
+      accent="forest"
       headingLevel={headingLevel}
       footer={
         (showFavorite ?? large) && resolvedVariant !== "row" ? (

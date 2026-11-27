@@ -81,3 +81,30 @@ test("Facebook/Tavily images are privately staged before proposal and approved w
   assert.match(dashboard,/\/api\/admin\/data-quality\/missing\/.*\/image/);
   assert.match(dashboard,/brokenImages\.includes\(p\.id\)/);
 });
+
+test("alternative image search reports progress and outcome on the requested proposal", async () => {
+  const { default: ts } = await import("typescript");
+  const handler = dashboard.slice(dashboard.indexOf("async function findOtherImage"), dashboard.indexOf("async function decide"));
+  const compiled = ts.transpileModule(handler, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const proposal = { id: 17, area: "services", entity_type: "DIRECTORY", entity_id: 23 };
+  for (const outcome of ["found", "empty", "error"]) {
+    const feedback = [];
+    const busy = [];
+    const run = new Function("manualBusy", "busy", "bulkBusy", "data", "setManualBusy", "setImageSearch",
+      "manualRequest", "router", compiled + "\nreturn findOtherImage;")(
+      false, null, false, { manualReady: true }, value => busy.push(value), value => feedback.push(value),
+      async request => {
+        assert.equal(request.entityId, proposal.entity_id);
+        if (outcome === "error") throw new Error("Služba je nedostupná.");
+        return { found: outcome === "found" ? 1 : 0 };
+      }, { refresh() {} },
+    );
+    await run(proposal);
+    assert.deepEqual(busy, [true, false]);
+    assert.deepEqual(feedback[0], { id: 17, pending: true });
+    assert.equal(feedback[1].id, 17);
+    if (outcome === "error") assert.equal(feedback[1].error, "Služba je nedostupná.");
+    else assert.match(feedback[1].message, outcome === "found" ? /čaká na schválenie/ : /nenašiel/);
+  }
+  assert.match(dashboard, /imageSearch\?\.id === p\.id && <AdminFormFeedback/);
+});

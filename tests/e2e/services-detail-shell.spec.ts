@@ -90,8 +90,9 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
       await expect(hero.getByRole("link", { name: "Zavolať" })).toHaveAttribute("href", "tel:+421900123456");
-      await expect(main.getByRole("link", { name: "Facebook ↗" })).toHaveAttribute("href", "https://facebook.com/example");
-      await expect(main.getByRole("link", { name: "Instagram ↗" })).toHaveAttribute("href", "https://instagram.com/example");
+      await expect(main.getByText("Sociálne siete", { exact: true })).toBeVisible();
+      await expect(main.getByRole("link", { name: "Facebook" })).toHaveAttribute("href", "https://facebook.com/example");
+      await expect(main.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://instagram.com/example");
       await expect(main.locator("#kontakt form")).toBeVisible();
       await assertNoOverflow(page);
       if (width === 320 || width === 1440) await assertAccessible(page);

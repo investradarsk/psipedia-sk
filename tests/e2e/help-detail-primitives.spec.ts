@@ -50,7 +50,7 @@ test("contact actions remain operable; absent contact data shows an honest empty
   expect(new URL(page.url()).pathname).toBe(canonicalShelterPath);
   await expect(page.getByRole("link", { name: "+421 900 123 456" })).toHaveAttribute("href", "tel:+421900123456");
   await expect(page.getByRole("link", { name: "help-e2e@example.invalid" })).toHaveAttribute("href", "mailto:help-e2e@example.invalid");
-  await expect(page.getByRole("link", { name: "https://example.org ↗" })).toHaveAttribute("href", "https://example.org/");
+  await expect(page.locator("[data-public-contact-panel]").getByRole("link", { name: "Otvoriť web", exact: true })).toHaveAttribute("href", "https://example.org/");
   await expect(page.getByText(/Dobrovoľníctvo: venčenie/)).toBeVisible();
 
   await page.goto(cases[0].path);
@@ -147,4 +147,18 @@ test("Admin Help keeps bulk selection page-scoped and publishes only the current
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+
+test("Help filters retain the chosen sort and restart on the first page", async ({ page }) => {
+  await page.goto("/admin/pomoc?sort=title&direction=asc&page=2");
+  const form = page.getByRole("search", { name: "Filtrovať prípady pomoci" });
+  await form.getByLabel("Hľadať").fill("E2E neexistujúci prípad");
+  await form.getByRole("button", { name: "Použiť filtre" }).click();
+  await expect(page.getByRole("heading", { name: "Žiadne prípady pomoci pre tento výber" })).toBeVisible();
+  const params = new URL(page.url()).searchParams;
+  expect(params.get("sort")).toBe("title");
+  expect(params.get("direction")).toBe("asc");
+  expect(params.has("page")).toBe(false);
+  await expect(page.getByRole("navigation", { name: "Stránkovanie prípadov pomoci" })).toHaveCount(0);
 });

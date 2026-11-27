@@ -1156,14 +1156,20 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
   assert.doesNotMatch(helpHtml, /Pomoc psom · tam, kde ju treba/);
-  assert.doesNotMatch(helpHtml, /Rýchle vstupy používajú existujúce verejné kategórie|synchronizované|WIP|TODO/i);
+  // Check user-facing copy, not generated JS/CSS asset hashes (e.g. DiWIPHA7).
+  const helpVisibleText = helpHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  assert.doesNotMatch(helpVisibleText, /Rýchle vstupy používajú existujúce verejné kategórie|synchronizované|\b(?:WIP|TODO)\b/i);
   assert.match(helpHtml, /Kategórie pomoci/);
   assert.match(helpHtml, /Pomáhajme spolu/);
   assert.match(helpHtml, /Postup krok za krokom/);
   assert.match(helpHtml, /<h1 data-section-hero-title[^>]*>Pomoc psom<\/h1>/);
   assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Vyberte, čo chcete riešiť/);
-  assert.match(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);
+  assert.match(helpHtml, /Adopcie, útulky, stratené a nájdené psy, dočasná opatera a zbierky na jednom mieste\./);
+  assert.doesNotMatch(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);
   assert.match(helpHtml, /Ďalšie prípady a organizácie nájdeš v úplnom prehľade kategórie\./);
   assert.doesNotMatch(helpHtml, /V tejto kategórii momentálne nemáme nový publikovaný záznam\./);
   assert.match(helpHtml, /"CollectionPage"/);

@@ -133,6 +133,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
       "UPDATE notion_unified_field_state SET recovery_after=? WHERE rowid=("+
       "SELECT rowid FROM notion_unified_field_state WHERE (recovery_after IS NULL OR recovery_after<=?) "+
       "AND ((status='PENDING' AND updated_at<=?) OR status='REVIEW') "+
+      "AND NOT (agenda='breeds' AND field_key='accent') "+
       "AND NOT (status='REVIEW' AND reason='MISSING_FIELD' AND "+nonMirroredBreedPredicate()+") "+
       "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=notion_unified_field_state.agenda AND f.entity_id=notion_unified_field_state.entity_id) "+
       "ORDER BY COALESCE(recovery_after,''),updated_at,agenda,entity_id,field_key LIMIT 1) "+

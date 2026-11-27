@@ -511,8 +511,7 @@ test("Notion image-credit cell updates, including explicit clears, are mapped to
   assert.match(syncSource, /imageCreditUrl = urlProperty\(page, "Zdroj obrázka"\)/);
   assert.match(syncSource, /hasCompletePublicPhotoCredit\(imageCredit, imageCreditUrl\)/);
   // Other property events and body-only webhooks must keep the canonical credit.
-  assert.match(syncSource, /eventType === "page\.content_updated"[\s\S]*?\["intro", "blocks", "excerpt"\]/);
-  assert.match(syncSource, /if \(edited\.has\(key\)\) continue/);
-  assert.match(syncSource, /\(next as Record<string, unknown>\)\[key\] = articleCurrentField\(existing, key\)/);
+  assert.match(syncSource, /eventType === "page\.content_updated"[\s\S]*?\["intro", "blocks"\]/);
+  assert.match(syncSource, /edited\.has\(key\) \? incoming\[key\] : articleCurrentField\(existing, key\)/);
   assert.match(articleStoreSource, /const canonicalBlocks = publicArticleBlocks\(normalizeArticleBlocks\(payload\.blocks/);
 });

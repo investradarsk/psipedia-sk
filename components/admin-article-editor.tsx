@@ -149,7 +149,7 @@ export function AdminArticleEditor({
     && Boolean(article?.portalSubpage)
     && !currentAreas.some((area) => area.slug === article?.portalSubpage);
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
-  const [accent, setAccent] = useState(article?.accent ?? "forest");
+  const accent = "forest";
   const [author, setAuthor] = useState(article?.author ?? "Redakcia Psipedia");
   const [authorProfileId, setAuthorProfileId] = useState<number | null | undefined>(article ? article.authorProfileId : undefined);
   const [readingMinutes, setReadingMinutes] = useState(article?.readingMinutes ?? 5);
@@ -392,7 +392,7 @@ export function AdminArticleEditor({
         body: JSON.stringify({
           action: "retry-article-followup", step,
           expectedUpdatedAt: persisted.updatedAt,
-          ...((step === "seo" || step === "placement") && followupBefore
+          ...((step === "seo" || step === "placement" || step === "draft") && followupBefore
             ? { before: followupBefore } : {}),
         }),
       });
@@ -1026,14 +1026,6 @@ export function AdminArticleEditor({
               <label htmlFor="article-reading">Čas čítania (minúty)</label>
               <input id="article-reading" type="number" min="1" max="60" value={readingMinutes} onChange={(event) => setReadingMinutes(Number(event.target.value))} />
             </div>
-            <details className="admin-field admin-optional-settings">
-              <summary>Vizuálne nastavenia <small>nepovinné</small></summary>
-              <label htmlFor="article-accent">Farebný akcent</label>
-              <select id="article-accent" value={accent} onChange={(event) => setAccent(event.target.value as ManagedArticle["accent"])}>
-                <option value="forest">Lesná zelená</option><option value="coral">Koralová</option><option value="gold">Zlatá</option><option value="blue">Modrá</option>
-              </select>
-              <AdminHelpText>Akcent je sekundárne vizuálne nastavenie a nie je povinný pre napísanie článku.</AdminHelpText>
-            </details>
           </div>
           <div className="admin-field">
             <label htmlFor="article-slug">Adresa článku</label>

@@ -115,12 +115,14 @@ test("J legacy directory online flag does not hide GEO and missing address is or
   assert.doesNotMatch(directoryOperator, /row, "online"|online:/);
 });
 
-test("K canonical DIRECTORY create/update/import keep DB legacy online column pinned to zero", () => {
+test("K canonical DIRECTORY create/update pin legacy online to zero and retired bulk import cannot write profiles", () => {
   assert.match(store, /online, price_note/);
   // Keep the legacy online flag at zero even after multiline bind formatting.
   assert.match(store, /0,\s*input\.priceNote/);
   assert.match(store, /service_address_confirmation = \?, online = \?, price_note/);
-  assert.match(importRoute, /city, district, region, address, 0, importedText/);
+  // The SQL-only transition deliberately rejects non-skipped bulk Directory writes.
+  assert.match(importRoute, /if \(profiles\.some\(\(_profile, index\) => plan\.actions\.profiles\[index\] !== "skipped"\)\) \{\s*throw new Error\(/);
+  assert.doesNotMatch(importRoute, /INSERT\s+INTO\s+directory_profiles|UPDATE\s+directory_profiles/i);
 });
 
 test("L MANAGED_EVENT online behavior remains intact", () => {

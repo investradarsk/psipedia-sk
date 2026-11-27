@@ -244,7 +244,7 @@ export function DirectoryProfileDetail({
             label: "Web",
             value: presentation.websiteUrl ? (
               <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">
-                Otvoriť web ↗
+                Otvoriť web
               </a>
             ) : (
               presentation.websiteText
@@ -258,7 +258,7 @@ export function DirectoryProfileDetail({
             label: "Facebook",
             value: presentation.facebookUrl ? (
               <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">
-                Facebook ↗
+                Facebook
               </a>
             ) : (
               presentation.facebookText
@@ -272,7 +272,7 @@ export function DirectoryProfileDetail({
             label: "Instagram",
             value: presentation.instagramUrl ? (
               <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">
-                Instagram ↗
+                Instagram
               </a>
             ) : (
               presentation.instagramText

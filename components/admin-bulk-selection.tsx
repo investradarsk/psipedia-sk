@@ -10,6 +10,7 @@ import {
   AdminActionButton,
   AdminBulkActionToolbar,
 } from "./admin-interaction-system";
+import { formatSlovakCount } from "../lib/slovak-count";
 import styles from "./admin-bulk-selection.module.css";
 
 export type AdminBulkSelectionState =
@@ -47,8 +48,8 @@ type ExecutionResult = {
 const skipLabels: Record<SkipReason, string> = {
   "already-target-state": "už sú v cieľovom stave",
   "record-no-longer-exists": "záznam už neexistuje",
-  "invalid-lifecycle": "neplatný lifecycle",
-  "record-changed-since-snapshot": "záznam sa od snapshotu zmenil",
+  "invalid-lifecycle": "aktuálny stav neumožňuje túto zmenu",
+  "record-changed-since-snapshot": "záznam sa od kontroly zmenil",
 };
 
 const emptySelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
@@ -93,7 +94,7 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
         else sessionStorage.removeItem(key);
       }
     } catch {
-      sessionStorage.removeItem(key);
+      // Storage access can be blocked. Start with the empty in-memory selection.
     }
     let active = true;
     queueMicrotask(() => {
@@ -109,8 +110,12 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     if (!ready) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
-    if (selectedCount === 0) sessionStorage.removeItem(key);
-    else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
+    try {
+      if (selectedCount === 0) sessionStorage.removeItem(key);
+      else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
+    } catch {
+      // Persistence is optional when storage is unavailable or full.
+    }
   }, [module, ready, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
@@ -217,6 +222,7 @@ export function AdminBulkSelectionControls({
   /** Shared grid owns the visible-page checkbox instead of duplicating it above the table. */
   pageSelectionInTable?: boolean;
 }) {
+  const checkRequest = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const [action, setAction] = useState<"publish" | "move-to-draft">("publish");
@@ -236,20 +242,17 @@ export function AdminBulkSelectionControls({
     setExecution(null);
     setError("");
     dialogRef.current?.showModal();
-    requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLButtonElement>("[data-preflight-button]")?.focus());
+    dialogRef.current?.querySelector<HTMLElement>("h2")?.focus();
+    void runPreflight(nextAction);
   }
 
   function closeDialog() {
     dialogRef.current?.close();
-    if (execution) {
-      window.location.reload();
-      return;
-    }
-    requestAnimationFrame(() => restoreFocusRef.current?.focus());
   }
 
-  async function runPreflight() {
+  async function runPreflight(nextAction: typeof action) {
     if (pending || selectedCount === 0) return;
+    const request = ++checkRequest.current;
     setPending(true);
     setPreflight(null);
     setExecution(null);
@@ -260,20 +263,20 @@ export function AdminBulkSelectionControls({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           module,
-          action,
+          action: nextAction,
           selection: selection.mode === "all-matching"
             ? { mode: "all-matching", filter: membershipFilter }
             : { mode: "explicit", ids: selection.ids, filter: membershipFilter },
         }),
       });
       const payload = await response.json() as PreflightResult & { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Preflight zlyhal.");
-      if (payload.snapshot.filterFingerprint !== membershipFingerprint) throw new Error("Server vrátil snapshot pre iný filter.");
-      setPreflight(payload);
+      if (!response.ok) throw new Error(payload.error || "Výber sa nepodarilo skontrolovať.");
+      if (payload.snapshot.filterFingerprint !== membershipFingerprint) throw new Error("Filter sa zmenil. Zopakujte kontrolu.");
+      if (checkRequest.current === request) setPreflight(payload);
     } catch (preflightError) {
-      setError(preflightError instanceof Error ? preflightError.message : "Preflight zlyhal.");
+      if (checkRequest.current === request) setError(preflightError instanceof Error ? preflightError.message : "Výber sa nepodarilo skontrolovať.");
     } finally {
-      setPending(false);
+      if (checkRequest.current === request) setPending(false);
     }
   }
 
@@ -309,7 +312,9 @@ export function AdminBulkSelectionControls({
 
   const actionLabel = action === "publish" ? "Publikovať" : "Presunúť do konceptov";
   const pageSelectionLabel = isArticles ? "Vybrať všetky články na tejto strane" : "Vybrať všetky profily na tejto strane";
-  const dialogObjectLabel = isArticles ? "článkov" : "profilov";
+  const selectedLabel = formatSlovakCount(dialogSelectedCount, isArticles
+    ? { one: "článok", few: "články", many: "článkov" }
+    : { one: "profil", few: "profily", many: "profilov" });
 
   return (
     <>
@@ -332,7 +337,7 @@ export function AdminBulkSelectionControls({
           </span>
           <AdminBulkActionToolbar
             selectedCount={selectedCount}
-            selectionDescription={selection.mode === "all-matching" ? "Všetky výsledky filtra" : "Explicitný výber"}
+            selectionDescription={selection.mode === "all-matching" ? "Všetky výsledky filtra" : "Označené záznamy"}
             onClear={clear}
             clearLabel="Zrušiť výber"
             primaryAction={(
@@ -350,19 +355,19 @@ export function AdminBulkSelectionControls({
       )}
 
       <dialog className={styles.dialog} ref={dialogRef} aria-labelledby="bulk-preflight-title"
-        onClose={() => { setPending(false); if (!execution) requestAnimationFrame(() => restoreFocusRef.current?.focus()); }}>
+        onCancel={(event) => { if (pending && preflight) event.preventDefault(); }}
+        onClose={() => { checkRequest.current++; setPending(false); if (execution) window.location.reload(); else requestAnimationFrame(() => restoreFocusRef.current?.focus()); }}>
         <div className={styles.dialogBody}>
-          <h2 id="bulk-preflight-title">{actionLabel} {dialogSelectedCount} {dialogObjectLabel}?</h2>
-          <p>Najprv server overí aktuálny lifecycle a vytvorí krátkodobý snapshot. Zmena sa vykoná až po potvrdení.</p>
+          <h2 tabIndex={-1} id="bulk-preflight-title">{actionLabel} {selectedLabel}?</h2>
 
           <div aria-live="polite" aria-atomic="true">
-            {pending && <p>Spracúvam požiadavku…</p>}
+            {pending && <p>{preflight ? "Ukladám zmeny…" : "Kontrolujem výber…"}</p>}
             {error && <p role="alert">{error}</p>}
             {preflight && !execution && (
               <div className={styles.preflightResult}>
-                <strong>{preflight.matched} výsledkov / {preflight.eligible} eligible / {preflight.wouldBeSkipped} by boli preskočené</strong>
+                <strong>Zmení sa: {preflight.eligible} · Preskočí sa: {preflight.wouldBeSkipped}</strong>
                 {preflight.skips.length > 0 && <ul>{preflight.skips.map((skip) => <li key={skip.reason}>{skip.count} × {skipLabels[skip.reason]}</li>)}</ul>}
-                <span>Snapshot platí do {new Date(preflight.snapshot.expiresAt).toLocaleTimeString("sk-SK")}.</span>
+                <span>Kontrola platí do {new Date(preflight.snapshot.expiresAt).toLocaleTimeString("sk-SK")}.</span>
               </div>
             )}
             {execution && (
@@ -376,16 +381,16 @@ export function AdminBulkSelectionControls({
                 )}
                 <span>{execution.counts.failed === 0
                   ? "Výber bol vyčistený. Po zatvorení sa zoznam obnoví."
-                  : "Časť zmien zlyhala. Výber zostáva zachovaný na kontrolu; po zatvorení sa zoznam obnoví."}</span>
+                  : "Časť zmien zlyhala. Výber zostáva zachovaný na kontrolu. Po zatvorení sa zoznam obnoví."}</span>
               </div>
             )}
           </div>
 
           <div className={styles.dialogActions}>
-            <AdminActionButton variant="neutral" onClick={closeDialog}>{execution ? "Zavrieť a obnoviť" : "Zavrieť"}</AdminActionButton>
-            {!execution && (
-              <AdminActionButton variant="secondary" data-preflight-button disabled={pending} onClick={() => void runPreflight()}>
-                {pending ? "Kontrolujem…" : preflight ? "Preflight zopakovať" : "Spustiť preflight"}
+            <AdminActionButton variant="neutral" disabled={pending && Boolean(preflight)} onClick={closeDialog}>{execution ? "Zavrieť a obnoviť" : "Zavrieť"}</AdminActionButton>
+            {!execution && !pending && (error || preflight) && (
+              <AdminActionButton variant="secondary" onClick={() => void runPreflight(action)}>
+                Zopakovať kontrolu
               </AdminActionButton>
             )}
             {preflight && !execution && (
