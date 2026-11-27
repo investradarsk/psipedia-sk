@@ -12,7 +12,7 @@ type ServerRecord = {
 };
 const BASE = "/api/admin/visual-library/banners";
 const VISUAL_OPTIONS = { light: "Svetlý", dark: "Tmavý" } as const;
-const SIZE_OPTIONS = { small: "Malý", medium: "Stredný", large: "Veľký" } as const;
+const SIZE_OPTIONS = { small: "S – pravý panel", medium: "M – hlavný stĺpec", large: "L – celá šírka" } as const;
 
 export function AdminVisualLibraryEditor({
   banner, variantIndex, knownUses, canConfirmAllUses,
@@ -119,7 +119,7 @@ export function AdminVisualLibraryEditor({
       setConfirmed(false);
       const releaseMessage = action === "publish"
         ? "Desktopové texty, vizuál a veľkosť boli publikované pre potvrdenú URL. Mobilné farby a texty zostali pôvodné."
-        : "Publikované desktopové texty, vizuál a veľkosť boli vrátené na pôvodné.";
+        : "Publikované desktopové texty a vizuál boli vrátené na pôvodné.";
       setStatus(releaseMessage + (result.cacheNotice ? " " + result.cacheNotice : ""));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Akcia zlyhala.");
@@ -143,7 +143,7 @@ export function AdminVisualLibraryEditor({
       "Nadpis: " + draft.title, "Malý nadpis: " + draft.eyebrow,
       "Popis: " + draft.description, "Text tlačidla: " + draft.ctaLabel,
       "Vizuál: " + VISUAL_OPTIONS[draft.visual],
-      "Veľkosť: " + SIZE_OPTIONS[draft.size],
+      "Veľkosť náhľadu: " + SIZE_OPTIONS[draft.size],
       "Mobilné texty a farby zostávajú pôvodné. Zmeny platia iba na desktope.",
     ].join("\n");
     try {
@@ -181,7 +181,7 @@ export function AdminVisualLibraryEditor({
             {Object.entries(VISUAL_OPTIONS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <label>Veľkosť banneru
+        <label>Veľkosť banneru (náhľad)
           <select value={draft.size} onChange={(event) => change("size", event.target.value as BannerDraft["size"])}>
             {Object.entries(SIZE_OPTIONS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -196,7 +196,7 @@ export function AdminVisualLibraryEditor({
 
       <p className={styles.editorScope}>
         Evidovaných výskytov: {knownUses}{canConfirmAllUses ? "." : " (neúplný zoznam)."}
-        {" "}Priame publikovanie je povolené iba pre overený samostatný banner a rozsah „Len tento banner“. Texty, vizuál aj veľkosť sa publikujú iba pre desktop; mobilný text ostane pôvodný.
+        {" "}Priame publikovanie je povolené iba pre overený samostatný banner a rozsah „Len tento banner“. Texty a vizuál sa publikujú iba pre desktop; veľkosť na webe určuje umiestnenie bannera.
       </p>
       <strong className={styles.editorPreviewTitle}>Náhľad zmien – desktop</strong>
       <div className={styles.editorPreview}>
@@ -235,7 +235,7 @@ export function AdminVisualLibraryEditor({
             </label>
             <div className={styles.editorActions}>
               <button type="button" className={styles.editorSave} disabled={busy || loading || !confirmed || !publishAllowed}
-                onClick={() => void release("publish")}>Publikovať texty, vizuál a veľkosť</button>
+                onClick={() => void release("publish")}>Publikovať texty a vizuál</button>
               {server?.published && (
                 <button type="button" className={styles.moreButton} disabled={busy || loading || !confirmed}
                   onClick={() => void release("revert")}>Vrátiť publikované zmeny</button>
