@@ -438,6 +438,7 @@ export async function notionRemoteDeletionNeedsReview(db:D1Database,pageId:strin
     ["event_notion_sync","notion_page_id"],
     ["breed_notion_sync","notion_page_id"],
     ["breed_notion_workcopy_links","work_notion_page_id"],
+    ["breed_notion_workcopy_links","original_notion_page_id"],
     ["article_notion_sync","notion_page_id"],
     ["eshop_notion_sync","notion_page_id"],
     ["notion_agenda_sync","notion_page_id"],
