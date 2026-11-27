@@ -1,3 +1,4 @@
+import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
@@ -792,6 +793,11 @@ async function syncMapped(input: {
   }
 
   const claimedId = notionRichTextProperty(page, "Psipedia ID");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"eshops",id:shop.id,pageId:page.id,sourceId:input.dataSourceId});
+    if(await readStandaloneReviewLock(input.database,"eshops",shop.id))return "unchanged" as const;
+    if(input.manualDirection||input.forcePush)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
+  }
   if ((input.webhookChangedPropertyIds !== undefined || input.adminChangedFields !== undefined)
       && claimedId !== String(shop.id))
     throw new Error("ESHOP_FIELD_EVENT_IDENTITY_MISMATCH");
@@ -1001,6 +1007,10 @@ async function mirrorEshopSystemFields(input: {
       !notionPageBelongsToDataSource(page, input.dataSourceId) ||
       notionRichTextProperty(page, "Psipedia ID") !== String(shop.id))
     throw new Error("ESHOP_SYSTEM_MIRROR_IDENTITY_MISMATCH");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"eshops",id:shop.id,pageId:page.id,sourceId:input.dataSourceId});
+    if(await readStandaloneReviewLock(input.database,"eshops",shop.id))return "unchanged";
+  }
   const all = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
   const names = [
     "Počet hodnotení", "Celkové hodnotenie", "Doručenie",
@@ -1274,4 +1284,21 @@ export async function recoverEshopV2Field(database:D1Database,bindings:NotionEsh
     authorityProperty:observed.page.properties?.[ESHOP_V2_FIELDS[field as keyof typeof ESHOP_V2_FIELDS]],notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.shop.updatedAt)});
+}
+
+
+export async function unlockReviewedEshop(input:{database:D1Database;bindings:NotionEshopSyncBindings;entityId:number}){
+  if(!configured(input.bindings))throw Error("ESHOP_REVIEW_SYNC_DISABLED");
+  await unlockStandaloneReviewedProfile({database:input.database,bindings:input.bindings,agenda:"eshops",
+    id:input.entityId,sourceId:input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim(),
+    async projection(){
+      const shop=await getManagedEshopById(input.entityId,input.database);
+      if(!shop)throw Error("ESHOP_CANONICAL_MISSING");
+      const all=notionProperties(shop,"",shop.updatedAt) as Record<string,unknown>;
+      const desired=Object.fromEntries([...Object.values(ESHOP_V2_FIELDS),"Logo Psipedia","Logo key"]
+        .map(name=>[name,all[name]]));
+      if(Object.values(desired).some(value=>value===undefined))throw Error("ESHOP_REVIEW_PROJECTION_INCOMPLETE");
+      return {revision:shop.updatedAt,desired};
+    }
+  });
 }
