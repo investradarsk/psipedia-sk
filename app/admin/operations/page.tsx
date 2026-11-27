@@ -64,7 +64,7 @@ async function AdminOperationsContent({
   return (
     <>
       <section className={styles.hubGrid} aria-label="Rýchly prehľad upozornení">
-        <a className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations?view=pending#centrum-pozornosti">
+        <Link className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations?view=pending#centrum-pozornosti">
           <span className={styles.hubKicker}>Na vybavenie</span>
           <div className={styles.hubMetric}>
             <strong>{attention.availability === "UNAVAILABLE" ? "—" : attention.summary.active}</strong>
@@ -73,7 +73,7 @@ async function AdminOperationsContent({
           <h2>Aktívne upozornenia</h2>
           <p>Žiadosti, moderácia, partneri a adopcie. Zobrazené sú len aktuálne úlohy, ktoré ešte treba vyriešiť.</p>
           <span className={styles.hubOpen}>Otvoriť úlohy na vybavenie</span>
-        </a>
+        </Link>
 
 
       </section>

@@ -1,3 +1,4 @@
+import { nonMirroredBreedPredicate } from "./notion-breed-unified-policy.ts";
 import { UNIFIED_SYNC_AGENDAS, decideUnifiedField, type FieldIdentity, type UnifiedSyncAgenda } from "./notion-unified-field-sync.ts";
 import { readUnifiedFieldState } from "./notion-unified-field-state.ts";
 import { recoverDirectoryV2Field, directoryV2RecoveryFields, type NotionDirectorySyncBindings } from "./notion-directory-sync.ts";
@@ -131,6 +132,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
       "SELECT rowid FROM notion_unified_field_state WHERE (recovery_after IS NULL OR recovery_after<=?) "+
       "AND ((status='PENDING' AND updated_at<=?) OR status='REVIEW') "+
       "AND NOT (agenda='breeds' AND field_key='accent') "+
+      "AND NOT (status='REVIEW' AND reason='MISSING_FIELD' AND "+nonMirroredBreedPredicate()+") "+
       "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=notion_unified_field_state.agenda AND f.entity_id=notion_unified_field_state.entity_id) "+
       "ORDER BY COALESCE(recovery_after,''),updated_at,agenda,entity_id,field_key LIMIT 1) "+
       "RETURNING agenda,entity_id,notion_page_id,field_key"
@@ -148,7 +150,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
     "LEFT JOIN notion_unified_field_state s ON s.agenda=e.agenda AND s.entity_id=e.entity_id AND s.notion_page_id=e.notion_page_id AND s.field_key=e.field_key "+
     "WHERE (s.version IS NULL OR (s.status='SYNCED' AND s.baseline_version=e.baseline_version)) "+
     "AND (e.recovery_after IS NULL OR e.recovery_after<=?) "+
-    "AND NOT (e.agenda='breeds' AND e.field_key='accent') "+
+    "AND NOT "+nonMirroredBreedPredicate("e.")+" "+
     "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=e.agenda AND f.entity_id=e.entity_id) "+
     "ORDER BY e.observed_at,e.agenda,e.entity_id,e.field_key LIMIT 1) "+
     "RETURNING agenda,entity_id,notion_page_id,field_key"

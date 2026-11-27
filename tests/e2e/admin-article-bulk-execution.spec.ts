@@ -36,6 +36,16 @@ test.describe("ADMIN-2E article bulk execution", () => {
   const rowFor = (page: import("@playwright/test").Page, title: string) =>
     page.locator("[data-admin-article-row]").filter({ hasText: title });
 
+  async function closeAndAwaitReload(page: import("@playwright/test").Page, dialog: import("@playwright/test").Locator) {
+    // Closing a completed execution triggers window.location.reload() in onClose.
+    // Arm the listener before clicking so the following goto cannot race the reload.
+    await Promise.all([
+      page.waitForEvent("framenavigated", { predicate: frame => frame === page.mainFrame() }),
+      dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click(),
+    ]);
+    await page.waitForLoadState("domcontentloaded");
+  }
+
   async function findArticleRowAcrossPages(page: import("@playwright/test").Page, title: string) {
     await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
@@ -73,7 +83,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
     await expect(dialog).toContainText("Výber bol vyčistený");
-    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    await closeAndAwaitReload(page, dialog);
 
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Page 001")).toContainText("Publikovaný");
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Draft A")).toContainText("Koncept");
@@ -113,7 +123,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(dialog).toContainText("už sú v cieľovom stave");
     await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
-    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    await closeAndAwaitReload(page, dialog);
 
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Publikovaný");
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Publikovaný");
@@ -127,7 +137,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
       await expect(dialog).toContainText("Zmení sa: 1 · Preskočí sa: 0");
       await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
       await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
-      await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+      await closeAndAwaitReload(page, dialog);
     }
 
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Koncept");

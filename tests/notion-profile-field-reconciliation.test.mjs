@@ -1486,3 +1486,28 @@ test("V2 initial fill requires an observed scoped marker; never replays uncertai
     await assert.rejects(reserve(null,3,"push",blocked),/BASELINE_UNAVAILABLE/);
   }finally{db.close();}
 });
+
+test("V2 breed recovery excludes only logical fields without a physical workcopy mapping", async()=>{
+  const {isUnifiedBreedEditorialField,NON_MIRRORED_BREED_FIELDS,nonMirroredBreedPredicate}=await import("../lib/notion-breed-unified-policy.ts");
+  for(const field of ["accent","family","fciGroup","fciSection","fciSectionNumber","editorial.heroTraits","editorial.coatTip","editorial.exerciseTip","editorial.trainingTip","editorial.healthTip"]){
+    assert.ok(NON_MIRRORED_BREED_FIELDS.includes(field),field);
+    assert.equal(isUnifiedBreedEditorialField(field),false,field);
+  }
+  for(const field of ["apartment","children","exercise","editorial.coatCare","fciStandard.telo","fciNumber","controlled.heightMinCm"])
+    assert.equal(isUnifiedBreedEditorialField(field),true,field);
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec("CREATE TABLE t(agenda TEXT,field_key TEXT,status TEXT,reason TEXT); INSERT INTO t VALUES('breeds','accent','REVIEW','MISSING_FIELD'),('breeds','exercise','REVIEW','MISSING_FIELD'),('events','accent','REVIEW','MISSING_FIELD'),('breeds','family','PENDING',NULL)");
+    const pred="(status='REVIEW' AND reason='MISSING_FIELD' AND "+nonMirroredBreedPredicate()+")";
+    assert.equal(db.prepare("SELECT count(*) n FROM t WHERE "+pred).get().n,1);
+    assert.equal(db.prepare("SELECT count(*) n FROM t WHERE status='PENDING' AND "+pred).get().n,0);
+  }finally{db.close();}
+});
+test("V2 instant offset validator accepts real timezone offsets rather than literal backslashes", async()=>{
+  const source=await readFile(new URL("../lib/notion-help-v2-field-transport.ts",import.meta.url),"utf8");
+  const expected=/(Z|[+-]\d{2}:\d{2})$/i;
+  assert.equal(source.split(expected.toString()).length,3);
+  for(const input of ["2026-10-19T02:00:00+02:00","2026-10-19T00:00:00Z"])
+    assert.equal(expected.test(input),true);
+  assert.equal(expected.test("2026-10-19"),false);
+});

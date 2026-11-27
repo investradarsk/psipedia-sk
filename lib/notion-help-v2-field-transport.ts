@@ -13,7 +13,7 @@ const TABLES={adoptions:"adoption_dogs","help-cases":"help_cases","lost-found":"
 type FieldKind="text"|"number"|"checkbox"|"date"|"instant";
 function normalizeHelpObservation(field:string,value:unknown):unknown {
   if(field!=="Naposledy videný"||typeof value!=="string"||!value.trim())return value;
-  if(!/(Z|[+-]\\d{2}:\\d{2})$/i.test(value))return value;
+  if(!/(Z|[+-]\d{2}:\d{2})$/i.test(value))return value;
   const parsed=new Date(value);return Number.isFinite(parsed.getTime())?parsed.toISOString():value;
 }
 /** Missing, wrong-type and potentially truncated values are observations of
@@ -33,7 +33,7 @@ export function helpV2NotionObservation(page:Pick<NotionPage,"properties">,field
     const date=p.date as {start?:unknown;end?:unknown}|undefined;
     if(typeof date?.start!=="string"||date.end)return {present:false};
     const value=date.start.trim();
-    if(kind==="instant"&&(!/(Z|[+-]\\d{2}:\\d{2})$/i.test(value)||!Number.isFinite(Date.parse(value))))return {present:false};
+    if(kind==="instant"&&(!/(Z|[+-]\d{2}:\d{2})$/i.test(value)||!Number.isFinite(Date.parse(value))))return {present:false};
     return {present:true,value:normalizeHelpObservation(field,value)};
   }
   if(type==="title"||type==="rich_text"){
