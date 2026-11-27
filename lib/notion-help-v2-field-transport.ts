@@ -109,7 +109,7 @@ export async function syncHelpV2Fields(input:Adapter){
       if(!observed.notion.present||!observed.psipedia.present)throw Error("HELP_V2_MISSING_FIELD");
       const historical=structural?null:await readProfileFieldBaseline({database,agenda,entityId,pageId,expectedHash:observed.mapping.content_hash});
       const reservation=structural?null:await reserveUnifiedField({
-        database,identity,historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
+        database,identity,authorityBindings:input.bindings,authorityProperty:observed.page.properties?.[field],historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
         notion:observed.notion,psipedia:observed.psipedia,direction,
         psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision),
       });
@@ -148,7 +148,7 @@ export async function recoverHelpV2Field(input:Scope,field:string,kind:FieldKind
   const {database,agenda,entityId,pageId}=input;
   const identity={agenda,entityId:String(entityId),pageId,field};
   const historical=await readProfileFieldBaseline({database,agenda,entityId,pageId,expectedHash:observed.mapping.content_hash});
-  await reserveUnifiedField({database,identity,direction:"observe",notion:observed.notion,psipedia:observed.psipedia,
+  await reserveUnifiedField({database,identity,direction:"observe",authorityBindings:input.bindings,authorityProperty:observed.page.properties?.[field],notion:observed.notion,psipedia:observed.psipedia,
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision)});
 }
