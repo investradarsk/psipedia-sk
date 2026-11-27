@@ -416,12 +416,26 @@ export async function saveBreedControlledFromAdmin(args:{
   return {...state(latest),rejectedKeys};
 }
 
-export async function recoverControlledBreedV2Field(database:D1Database,bindings:ControlledBreedBindings,id:number,pageId:string,key:string,direction:"observe"|"pull"="observe"){
+export async function recoverControlledBreedV2Field(database:D1Database,bindings:ControlledBreedBindings,id:number,pageId:string,key:string,direction:"observe"|"pull"|"push"="observe"){
   requireNewEngine(bindings);
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!keys.has(key))throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
   const link=await activeLink(database,id);
   if(link.work_notion_page_id!==pageId)throw Error("BREED_CONTROLLED_RECOVERY_SCOPE");
   const planned=await reserveControlledV2(database,bindings,link,key,direction);
+  if(direction==="push"&&planned.reservation){
+    const fresh=await observeControlledV2(database,bindings,link,key);
+    if(fresh.revision!==planned.revision||fresh.row.revision!==planned.row.revision||
+       fresh.page.last_edited_time!==planned.page.last_edited_time||!eq(fresh.notion,planned.notion)||!eq(fresh.psipedia,planned.psipedia))
+      throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
+    const value=validateBreedControlledValue(key,planned.reservation.value);
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    await notionRequest(bindings,"/pages/"+encodeURIComponent(link.work_notion_page_id),{
+      method:"PATCH",body:JSON.stringify({properties:breedControlledNotionPayload(key,value)}),
+    });
+    const verified=await observeControlledV2(database,bindings,link,key);
+    await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
+    await acknowledge(database,id,key,value);
+  }
   if(direction==="pull"&&planned.reservation){
     const fresh=await observeControlledV2(database,bindings,link,key);
     if(fresh.revision!==planned.revision||fresh.row.revision!==planned.row.revision||!eq(fresh.notion,planned.notion))throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");

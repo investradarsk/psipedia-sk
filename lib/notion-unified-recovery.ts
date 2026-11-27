@@ -72,6 +72,10 @@ async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,iden
   if(decideUnifiedField({identity,baseline:{value:state.baseline,version:state.baselineVersion},
     notion:{present:true,value:state.notion},psipedia:{present:true,value:state.psipedia},
     psipediaEdit:edit}).action!=="push")return false;
+  return pushRecoveryField(database,bindings,identity);
+}
+async function pushRecoveryField(database:D1Database,bindings:Bindings,identity:FieldIdentity,initial=false){
+  if(bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED!=="true")return false;
   const id=Number(identity.entityId);
   switch(identity.agenda){
     case "events":
@@ -85,7 +89,7 @@ async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,iden
     case "directory":
       await recoverDirectoryV2Field(database,bindings,id,identity.pageId,identity.field,"push");return true;
     case "breeds":
-      if(identity.field.startsWith("controlled.")){await retryControlledBreedV2AdminField(database,bindings,id,identity.pageId,identity.field.slice(11));return true;}
+      if(identity.field.startsWith("controlled.")){if(initial)await recoverControlledBreedV2Field(database,bindings,id,identity.pageId,identity.field.slice(11),"push");else await retryControlledBreedV2AdminField(database,bindings,id,identity.pageId,identity.field.slice(11));return true;}
       return retryBreedV2AdminField(database,bindings,id,identity.pageId,identity.field);
   }
 }
@@ -96,7 +100,11 @@ async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   // Catch missed inbound events only where one current value differs from a
   // verified baseline. The adapter re-observes and reserves before writing.
   // Never fabricate a signed event, resolve a dual edit or erase with blanks.
-  if(observed?.status==="REVIEW"&&observed.reason==="RECOVERY_DIRECTION_REQUIRED"&&
+  if(observed?.status==="REVIEW"&&observed.reason==="INITIAL_FILL_PULL"){
+    await observe(database,bindings,key,"pull");
+  }else if(observed?.status==="REVIEW"&&observed.reason==="INITIAL_FILL_PUSH"){
+    await pushRecoveryField(database,bindings,key,true);
+  }else if(observed?.status==="REVIEW"&&observed.reason==="RECOVERY_DIRECTION_REQUIRED"&&
     observed.baselineVersion&&observed.baseline!==undefined&&observed.notion!==undefined&&observed.psipedia!==undefined&&
     decideUnifiedField({identity:key,baseline:{value:observed.baseline,version:observed.baselineVersion},
       notion:{present:true,value:observed.notion},psipedia:{present:true,value:observed.psipedia}}).action==="pull"){

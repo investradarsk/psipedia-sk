@@ -372,6 +372,7 @@ export async function writeBackBreedToWorkCopy(input: {
               await notionPageIsTombstoned(input.database, link.work_notion_page_id))
             throw Error("BREED_UNIFIED_REVISION_CHANGED");
         }
+        if(pilot?.reservation)await assertUnifiedReservationCurrent(input.database,pilot.reservation);
         await notionRequest(input.bindings,
           "/pages/" + encodeURIComponent(link.work_notion_page_id),{
             method: "PATCH", body: JSON.stringify({ properties:plan.properties }),
@@ -431,6 +432,7 @@ export async function writeBackBreedToWorkCopy(input: {
               await notionPageIsTombstoned(input.database, link.work_notion_page_id))
             throw Error("BREED_UNIFIED_REVISION_CHANGED");
         }
+        if(pilot?.reservation)await assertUnifiedReservationCurrent(input.database,pilot.reservation);
         await notionRequest(input.bindings,
           "/pages/" + encodeURIComponent(link.work_notion_page_id),{
             method:"PATCH",body:JSON.stringify({properties:{
