@@ -261,8 +261,10 @@ export async function updateManagedEshop(
   actor: string,
   database?: D1Database,
   unifiedExpectedRevision?: string,
+  reviewOnSave=false,
 ): Promise<ManagedEshop | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
+  if(reviewOnSave&&unifiedExpectedRevision===undefined)throw Error("ESHOP_REVIEW_REQUIRES_REVISION");
   const db = getEshopDatabase(database);
   const current = await getManagedEshopById(id, db);
   if (!current) return null;
@@ -295,6 +297,10 @@ export async function updateManagedEshop(
     );
     if(unifiedExpectedRevision!==undefined)await commitEshopV2AdminEdit(db,statement,{
       id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:actor,
+      companionStatements:reviewOnSave?[
+        db.prepare("INSERT OR IGNORE INTO admin_entity_reviews(entity_type,entity_id,reviewed_at,reviewed_by) SELECT \'ESHOP\',id,?,? FROM managed_eshops WHERE id=? AND updated_at=?").bind(now,actor,id,now),
+        db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=\'ESHOP\' AND entity_id=?) THEN 1 ELSE json_extract(\'ESHOP_REVIEW_LOCK_FAILED\',\'$\') END").bind(id),
+      ]:[],
     });else await statement.run();
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) {
