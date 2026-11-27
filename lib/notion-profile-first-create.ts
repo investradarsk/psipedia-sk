@@ -5,6 +5,7 @@ import { sameNotionProperty } from "./notion-selective-property-patch.ts";
 
 type Page=BasePage&{archived?:boolean;in_trash?:boolean;parent?:{type?:string;data_source_id?:string;database_id?:string}};
 const spec={
+  breeds:{table:"managed_breeds",kind:"breeds",mapping:"breed_notion_workcopy_links",key:"breed_id"},
   directory:{table:"directory_profiles",kind:"directory",mapping:"directory_notion_sync",key:"directory_profile_id"},
   events:{table:"managed_events",kind:"events",mapping:"event_notion_sync",key:"event_id"},
   organizations:{table:"help_organizations",kind:"organizations",mapping:"notion_agenda_sync",key:"entity_id"},
@@ -14,14 +15,14 @@ const spec={
   eshops:{table:"managed_eshops",kind:"eshops",mapping:"eshop_notion_sync",key:"eshop_id"},
 } as const;
 type Agenda=keyof typeof spec;
-type Snapshot={revision:string;hash:string;properties:Record<string,unknown>;reviewed:boolean};
+type Snapshot={revision:string;hash:string;properties:Record<string,unknown>;reviewed:boolean;breedControlledValues?:Record<string,unknown>};
 
 /** Create a first remote copy only; never patch an already existing page.
  * The fence persists on ambiguous POST/mapping outcome. Recovery must verify
  * the exact remote identity; do not automatically send a second POST. */
 export async function ensureFirstProfileNotionCopy(input:{
   database:D1Database;bindings:NotionSyncBindings;agenda:Agenda;id:number;sourceId:string;
-  snapshot:()=>Promise<Snapshot>;
+  snapshot:(schema:Record<string,{type?:string}>)=>Promise<Snapshot>;
 }):Promise<{pageId:string;created:boolean}>{
   const {database:db,bindings,agenda,id,sourceId}=input;
   if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!Number.isSafeInteger(id)||id<1||!sourceId)
@@ -29,7 +30,14 @@ export async function ensureFirstProfileNotionCopy(input:{
   const s=spec[agenda],shared=s.mapping==="notion_agenda_sync";
   const mappingScope=shared?" AND agenda=?":"";
   const scopeArgs=shared?[agenda]:[];
-  const mapping=()=>db.prepare("SELECT notion_page_id FROM "+s.mapping+" WHERE "+s.key+"=?"+mappingScope)
+  const breed=agenda==="breeds";
+  if(breed){
+    const columns=await db.prepare("PRAGMA table_info(breed_notion_workcopy_links)").all<{name:string;notnull:number}>();
+    if(!["original_notion_page_id","original_data_source_id","original_sync_receipt","fci_number"].every(name=>columns.results?.some(column=>column.name===name&&column.notnull===0)))throw Error("BREED_WORKONLY_SCHEMA_REQUIRED");
+    const legacy=await db.prepare("SELECT 1 AS linked FROM breed_notion_sync WHERE breed_id=?").bind(id).first<{linked:number}>();
+    if(legacy)throw Error("BREED_LEGACY_LINK_REQUIRES_REVIEW");
+  }
+  const mapping=()=>db.prepare("SELECT "+(breed?"work_notion_page_id AS notion_page_id":"notion_page_id")+" FROM "+s.mapping+" WHERE "+s.key+"=?"+mappingScope)
     .bind(id,...scopeArgs).first<{notion_page_id:string}>();
   const eligible=()=>db.prepare("SELECT updated_at FROM "+s.table+" p WHERE id=? AND lower(status)<>'archived'"+
     " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=? AND t.record_id=p.id)")
@@ -46,7 +54,8 @@ export async function ensureFirstProfileNotionCopy(input:{
   async function snapshot(){
     const row=await eligible();
     if(!row)throw Error("PROFILE_FIRST_CREATE_CANONICAL_MISSING");
-    const snap=await input.snapshot();
+    const snap=await input.snapshot(source.properties??{});
+    if(breed&&!snap.breedControlledValues)throw Error("BREED_CONTROLLED_PROJECTION_REQUIRED");
     const properties={...snap.properties,"Odkontrolované":{checkbox:snap.reviewed}};
     if(snap.revision!==row.updated_at||(await eligible())?.updated_at!==row.updated_at)
       throw Error("PROFILE_FIRST_CREATE_REVISION_CHANGED");
@@ -87,7 +96,26 @@ export async function ensureFirstProfileNotionCopy(input:{
   }
   if(JSON.stringify(await snapshot())!==JSON.stringify(expected))throw Error("PROFILE_FIRST_CREATE_REVISION_CHANGED");
   const now=new Date().toISOString();
-  const insert=await db.prepare("INSERT INTO "+s.mapping+" ("+(shared?"agenda,":"")+
+  let insert:D1Result;
+  if(breed){
+    const controlledJson=JSON.stringify(expected.breedControlledValues);
+    const guard="EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='breeds' AND entity_id=? AND owner_token=?)";
+    const batch=await db.batch([
+      db.prepare("INSERT INTO breed_notion_workcopy_links(breed_id,work_notion_page_id,work_data_source_id,canonical_slug,fci_number,work_sync_receipt,work_last_synced_at,work_notion_last_edited_time,status,verified_at,activated_at,created_at,updated_at) "+
+        "SELECT p.id,?,?,p.slug,p.fci_number,?,?,?,'ACTIVE',?,?,?,? FROM managed_breeds p WHERE p.id=? AND p.updated_at=? AND lower(p.status)<>'archived' "+
+        "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=p.id) "+
+        "AND NOT EXISTS(SELECT 1 FROM breed_notion_sync WHERE breed_id=p.id) AND "+guard+
+        " AND NOT EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=p.id) ON CONFLICT DO NOTHING")
+        .bind(verified.id,sourceId,expected.hash,now,verified.last_edited_time??now,now,now,now,now,id,expected.revision,String(id),fence.token),
+      db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('BREED_FIRST_COPY_CAS_FAILED','$') END"),
+      db.prepare("INSERT INTO breed_notion_controlled_values(breed_id,values_json,notion_values_json,revision,updated_at) VALUES(?,?,?,0,?) ON CONFLICT(breed_id) DO NOTHING")
+        .bind(id,controlledJson,controlledJson,now),
+      db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM breed_notion_controlled_values WHERE breed_id=? AND json(values_json)=json(?)) THEN 1 ELSE json_extract('BREED_FIRST_COPY_CONTROLLED_MISMATCH','$') END")
+        .bind(id,controlledJson),
+    ]);
+    insert=batch[0];
+  }else{
+    insert=await db.prepare("INSERT INTO "+s.mapping+" ("+(shared?"agenda,":"")+
     "notion_page_id,"+s.key+",content_hash,notion_last_edited_time,psipedia_updated_at,last_synced_at,created_at,updated_at) "+
     "SELECT "+(shared?"?,":"")+"?,?,?,?,?,?,?,? WHERE "+
     "EXISTS(SELECT 1 FROM "+s.table+" p WHERE id=? AND updated_at=? AND lower(status)<>'archived')"+
@@ -97,6 +125,7 @@ export async function ensureFirstProfileNotionCopy(input:{
     " ON CONFLICT DO NOTHING")
     .bind(...scopeArgs,verified.id,id,expected.hash,verified.last_edited_time??now,expected.revision,now,now,now,
       id,expected.revision,s.kind,id,agenda,String(id),fence.token,id,...scopeArgs).run();
+  }
   if(!insert.success||insert.meta.changes!==1||(await mapping())?.notion_page_id!==verified.id)
     throw Error("PROFILE_FIRST_CREATE_MAPPING_CONFLICT");
   await releaseUnifiedManualFence(db,fence);
