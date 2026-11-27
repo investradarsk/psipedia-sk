@@ -114,7 +114,7 @@ export function DogHealthCalendar(){
     const events=current.entries.filter(e=>(filter==="all"||e.dogId===filter)&&!e.done&&e.type!=="weight"&&e.date>=today).map(e=>({uid:e.id,date:e.date,summary:healthEntryTitle(e)+" – "+names.get(e.dogId),reminder}));
     if(!events.length){setNotice("Žiadne budúce termíny na export.");return;}
     const url=URL.createObjectURL(new Blob([buildDateCalendar(events)],{type:"text/calendar;charset=utf-8"}));
-    const link=document.createElement("a");link.href=url;link.download="psipedia-zdravotny-kalendar.ics";document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const link=document.createElement("a");link.href=url;link.download="psipedia-zdravotny-kalendar.ics";document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     setNotice("Súbor .ics je pripravený na import do osobného kalendára.");
   }
   const renderEntry=(e:HealthEntry)=><li key={e.id} className={styles.entry}>
