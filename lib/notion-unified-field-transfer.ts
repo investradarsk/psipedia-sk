@@ -1,3 +1,5 @@
+import { verifiedBreedStructuredProperty, breedStructuredAuthorityFields } from "./notion-breed-structured-authority.mjs";
+import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
 import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit, type ProfileAuthorityContext } from "./notion-unified-field-sync.ts";
 import { readProfileAuthorityOwner, profileAuthorityEnabled, profileAuthorityTextFieldAllowed, type ProfileAuthorityBindings } from "./notion-profile-authority.ts";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
@@ -30,7 +32,9 @@ export async function reserveUnifiedField(input: {
     const owner = await readProfileAuthorityOwner(database,identity);
     const authority: ProfileAuthorityContext = {
       owner, fieldAllowed: profileAuthorityTextFieldAllowed(identity),
-      notionValidated: isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
+      notionValidated: identity.agenda==="breeds"&&breedStructuredAuthorityFields.includes(identity.field)
+        ? verifiedBreedStructuredProperty(identity.field,input.authorityProperty,input.notion,BREED_NOTION_SCHEMA)
+        : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
     };
     const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
     if(old?.status==="PENDING"){
