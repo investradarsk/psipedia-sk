@@ -742,12 +742,15 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
         if(field==="logoUrl"){
           // External fetch may transform the URL into a new R2 identity.
           // That is not equality proof; defer the alias-aware media workflow.
+          if(value===""&&reservation?.profileAuthority)logo={imageUrl:null,imageKey:null};
+          else {
           const own=typeof value==="string"?localizeOwnAsset(value):null;
           if(!own||!own.startsWith("/media/eshops/")||!input.bindings.BUCKET)
             throw Error("ESHOP_V2_LOGO_REQUIRES_MEDIA_REVIEW");
           const key=own.slice("/media/".length);
           if(!await input.bindings.BUCKET.head(key))throw Error("ESHOP_V2_LOGO_MISSING");
           logo={imageUrl:own,imageKey:key};
+          }
           // Recheck after the R2 read. Old assets are not deleted here.
           const current=await observeEshopV2(input,field);
           if(current.shop.updatedAt!==fresh.shop.updatedAt||current.page.last_edited_time!==fresh.page.last_edited_time||
