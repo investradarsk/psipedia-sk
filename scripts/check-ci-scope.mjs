@@ -722,7 +722,7 @@ for (const [label, files, expectedScopes, relevantWorkflows] of coverage4) {
 }
 for (const [name, file, jobName] of [
   ["sitemap", "app/sitemap.ts", "sitemap-production-diagnostic"],
-  ["seo", "lib/seo-metadata.ts", "seo-recovery-e2e"],
+  ["seo", "lib/seo-metadata.ts", "ds-0b-focused-regression"],
   ["lost-found", "lib/lost-found-store.ts", "lost-found-public-e2e"],
 ]) {
   const dependsOnPreview = jobName === "sitemap-production-diagnostic";
@@ -736,13 +736,13 @@ for (const [name, file, jobName] of [
   assert.equal(simulation(["docs/audit.md"]).runs(jobName), false, `${name} docs skip`);
 }
 assert.equal(simulation(["lib/seo-metadata.ts"]).runs("sitemap-production-diagnostic"), false);
-assert.doesNotMatch(job("seo-recovery-e2e").condition, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED/);
+assert.doesNotMatch(job("ds-0b-focused-regression").condition, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED/);
 assert.match(job("sitemap-production-diagnostic").condition, /vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
 for (const file of ["scripts/start-public-regression-ci.sh", "tests/fixtures/public-regression-ci.sql"]) {
-  assert.equal(simulation([file]).runs("seo-recovery-e2e"), true, `${file}: local runtime must exercise SEO coverage`);
+  assert.equal(simulation([file]).runs("ds-0b-focused-regression"), true, `${file}: local runtime must exercise SEO coverage`);
 }
 const ds0b = job("ds-0b-focused-regression").block;
-for (const block of [ds0b, job("seo-recovery-e2e").block]) {
+for (const block of [ds0b]) {
   assert.match(block, /bash scripts\/start-public-regression-ci\.sh/);
   assert.match(block, /E2E_BASE_URL: http:\/\/localhost:5173/);
   assert.match(block, /Verify test source revision/);
@@ -750,7 +750,9 @@ for (const block of [ds0b, job("seo-recovery-e2e").block]) {
   assert.doesNotMatch(block, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED|steps\.preview|check-runs/);
 }
 assert.match(ds0b, /directory-unified-layout\.spec\.ts/);
-assert.match(job("seo-recovery-e2e").block, /seo-recovery\.spec\.ts tests\/e2e\/events-public-v2\.spec\.ts/);
+assert.match(ds0b, /seo-recovery\.spec\.ts tests\/e2e\/events-public-v2\.spec\.ts/);
+assert.match(ds0b, /RUN_SEO: /);
+assert.doesNotMatch(required, /^  seo-recovery-e2e:/m);
 
 for (const file of ["components/directory-card.tsx", "app/hladat/page.tsx", "app/admin/events/page.tsx"]) {
   const push = simulation([file], "push");

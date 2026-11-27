@@ -82,22 +82,24 @@ test("explicit head revision is allowed only for the isolated local profile", ()
   assert.throws(() => expectedBuildRevision("standard", {GITHUB_SHA:merge,CI_BUILD_SOURCE_REVISION:head}), /local-E2E only/);
   assert.throws(() => expectedBuildRevision("local-e2e", {CI_BUILD_SOURCE_REVISION:"invalid"}), /invalid/);
 });
-test("central public local profile is built once and shared with SEO", () => {
+test("central directory and SEO suites share one verified local build and browser", () => {
   const source=read(".github/workflows/playwright-e2e.yml");
   const ds=source.slice(source.indexOf("  ds-0b-focused-regression:"),source.indexOf("  required-breed-check:"));
-  const seo=source.slice(source.indexOf("  seo-recovery-e2e:"),source.indexOf("  sitemap-production-diagnostic:"));
   const lost=source.slice(source.indexOf("  lost-found-public-e2e:"));
-  assert.match(ds,/--build-only/);
-  assert.match(ds,/--reuse-build/);
-  assert.match(ds,/actions\/upload-artifact@v4/);
-  assert.match(seo,/needs: \[validate, ds-0b-focused-regression\]/);
-  assert.match(seo,/actions\/download-artifact@v4/);
-  assert.match(seo,/--reuse-build/);
-  assert.doesNotMatch(seo,/--build-only|run: npm run build/);
-  for(const block of [ds,seo]) {
-    assert.ok(block.includes("ci-public-local-e2e-\${{ github.event.pull_request.head.sha }}".replace("\\$","$")));
-    assert.ok(block.includes("CI_BUILD_SOURCE_REVISION: \${{ github.event.pull_request.head.sha }}".replace("\\$","$")));
-  }
+  assert.doesNotMatch(source,/^  seo-recovery-e2e:/m);
+  assert.equal((ds.match(/--build-only/g)||[]).length,1);
+  assert.equal((ds.match(/--reuse-build/g)||[]).length,1);
+  assert.equal((ds.match(/npx playwright install --with-deps chromium/g)||[]).length,1);
+  assert.equal((ds.match(/npx playwright test /g)||[]).length,1);
+  assert.equal((ds.match(/run: npm ci/g)||[]).length,1);
+  assert.match(ds,/RUN_DIRECTORY: /);
+  assert.match(ds,/RUN_SEO: /);
+  assert.match(ds,/if \[ "\$RUN_DIRECTORY" = true \]; then[\s\S]*?specs\+=\(tests\/e2e\/directory-unified-layout\.spec\.ts\)/);
+  assert.match(ds,/if \[ "\$RUN_SEO" = true \]; then[\s\S]*?specs\+=\(tests\/e2e\/seo-recovery\.spec\.ts tests\/e2e\/events-public-v2\.spec\.ts\)/);
+  assert.match(ds,/--project=desktop-chromium --workers=1 --retries=0/);
+  assert.match(ds,/CI_BUILD_SOURCE_REVISION:/);
+  assert.match(ds,/Stop local public regression app/);
+  assert.match(ds,/tests\/public-details-v2-ui\.test\.mjs/);
   assert.match(lost,/actions\/download-artifact@v4/);
   assert.match(lost,/Validated build fingerprint mismatch/);
   assert.match(lost,/if: needs\.validate\.outputs\.full_core != 'true' && needs\.validate\.outputs\.bounded_core != 'true'\n        run: npm run build/);

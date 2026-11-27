@@ -151,15 +151,15 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
   ds-0b-focused-regression:
-    name: PUBLIC DS-0B permanent Node and scoped directory Playwright
+    name: Public web, directory and SEO Playwright
     if: >-
       needs.validate.result == 'success' &&
       ((github.event_name == 'pull_request' &&
         (needs.validate.outputs.public_ds0b == 'true' || needs.validate.outputs.seo_recovery == 'true')) ||
        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.validate.outputs.public_ds0b == 'true'))
     needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
       contents: read
     env:
@@ -256,37 +256,35 @@ jobs:
           E2E_BASE_URL: http://localhost:5173
           CI_BUILD_SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
         run: bash scripts/start-public-regression-ci.sh --build-only
-      - name: Publish verified local public build from this run
-        if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-public-local-e2e-${{ github.event.pull_request.head.sha }}
-          path: |
-            dist/
-            lib/generated/component-registry.json
-            ci-v2-build-identity.json
-          include-hidden-files: true
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 2
-      - name: Install Chromium for directory matrix
-        if: steps.ds0b_scope.outputs.directory == 'true'
+      - name: Install Chromium once for selected public suites
+        if: github.event_name == 'pull_request' && (steps.ds0b_scope.outputs.directory == 'true' || needs.validate.outputs.seo_recovery == 'true')
         run: npx playwright install --with-deps chromium
       - name: Prepare isolated local public regression app
-        if: steps.ds0b_scope.outputs.directory == 'true'
+        if: github.event_name == 'pull_request' && (steps.ds0b_scope.outputs.directory == 'true' || needs.validate.outputs.seo_recovery == 'true')
         env:
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
           E2E_BASE_URL: http://localhost:5173
           CI_BUILD_SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
         run: bash scripts/start-public-regression-ci.sh --reuse-build
-      - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
-        if: steps.ds0b_scope.outputs.directory == 'true'
+      - name: Execute selected directory and SEO browser suites
+        if: github.event_name == 'pull_request' && (steps.ds0b_scope.outputs.directory == 'true' || needs.validate.outputs.seo_recovery == 'true')
+        shell: bash
         env:
           E2E_BASE_URL: http://localhost:5173
+          RUN_DIRECTORY: ${{ steps.ds0b_scope.outputs.directory }}
+          RUN_SEO: ${{ needs.validate.outputs.seo_recovery }}
         run: |
-          mkdir -p .e2e-artifacts/services-v2-directory
-          npx playwright test tests/e2e/directory-unified-layout.spec.ts \
-            --project=desktop-chromium --workers=1 --retries=0
+          set -euo pipefail
+          specs=()
+          if [ "$RUN_DIRECTORY" = true ]; then
+            mkdir -p .e2e-artifacts/services-v2-directory
+            specs+=(tests/e2e/directory-unified-layout.spec.ts)
+          fi
+          if [ "$RUN_SEO" = true ]; then
+            specs+=(tests/e2e/seo-recovery.spec.ts tests/e2e/events-public-v2.spec.ts)
+          fi
+          test "${#specs[@]}" -gt 0
+          npx playwright test "${specs[@]}" --project=desktop-chromium --workers=1 --retries=0
       - name: Public detail responsive and accessibility regression
         if: steps.ds0b_scope.outputs.directory == 'true'
         env:
@@ -308,16 +306,17 @@ jobs:
           path: .e2e-artifacts/services-v2-directory/
           if-no-files-found: ignore
           retention-days: 14
-      - name: Upload DS-0B failure diagnostics
+      - name: Upload public directory and SEO failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ds-0b-failure-diagnostics-${{ github.run_attempt }}
+          name: public-directory-seo-failure-${{ github.run_attempt }}
           path: |
             test-results/playwright/
             playwright-report/
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
       - name: Stop local public regression app
         if: always()
         run: |
@@ -337,7 +336,7 @@ jobs:
   # Run the actual breed regression separately on manual/scheduled full-core runs.
   required-breed-check:
     name: Breed CI bootstrap, all-breed regression and Playwright
-    needs: [validate, ds-0b-focused-regression, admin-interaction-e2e, admin-events-e2e, search-e2e, directory-e2e, seo-recovery-e2e, lost-found-public-e2e]
+    needs: [validate, ds-0b-focused-regression, admin-interaction-e2e, admin-events-e2e, search-e2e, directory-e2e, lost-found-public-e2e]
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1074,70 +1073,6 @@ jobs:
         with:
           name: playwright-production-${{ matrix.label }}-failure-evidence-${{ github.run_attempt }}
           path: test-results/playwright/
-          if-no-files-found: ignore
-          retention-days: 14
-
-  seo-recovery-e2e:
-    name: SEO-RECOVERY-1 local indexability matrix
-    if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
-    needs: [validate, ds-0b-focused-regression]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-      - name: Verify test source revision
-        env:
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.0
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - name: Download verified public local build from this run
-        uses: actions/download-artifact@v4
-        with:
-          name: ci-public-local-e2e-${{ github.event.pull_request.head.sha }}
-          path: .
-      - name: Prepare isolated local public regression app
-        env:
-          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
-          E2E_BASE_URL: http://localhost:5173
-          CI_BUILD_SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
-        run: bash scripts/start-public-regression-ci.sh --reuse-build
-      - name: SEO-RECOVERY-1 Playwright against local app
-        env:
-          E2E_BASE_URL: http://localhost:5173
-        run: npx playwright test tests/e2e/seo-recovery.spec.ts tests/e2e/events-public-v2.spec.ts --project=desktop-chromium --workers=1 --retries=0
-      - name: Upload SEO recovery failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seo-recovery-1-playwright-failure-${{ github.run_attempt }}
-          path: |
-            playwright-report/
-            test-results/playwright/
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-      - name: Stop local public regression app
-        if: always()
-        run: |
-          if [ -f .e2e-artifacts/public-regression/server.pid ]; then
-            kill "$(cat .e2e-artifacts/public-regression/server.pid)" || true
-          fi
-      - name: Upload local public regression server log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seo-recovery-local-server-${{ github.run_attempt }}
-          path: .e2e-artifacts/public-regression/server.log
           if-no-files-found: ignore
           retention-days: 14
 

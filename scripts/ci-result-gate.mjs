@@ -8,7 +8,6 @@ const CENTRAL = {
   "admin-events-e2e": "admin_events",
   "search-e2e": "search",
   "directory-e2e": "directory",
-  "seo-recovery-e2e": "seo_recovery",
   "lost-found-public-e2e": "lost_found",
 };
 
@@ -35,10 +34,11 @@ export function evaluateGate(mode, needs) {
   if (mode === "central") {
     result("validate", true);
     const full = flag("validate", "full_core");
+    const seo = flag("validate", "seo_recovery");
     for (const [job, name] of Object.entries(CENTRAL)) {
       const scoped = flag("validate", name);
-      // SEO uses the same exact-head local build producer as DS-0B.
-      const selected = scoped || (job === "ds-0b-focused-regression" && flag("validate", "seo_recovery"));
+      // Both public browser scopes now execute in one local job.
+      const selected = scoped || (job === "ds-0b-focused-regression" && seo);
       // Preserve the existing bounded directory policy; broad browser coverage
       // is still manual/scheduled and is not represented as completed here.
       result(job, selected && (job !== "directory-e2e" || !full));
