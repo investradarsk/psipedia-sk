@@ -289,6 +289,9 @@ export async function deleteOrganizationLocationFromAdmin(
 export async function planCombinedOrganizationAddress(db:D1Database,organizationId:number,raw:unknown){
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new OrganizationLocationMutationConflictError("Neplatná adresa.");
   const request=raw as {expected?:unknown;payload?:unknown};
+  if(!request.payload||typeof request.payload!=="object"||Array.isArray(request.payload)||
+    !["address","city","district","region","countryCode"].every(key=>Object.hasOwn(request.payload as object,key)&&typeof (request.payload as Record<string,unknown>)[key]==="string"))
+    throw new OrganizationLocationMutationConflictError("Adresa nie je kompletným formulárom.");
   const input=normalizeOrganizationLocationAdminInput(request.payload);
   const guard=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('ORGANIZATION_ADDRESS_CAS_FAILED','$') END");
   if(request.expected===null){
