@@ -43,7 +43,7 @@ test("contextual coral banners use the common light palette rather than a local 
   const source = read("components/public-visual-system/public-context-banner.tsx");
   const shared = read("app/banner-visuals.css");
   assert.match(source, /visual=\{tone === "forest" \? "dark" : "light"\}/);
-  const tone = css.match(/\.tone_coral\s*\{([^}]+)\}/)?.[1];
+  const tone = css.match(/\.tone_coral,\s*\.tone_sand\s*\{([^}]+)\}/)?.[1];
   assert.ok(tone);
   assert.doesNotMatch(tone, /background:|border-left:/);
   assert.match(shared, /--ps-bnr-bg: #f7f2e9/);
