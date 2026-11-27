@@ -3,6 +3,7 @@ const { Client, LogLevel, isHTTPResponseError } = notionSdk;
 import type { ImagesBindingLike } from "@/lib/private-media";
 
 export type NotionSyncBindings = {
+  NOTION_PROFILE_AUTHORITY_MODE?: string;
   NOTION_API_TOKEN?: string;
   BUCKET?: R2Bucket;
   IMAGES?: ImagesBindingLike;
