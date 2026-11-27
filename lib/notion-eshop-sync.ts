@@ -392,10 +392,18 @@ async function writeShopToNotion(input: {
   });
 }
 
-function readyForCreate(page: NotionPage) {
+function readyForCreate(page: NotionPage,staged=false) {
   if (page.archived || page.in_trash || notionRichTextProperty(page, "Psipedia ID")) return false;
   const desired = notionSnapshot(page);
   const rawStatus = notionSelectProperty(page, "Psipedia stav");
+  if(staged){
+    // Keep the minimum identity and creation signal, but do not require
+    // editorial completion until the Admin explicitly publishes the draft.
+    const rawId=page.properties?.["Psipedia ID"] as {type?:string;rich_text?:unknown[]}|undefined;
+    return rawId?.type==="rich_text"&&Array.isArray(rawId.rich_text)&&rawId.rich_text.length===0&&
+      (rawStatus==="Koncept"||rawStatus==="Publikované")&&!!desired.name&&/^[a-z0-9-]{1,100}$/.test(desired.slug)&&
+      Object.keys(ESHOP_V2_FIELDS).every(field=>observeEshopV2Property(page.properties,field as keyof typeof ESHOP_V2_FIELDS).present);
+  }
   return Boolean(
     (rawStatus === "Koncept" || rawStatus === "Publikované")
     && desired.name
@@ -502,8 +510,14 @@ async function importUnmappedEshop(input: {
       throw new Error("ESHOP_IMPORT_PAGE_UNSAFE");
     if (latest.last_edited_time !== input.page.last_edited_time)
       throw new Error("ESHOP_IMPORT_STALE_REVISION");
-    if (!readyForCreate(latest) || await notionPageIsTombstoned(input.database,latest.id)) return "not-ready";
+    if (!readyForCreate(latest,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") || await notionPageIsTombstoned(input.database,latest.id)) return "not-ready";
 
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      const draft=notionSnapshot(latest);
+      const duplicate=await input.database.prepare("SELECT id FROM managed_eshops WHERE slug=? OR lower(trim(name))=lower(trim(?)) OR (?<>\'\' AND lower(rtrim(trim(website_url),\'/\'))=lower(rtrim(trim(?),\'/\'))) LIMIT 1")
+        .bind(draft.slug,draft.name,draft.websiteUrl,draft.websiteUrl).first<{id:number}>();
+      if(duplicate)return "not-ready";
+    }
     // A lost D1 create acknowledgement is ambiguous: preserve both locks,
     // rather than retrying into an accidental duplicate canonical identity.
     canonicalWriteUncertain = true;
@@ -1195,7 +1209,7 @@ export async function runNotionEshopSyncSweep(input: {
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMapping({ database: input.database, page });
 
-      if (!mapping && readyForCreate(page)) {
+      if (!mapping && readyForCreate(page,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")) {
         const imported = await importUnmappedEshop({
           database: input.database, bindings: input.bindings, page, dataSourceId,
         });
