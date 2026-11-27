@@ -93,7 +93,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   // disabled agendas are reported explicitly, never falsely "processed".
   let summary: {
     enabled: boolean; failed: number; schemaReady?: boolean;
-    scanned?: number; notionScanned?: number;
+    scanned?: number; notionScanned?: number; reviewRequired?:number;
   } | undefined;
   if (sameSource(sourceId, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) {
@@ -201,6 +201,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   if (!summary.enabled) return "disabled";
   if (summary.schemaReady === false) throw new Error("NOTION_TARGETED_SCHEMA_UNAVAILABLE");
   if (summary.failed > 0) throw new Error("NOTION_TARGETED_RECONCILIATION_FAILED");
+  if(summary.reviewRequired)return "review-required";
   if (summary.scanned === 0 || summary.notionScanned === 0) return "deferred";
   return "processed";
 }
