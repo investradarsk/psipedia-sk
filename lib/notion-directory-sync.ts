@@ -1,7 +1,7 @@
 import { directoryAuthorityWriteGuard, profileAuthorityTextFieldAllowed } from "./notion-profile-authority.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
-import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, isVerifiedAuthorityProperty, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
@@ -61,6 +61,7 @@ import {
   notionPropertyRecord,
   notionRequest,
   prepareNotionMainImage,
+  safeRemoteImageUrl,
   sha256Text,
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
@@ -2308,6 +2309,88 @@ async function syncUnifiedDirectoryBreederRelations(input: {
   return changed;
 }
 
+/** Notion's editable source URL is not the technical public asset URL.
+ * Reuse the existing R2 importer and monitor alias. One guarded D1 transaction
+ * changes the image pair and source alias; a blank does not erase an unrelated
+ * Admin-uploaded asset. Candidate-review ownership is never overridden. */
+async function syncStagedDirectoryImageSource(input:{
+  database:D1Database;bindings:NotionDirectorySyncBindings;profileId:number;pageId:string;
+  direction:"observe"|"pull";
+}):Promise<boolean>{
+  const {database:db,bindings,profileId:id,pageId,direction}=input;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")
+    throw Error("DIRECTORY_IMAGE_AUTHORITY_DISABLED");
+  const sourceId=bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  const field="imageSourceUrl",name="Hlavný obrázok URL";
+  const identity:FieldIdentity={agenda:"directory",entityId:String(id),pageId,field};
+  async function observe(){
+    if(!sourceId||await directoryProfileNotionSyncLocked(db,id)||await notionPageMustSkipInboundSync(db,pageId))
+      throw Error("DIRECTORY_IMAGE_AUTHORITY_LOCKED");
+    const mapping=await loadMappingByProfile(db,id);
+    const profile=await getManagedDirectoryProfileById(id,db);
+    if(!profile||profile.status==="archived"||mapping?.notion_page_id!==pageId)throw Error("DIRECTORY_IMAGE_AUTHORITY_MAPPING");
+    const page=await fetchNotionPage(bindings,pageId);
+    if(page.id!==pageId||!notionDirectoryPageBelongsToSource(page,sourceId)||
+      propertyText(page,"Psipedia ID")!==String(id)||propertyText(page,"Kategória")!==profile.category)
+      throw Error("DIRECTORY_IMAGE_AUTHORITY_IDENTITY");
+    const raw=page.properties?.[name];
+    const notion={present:Object.hasOwn(page.properties??{},name),value:propertyText(page,name)};
+    if(!isVerifiedAuthorityProperty(raw,notion))throw Error("DIRECTORY_IMAGE_SOURCE_PROPERTY_INVALID");
+    if(notion.value){
+      const parsed=safeRemoteImageUrl(notion.value);
+      if(parsed.hostname==="psipedia.sk"||parsed.hostname.endsWith(".psipedia.sk"))
+        throw Error("DIRECTORY_IMAGE_SOURCE_EXPECTS_EXTERNAL_URL");
+    }
+    const monitor=await db.prepare("SELECT id,updated_at,source_image_url,source_content_hash,active_image_key,candidate_image_key,review_claim_token FROM media_source_monitors WHERE entity_type='DIRECTORY_PROFILE' AND entity_id=?")
+      .bind(id).first<{id:number;updated_at:string;source_image_url:string|null;source_content_hash:string|null;active_image_key:string|null;candidate_image_key:string|null;review_claim_token:string|null}>();
+    const latest=await getManagedDirectoryProfileById(id,db);
+    if(!latest||latest.updatedAt!==profile.updatedAt||await directoryProfileNotionSyncLocked(db,id))throw Error("DIRECTORY_IMAGE_AUTHORITY_REVISION");
+    const psipedia={present:true as const,value:monitor?.source_image_url??externalSourceImageUrl(profile.imageUrl)};
+    return {profile,page,raw,notion,psipedia,monitor};
+  }
+  const before=await observe();
+  const reservation=await reserveUnifiedField({database:db,identity,authorityBindings:bindings,authorityProperty:before.raw,historicalBaseline:null,notion:before.notion,psipedia:before.psipedia,direction});
+  if(!reservation)return false;
+  if(!reservation.profileAuthority||typeof reservation.value!=="string")throw Error("DIRECTORY_IMAGE_AUTHORITY_RESERVATION");
+  if(before.monitor?.review_claim_token||before.monitor?.candidate_image_key)throw Error("DIRECTORY_IMAGE_CANDIDATE_REVIEW_PENDING");
+  const value=reservation.value;
+  const prepared=value?await prepareNotionMainImage({bindings,sourceUrl:value,sourcePageUrl:before.profile.websiteUrl??"",folder:"directory",
+    existingImageUrl:before.profile.imageUrl,existingImageKey:before.profile.imageKey}):null;
+  if(prepared&&(!prepared.imageKey||prepared.imageUrl!=="/media/"+prepared.imageKey||!prepared.imageKey.startsWith("directory/")))
+    throw Error("DIRECTORY_IMAGE_PREPARATION_INVALID");
+  // Do not delete an independent image when only the old source is cleared.
+  const associated=before.monitor?.active_image_key===before.profile.imageKey&&Boolean(before.monitor?.source_image_url)||
+    Boolean(externalSourceImageUrl(before.profile.imageUrl)&&externalSourceImageUrl(before.profile.imageUrl)===before.psipedia.value);
+  const imageUrl=prepared?prepared.imageUrl:associated?null:before.profile.imageUrl;
+  const imageKey=prepared?prepared.imageKey:associated?null:before.profile.imageKey;
+  const live=await observe();
+  if(live.profile.updatedAt!==before.profile.updatedAt||live.page.last_edited_time!==before.page.last_edited_time||
+    JSON.stringify(live.raw)!==JSON.stringify(before.raw)||JSON.stringify(live.monitor)!==JSON.stringify(before.monitor)||
+    JSON.stringify(live.psipedia)!==JSON.stringify(before.psipedia))throw Error("DIRECTORY_IMAGE_SOURCE_CHANGED");
+  await assertUnifiedReservationCurrent(db,reservation);
+  const guard=directoryAuthorityWriteGuard(reservation,id,field);
+  const now=new Date(Math.max(Date.now(),(Date.parse(live.profile.updatedAt)||0)+1)).toISOString();
+  const old=live.monitor;
+  const monitorGuard=old?" AND EXISTS(SELECT 1 FROM media_source_monitors WHERE id=? AND updated_at=? AND review_claim_token IS NULL AND candidate_image_key IS NULL AND source_image_url IS ? AND active_image_key IS ?)":" AND NOT EXISTS(SELECT 1 FROM media_source_monitors WHERE entity_type='DIRECTORY_PROFILE' AND entity_id=directory_profiles.id)";
+  const requireOne=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('DIRECTORY_IMAGE_CAS_CONFLICT','$') END");
+  const statements=[
+    db.prepare("UPDATE directory_profiles SET image_url=?,image_key=?,updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+monitorGuard+" RETURNING id")
+      .bind(imageUrl,imageKey,now,SYSTEM_ACTOR,id,live.profile.category,live.profile.updatedAt,...guard.params,...(old?[old.id,old.updated_at,old.source_image_url,old.active_image_key]:[])),
+    requireOne(),
+    db.prepare("INSERT INTO media_source_monitors(entity_type,entity_id,source_page_url,source_image_url,source_content_hash,active_image_key,status,created_at,updated_at) VALUES('DIRECTORY_PROFILE',?,?,?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET source_page_url=excluded.source_page_url,source_image_url=excluded.source_image_url,source_content_hash=excluded.source_content_hash,active_image_key=excluded.active_image_key,status=excluded.status,last_http_status=NULL,last_checked_at=NULL,issue_started_at=NULL,last_error=NULL,updated_at=excluded.updated_at WHERE review_claim_token IS NULL AND candidate_image_key IS NULL")
+      .bind(id,value?live.profile.websiteUrl??null:null,value||null,prepared?.sourceContentHash??null,imageKey,value?"OK":"UNTRACKED",now,now),
+    requireOne(),
+  ];
+  if(imageUrl!==live.profile.imageUrl||imageKey!==live.profile.imageKey)
+    statements.push(db.prepare("DELETE FROM directory_profile_image_display_settings WHERE profile_id=?").bind(id));
+  const result=await db.batch(statements);
+  if(!result[0]?.results?.length||result.some(item=>item.success!==true))throw Error("DIRECTORY_IMAGE_ATOMIC_WRITE_FAILED");
+  const verified=await observe();
+  await confirmUnifiedField(db,reservation,verified.notion,verified.psipedia);
+  // Keep old/staged objects for the existing safe GC path; no eager R2 deletes.
+  return true;
+}
+
 async function syncBreederEvent(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -2333,7 +2416,9 @@ async function syncBreederEvent(input: {
     const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
     const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category) || staged
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
-    if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
+    const imageProperty=page.properties?.["Hlavný obrázok URL"] as {id?:string}|undefined;
+    const imageChanged=staged&&input.changedPropertyIds.some(id=>id==="Hlavný obrázok URL"||id===imageProperty?.id);
+    if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length&&!imageChanged)
       return "unchanged";
     if (bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
       const failures: string[] = [];
@@ -2359,6 +2444,7 @@ async function syncBreederEvent(input: {
           fields: relationFields, direction: "pull",
         }) || updated;
       } catch { failures.push("relations"); }
+      if(imageChanged)try{updated=await syncStagedDirectoryImageSource({database,bindings,profileId:input.profile.id,pageId:page.id,direction:"pull"})||updated;}catch(error){console.warn("DIRECTORY_IMAGE_SOURCE_PENDING",input.profile.id,error instanceof Error?error.message:"UNKNOWN");failures.push("imageSourceUrl");}
       // Moderation flags remain under the canonical Admin-owned workflow.
       if (trustFields.length) {
         const latest = await getManagedDirectoryProfileById(input.profile.id, database);
@@ -4528,6 +4614,10 @@ export async function inspectManualDirectoryProfile(input:{
 export async function recoverDirectoryV2Field(database:D1Database,bindings:NotionDirectorySyncBindings,
   id:number,pageId:string,field:string,direction:"observe"|"push"|"pull"="observe") {
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!notionFlagEnabled(bindings.NOTION_DIRECTORY_SYNC_ENABLED))throw Error("DIRECTORY_V2_RECOVERY_DISABLED");
+  if(field==="imageSourceUrl"){
+    if(direction==="push")throw Error("NOTION_AUTHORITY_PULL_REQUIRED");
+    await syncStagedDirectoryImageSource({database,bindings,profileId:id,pageId,direction});return;
+  }
   if(field==="additionalCategories"){
     if(direction==="push"){const mapping=await loadMappingByProfile(database,id);if(mapping?.notion_page_id!==pageId)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");await mirrorDirectoryAdditionalCategoriesToNotion({database,bindings,profileId:id});}
     else if(direction==="pull"){
