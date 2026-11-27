@@ -103,3 +103,17 @@ BEGIN
   DELETE FROM notion_unified_admin_field_edits
     WHERE agenda='breeds' AND entity_id=CAST(NEW.breed_id AS TEXT);
 END;
+
+-- Unknown mandatory draft numbers use 0 only while the profile is private.
+-- Protect every publication route, including bulk and future Admin handlers.
+CREATE TRIGGER breed_workonly_publish_requires_known_values
+BEFORE UPDATE OF status ON managed_breeds
+WHEN NEW.status='published' AND OLD.status<>'published'
+ AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links l WHERE l.breed_id=NEW.id AND l.original_notion_page_id IS NULL)
+ AND (NEW.fci_group NOT BETWEEN 1 AND 10 OR NEW.energy NOT BETWEEN 1 AND 5
+   OR NEW.trainability NOT BETWEEN 1 AND 5 OR NEW.family NOT BETWEEN 1 AND 5
+   OR NEW.children NOT BETWEEN 1 AND 5 OR NEW.other_dogs NOT BETWEEN 1 AND 5
+   OR NEW.apartment NOT BETWEEN 1 AND 5 OR NEW.grooming NOT BETWEEN 1 AND 5
+   OR NEW.shedding NOT BETWEEN 1 AND 5 OR NEW.prey_drive NOT BETWEEN 1 AND 5
+   OR EXISTS(SELECT 1 FROM breed_notion_workcopy_links l WHERE l.breed_id=NEW.id AND l.work_last_error_code='INBOUND_ID_PENDING'))
+BEGIN SELECT RAISE(ABORT,'BREED_DRAFT_REQUIRED_VALUES'); END;
