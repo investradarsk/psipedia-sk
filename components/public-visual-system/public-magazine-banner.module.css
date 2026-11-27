@@ -2,10 +2,6 @@
 .magazine:global(.home-magazine-banner) {
   margin-block: 5px 8px;
 }
-.magazine:global(.home-magazine-banner .eyebrow) {
-  margin-bottom: 5px;
-  font-weight: 850;
-}
 .magazine:global(.home-magazine-banner .button) {
   flex: none;
 }
@@ -102,52 +98,15 @@
   gap: 7px;
   min-width: 0;
   min-height: 44px;
-  padding: 9px 12px;
-  border: 1px solid var(--ps-border-soft);
-  border-radius: var(--ps-radius-control, 12px);
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--forest-dark);
-  font-size: 0.81rem;
-  font-weight: 800;
+  /* Shared banner CTA owns the visual treatment. */
   text-decoration: none;
   overflow-wrap: anywhere;
-}
-.link:hover {
-  border-color: var(--forest);
-  background: #fff;
-}
-.link:focus-visible {
-  outline: 3px solid var(--coral-dark);
-  outline-offset: 2px;
 }
 .link svg {
   flex: none;
 }
 
-/* Owner-approved visual changes are DESKTOP ONLY. Mobile remains untouched. */
-@media (min-width: 621px) {
-  .magazine[data-visual-library-desktop-published="true"]:not(.withPhoto) {
-    background: var(
-      --ps-visual-desktop-bg,
-      linear-gradient(110deg, var(--sage-light), var(--paper))
-    );
-  }
-  .magazine[data-visual-library-desktop-published="true"] :global(.button.button--dark) {
-    background: var(--ps-visual-desktop-button, var(--forest-dark));
-    border-color: var(--ps-visual-desktop-button, var(--forest-dark));
-    color: #fff;
-  }
-  .magazine[data-visual-library-desktop-published="true"].withPhoto :global(.button.button--dark) {
-    background: var(--ps-visual-desktop-button, #fff);
-    border-color: var(--ps-visual-desktop-button, #fff);
-    color: #174b38;
-  }
-  .magazine[data-visual-library-desktop-published="true"].withPhoto[style*="--ps-visual-desktop-button"]
-    :global(.button.button--dark) {
-    color: #fff;
-  }
-}
-
+/* Published desktop theme and size are applied in banner-visuals.css. */
 /* Owner-approved text is rendered in the same semantic heading, paragraph and CTA.
    The mobile original is never overwritten; only one version is visible or
    exposed to assistive technology at the active media breakpoint. */
@@ -182,33 +141,15 @@
   .bannerCopy .bannerDescription {
     max-width: 65ch;
   }
-  .withPhoto .bannerCopy :global(.eyebrow) {
-    color: #f7cfbd;
-  }
-  .bannerCopy .eyebrow {
-    display: block;
-    margin-bottom: 5px;
-  }
 }
 
 /* Contextual promos must always render a readable CTA label, including when
    global article-body link styling or desktop overrides are active. */
-.magazine :global(a[data-public-action]) {
-  color: #fff;
-}
 .magazine :global(a[data-public-action] > span) {
   display: inline;
   color: inherit;
   opacity: 1;
   visibility: visible;
-}
-.magazine.withPhoto :global(a[data-public-action]) {
-  color: #174b38;
-}
-@media (min-width: 621px) {
-  .magazine[data-visual-library-desktop-published="true"] :global(a[data-public-action]) {
-    color: #fff;
-  }
 }
 
 /* Desktop promos are text-first. Keep the existing mobile photo composition. */
@@ -217,12 +158,5 @@
   .withPhoto::before {
     display: none;
   }
-  /* Published light backgrounds need dark copy, including previously photographic banners. */
-  .magazine.withPhoto[style*="--ps-visual-desktop-bg"] [data-public-heading],
-  .magazine.withPhoto[style*="--ps-visual-desktop-bg"] .bannerDescription {
-    color: var(--forest-dark);
-  }
-  .magazine.withPhoto[style*="--ps-visual-desktop-bg"] :global(.eyebrow) {
-    color: var(--coral-dark);
-  }
+
 }
