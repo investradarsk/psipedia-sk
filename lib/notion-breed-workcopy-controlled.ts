@@ -51,7 +51,7 @@ function requireNewEngine(bindings:ControlledBreedBindings) {
 async function activeLink(database:D1Database,id:number):Promise<Link> {
   const link=await database.prepare(
     "SELECT breed_id,work_notion_page_id,canonical_slug,fci_number,status "+
-    "FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE'",
+    "FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' AND COALESCE(work_last_error_code,'')<>'INBOUND_ID_PENDING'",
   ).bind(id).first<Link>();
   if (!link) throw Error("BREED_CONTROLLED_LINK_MISSING");
   return link;
@@ -142,7 +142,7 @@ async function canonicalControlledValue(database:D1Database,id:number,key:string
     if(typeof actual!=="string")throw Error("BREED_CONTROLLED_LIST_UNKNOWN");
     actual=JSON.parse(actual);
   }
-  if(key==="fciGroupSelect"&&typeof actual==="number")actual=String(actual);
+  if(key==="fciGroupSelect"&&typeof actual==="number")actual=actual===0?null:String(actual);
   if(field.type==="select"&&actual==="")actual=null;
   return validateBreedControlledValue(key,actual);
 }
@@ -544,14 +544,13 @@ export async function prepareCombinedBreedControlledEdit(input:{
   for(const [key,field] of Object.entries(aliases)){
     if(Object.hasOwn(canonicalPatch,field)){
       const raw=canonicalPatch[field];
-      const value=validateBreedControlledValue(key,raw===""||raw===null?null:String(raw));
+      const value=validateBreedControlledValue(key,raw===""||raw===null||(key==="fciGroupSelect"&&raw===0)?null:String(raw));
       if(Object.hasOwn(changes,key)&&!eq(validateBreedControlledValue(key,changes[key]),value))
         throw Error("BREED_CONTROLLED_ALIAS_CONFLICT");
       changes[key]=value;
     }
     if(Object.hasOwn(changes,key)){
       const value=validateBreedControlledValue(key,changes[key]);
-      if(key==="fciGroupSelect"&&value===null)throw Error("BREED_CONTROLLED_GROUP_REQUIRED");
       canonicalPatch[field]=key==="fciGroupSelect"?Number(value):value??"";
     }
   }
