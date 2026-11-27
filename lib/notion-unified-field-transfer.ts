@@ -30,7 +30,7 @@ export async function reserveUnifiedField(input: {
     const owner = await readProfileAuthorityOwner(database,identity);
     const authority: ProfileAuthorityContext = {
       owner, fieldAllowed: profileAuthorityTextFieldAllowed(identity),
-      notionValidated: isVerifiedAuthorityText(input.authorityProperty,input.notion),
+      notionValidated: isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
     };
     const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
     if(old?.status==="PENDING"){
@@ -205,4 +205,40 @@ export function isVerifiedAuthorityText(raw:unknown,observation:FieldObservation
   if(parts.some(part=>!part||typeof part.plain_text!=="string"||part.type==="mention"))return false;
   const normalize=(value:string)=>value.replace(/\r\n?/g,"\n").trim();
   return normalize(parts.map(part=>part.plain_text).join(""))===normalize(observation.value);
+}
+
+
+/** Verify the raw typed provider cell independently of any adapter fallback.
+ * Domain validators still decide whether a value can be stored in D1. */
+export function isVerifiedAuthorityProperty(raw:unknown,observed:FieldObservation):boolean{
+  if(!observed.present||!raw||typeof raw!=="object")return false;
+  const prop=raw as Record<string,unknown>;
+  const type=prop.type;
+  if(typeof type!=="string"||prop.has_more===true||!Object.hasOwn(prop,type))return false;
+  const value=prop[type];
+  const text=(v:unknown)=>typeof v==="string"?v.replace(/\r\n?/g,"\n").trim():null;
+  if(type==="rich_text")return isVerifiedAuthorityText(raw,observed);
+  if(type==="title")return isVerifiedAuthorityText({...prop,type:"rich_text",rich_text:value},observed);
+  if(["url","email","phone_number"].includes(type))
+    return typeof observed.value==="string"&&(value===null?observed.value==="":typeof value==="string"&&text(value)===text(observed.value));
+  if(type==="number")return (value===null||typeof value==="number"&&Number.isFinite(value))&&value===observed.value;
+  if(type==="checkbox")return typeof value==="boolean"&&value===observed.value;
+  if(type==="select"||type==="status"){
+    const label=value&&typeof value==="object"?(value as {name?:unknown}).name:undefined;
+    return typeof observed.value==="string"&&(value===null?observed.value==="":typeof label==="string"&&!!label.trim()&&text(label)===text(observed.value));
+  }
+  if(type==="date"){
+    if(value===null)return observed.value===""||observed.value===null;
+    const d=value as {start?:unknown;end?:unknown}|undefined;
+    return typeof d?.start==="string"&&!d.end&&typeof observed.value==="string"&&
+      /^\d{4}-\d{2}-\d{2}$/.test(d.start)&&Number.isFinite(Date.parse(d.start))&&
+      new Date(d.start+"T00:00:00Z").toISOString().slice(0,10)===d.start&&d.start===observed.value;
+  }
+  if(type==="multi_select"){
+    if(!Array.isArray(value)||value.length>=25||!Array.isArray(observed.value))return false;
+    const names=value.map(item=>item&&typeof item==="object"?(item as {name?:unknown}).name:undefined);
+    return names.every(name=>typeof name==="string"&&!!name.trim())&&
+      new Set(names).size===names.length&&JSON.stringify(names)===JSON.stringify(observed.value);
+  }
+  return false;
 }
