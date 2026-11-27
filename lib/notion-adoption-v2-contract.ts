@@ -42,6 +42,6 @@ const projection="json_object("+Object.entries(ADOPTION_V2_FIELDS).map(([field,[
 }).join(",")+")";
 
 export function commitAdoptionV2AdminEdit(database:AdoptionD1Database,statement:AdoptionD1Statement,
-  input:{id:number;expectedRevision:string;nextRevision:string;editor:string}) {
+  input:{id:number;expectedRevision:string;nextRevision:string;editor:string;companionStatements?:readonly D1PreparedStatement[]}) {
   return commitHelpV2AdminEdit(database,statement,{...input,agenda:"adoptions",table:"adoption_dogs",projection});
 }
