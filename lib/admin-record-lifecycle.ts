@@ -424,6 +424,31 @@ export async function notionPageIsTombstoned(db:D1Database,pageId:string) {
     throw error;
   }
 }
+/** A remote deletion is NOT authorization to remove D1 content. Resolve only
+ * existing canonical mapping identities, including historical breed workcopies.
+ * No provider GET is required for a trashed page that may return 404.
+ * Missing tables/errors propagate so the webhook is retried, not acknowledged.
+ */
+export async function notionRemoteDeletionNeedsReview(db:D1Database,pageId:string):Promise<boolean> {
+  if (!NOTION_UUID.test(pageId)) throw Error("NOTION_MAPPING_INVALID");
+  if (await notionPageIsTombstoned(db,pageId)) return false;
+  const ids=notionPageIdVariants(pageId);
+  const mappings=[
+    ["directory_notion_sync","notion_page_id"],
+    ["event_notion_sync","notion_page_id"],
+    ["breed_notion_sync","notion_page_id"],
+    ["breed_notion_workcopy_links","work_notion_page_id"],
+    ["article_notion_sync","notion_page_id"],
+    ["eshop_notion_sync","notion_page_id"],
+    ["notion_agenda_sync","notion_page_id"],
+  ] as const;
+  // The table and column identifiers are hardcoded, never provider data.
+  const sql=mappings.map(([table,column])=>"SELECT 1 AS found FROM "+table+" WHERE "+column+" IN (?,?)").join(" UNION ALL ");
+  const row=await db.prepare("SELECT found FROM ("+sql+") LIMIT 1")
+    .bind(...mappings.flatMap(()=>ids)).first<{found:number}>();
+  return row?.found===1;
+}
+
 async function setRemovalError(db:D1Database,kind:RecordKind,id:number,code:string) {
   await db.prepare("UPDATE admin_record_tombstones SET state='ERROR_NOTION',error_code=?,attempts=attempts+1,updated_at=? WHERE kind=? AND record_id=? AND state<>'COMPLETE'")
     .bind(code,new Date().toISOString(),kind,id).run();
