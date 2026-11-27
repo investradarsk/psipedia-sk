@@ -710,7 +710,7 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
       const baseline=stored??(!structural&&await snapshotHash(first.canonical)===input.mapping.content_hash?first.canonical:null);
       const reservation=structural?null:await reserveUnifiedField({
         database:input.database,identity,authorityBindings:input.bindings,
-        authorityProperty:first.page.properties?.[field === "description" ? "Popis" : ""],notion:first.notion,psipedia:first.psipedia,direction,
+        authorityProperty:first.page.properties?.[ESHOP_V2_FIELDS[field as keyof typeof ESHOP_V2_FIELDS]],notion:first.notion,psipedia:first.psipedia,direction,
         historicalBaseline:baseline&&Object.hasOwn(baseline,field)?{value:baseline[field as keyof EditableSnapshot],version:input.mapping.content_hash}:null,
         psipediaEdit:await readUnifiedAdminEdit(input.database,identity,first.shop.updatedAt),
       });
@@ -1271,7 +1271,7 @@ export async function recoverEshopV2Field(database:D1Database,bindings:NotionEsh
   const historical=await readProfileFieldBaseline({database,agenda:"eshops",entityId:id,pageId,expectedHash:mapping.content_hash});
   const identity={agenda:"eshops" as const,entityId:String(id),pageId,field};
   await reserveUnifiedField({database,identity,authorityBindings:bindings,
-    authorityProperty:observed.page.properties?.[field === "description" ? "Popis" : ""],notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
+    authorityProperty:observed.page.properties?.[ESHOP_V2_FIELDS[field as keyof typeof ESHOP_V2_FIELDS]],notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.shop.updatedAt)});
 }
