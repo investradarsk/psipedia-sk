@@ -22,16 +22,27 @@ function expand(map, name, stack = []) {
   });
 }
 
+// New tools are additive; preserve the exact historical command coverage while
+// allowing only these explicitly reviewed new test invocations.
+const addedPersonalToolEntries = [
+  "puppy-equipment", "dog-health-calendar", "dog-calculators", "event-subscription",
+].map(name => "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test|tests/" + name + ".test.mjs");
+
 test("legacy scripts retain static test and command parity", () => {
   for (const name of Object.keys(baseline)) {
     assert.equal(typeof scripts[name], "string", name);
     if (name !== "test" && !name.startsWith("test:")) continue;
     assert.deepEqual(
       [...new Set(expand(scripts, name))].sort(),
-      [...new Set(expand(baseline, name))].sort(),
+      [...new Set([...expand(baseline, name), ...(name === "test" ? addedPersonalToolEntries : [])])].sort(),
       name,
     );
   }
+});
+
+test("personal dog tools are explicitly included in the public group and aggregate", () => {
+  assert.deepEqual(expand(scripts, "test:personal-dog-tools").sort(), [...addedPersonalToolEntries].sort());
+  assert.ok(planGroup("public", scripts).includes("test:personal-dog-tools"));
 });
 
 test("confirmed identical duplicate invocations are removed from aggregates", () => {

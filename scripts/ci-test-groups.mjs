@@ -23,6 +23,7 @@ export const GROUPS = Object.freeze({
     "test:record-lifecycle-core"
   ],
   "public": [
+    "test:personal-dog-tools",
     "test:visual-library",
     "test:homepage-media",
     "test:article-ux",
