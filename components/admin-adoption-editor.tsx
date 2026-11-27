@@ -15,6 +15,7 @@ import { useAdminUnsavedFormLinks } from "@/components/admin-unsaved-form-links"
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   adoptionStatusLabels,
@@ -50,7 +51,10 @@ const nullableNumber = (data: FormData, key: string) => { const value = text(dat
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
 const checked = (data: FormData, key: string) => data.get(key) === "on";
 
-export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [], returnHref = "/admin/adopcie" }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
+export function AdminAdoptionEditor({ item, breeds, organizations, initialReview=null, automationSuggestions = [], returnHref = "/admin/adopcie" }: { item?: AdoptionDog; initialReview?:{reviewed:boolean;reviewedAt:string}|null; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
+  const router=useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [name, setName] = useState(item?.name ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
@@ -161,12 +165,13 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
       const response = await fetch(item ? `/api/admin/adoptions/${item.id}` : "/api/admin/adoptions", {
         method: item ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(item ? { payload, expectedUpdatedAt: version } : { payload }),
+        body: JSON.stringify(item ? { payload, expectedUpdatedAt: version, reviewOnSave:Boolean(review&&!review.reviewed&&lockWithSave) } : { payload }),
       });
-      const body = await response.json() as { item?: AdoptionDog; error?: string };
+      const body = await response.json() as { item?: AdoptionDog; error?: string; review?:{reviewed:boolean;reviewedAt:string}|null };
       if (!response.ok || !body.item) throw new Error(body.error || "Adopčný profil sa nepodarilo uložiť.");
       if (item) navigation.markSavedIfUnchanged(submittedRevision);
       else navigation.markSavedBeforeRedirect();
+      if(body.review){setReview(body.review);if(body.review.reviewed&&!review?.reviewed)router.refresh();}
       setVersion(body.item.updatedAt); setStatus(body.item.status); setPersistedStatus(body.item.status);
       setMessage("Adopčný profil bol bezpečne uložený.");
       setSyncRevision(v=>v+1);
@@ -195,6 +200,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
           onNavigate={setActiveAdoptionSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora adopcií" />
         <div className={styles.content}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
+          {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaná adopcia: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
           <div className="admin-event-editor-grid"><div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
       <AdminEditorSection id="adoption-basics" className="admin-form-card admin-form-card--intro">
