@@ -113,6 +113,8 @@ export default async function BreedsPage({ searchParams }: Props) {
                   Porovnať plemená <ArrowIcon size={17} />
                 </Link>
                 <PublicMagazineBanner
+                  compact
+                  size="medium"
                   desktopColors={breedClubBannerColors}
                   desktopCopy={breedClubBannerColors}
                   anchorId={BREED_CLUBS_BANNER_ANCHOR}
