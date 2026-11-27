@@ -1,3 +1,6 @@
+import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
+import { breedWorkcopyPhysicalProperty } from "./breed-notion-workcopy-field-contract.mjs";
+import { breedControlledKeys } from "./breed-workcopy-controlled.mjs";
 import type { FieldIdentity, ProfileAuthorityContext, UnifiedSyncAgenda } from "./notion-unified-field-sync.ts";
 import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock.ts";
 import { isAdminNotionSyncLocked, type LockableAgenda } from "./admin-notion-review-lock.ts";
@@ -14,7 +17,9 @@ export function profileAuthorityEnabled(bindings?: ProfileAuthorityBindings):boo
 
 const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
   directory:["name","excerpt","description","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription","seo.noindex","seo.ogImage"],
-  breeds:["seo.title","seo.description"],
+  breeds:[...BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="content"&&Boolean(breedWorkcopyPhysicalProperty(entry.notion))&&
+    !["gallery","sports","sources","healthRisks","goodFor","consider","editorial.heroTraits","editorialComplete","image"].includes(entry.id)).map(entry=>entry.id),
+    ...breedControlledKeys.map((key:string)=>"controlled."+key)],
   events:["title","eventType","startDate","endDate","startTime","endTime","organizer","excerpt","description","practicalInfo","contactPhone","contactEmail","admissionFee","websiteUrl","registrationUrl","imageAlt","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
   organizations:["Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram"],
   adoptions:["Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
