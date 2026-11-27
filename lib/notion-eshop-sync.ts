@@ -795,9 +795,11 @@ async function syncMapped(input: {
 
   const claimedId = notionRichTextProperty(page, "Psipedia ID");
   if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
     await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"eshops",id:shop.id,pageId:page.id,sourceId:input.dataSourceId});
     if(await readStandaloneReviewLock(input.database,"eshops",shop.id))return "unchanged" as const;
     if(input.manualDirection||input.forcePush)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
+    if(input.adminChangedFields!==undefined)return "unchanged" as const;
   }
   if ((input.webhookChangedPropertyIds !== undefined || input.adminChangedFields !== undefined)
       && claimedId !== String(shop.id))
