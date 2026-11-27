@@ -1,3 +1,4 @@
+import { importNewBreedWorkCopy } from "./notion-breed-inbound-import.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { BREED_WORKCOPY_EDITORIAL_PROPERTIES } from "./breed-notion-workcopy-field-contract.mjs";
 import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
@@ -56,7 +57,7 @@ type ShadowLink = {
   work_notion_page_id: string;
   original_data_source_id: string|null; work_data_source_id: string;
   canonical_slug: string; fci_number: number|null;
-  status: string; work_sync_receipt: string | null;
+  status: string; work_sync_receipt: string | null; work_last_error_code?:string|null;
 };
 type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
 const skippedSpecial = new Set<string>([
@@ -129,7 +130,7 @@ function assertOwnedPage(
 async function getActiveLink(database: D1Database, breedId: number) {
   return database.prepare(
     "SELECT * FROM breed_notion_workcopy_links "+
-    "WHERE breed_id=? AND status='ACTIVE' LIMIT 1",
+    "WHERE breed_id=? AND status='ACTIVE' AND COALESCE(work_last_error_code,'')<>'INBOUND_ID_PENDING' LIMIT 1",
   ).bind(breedId).first<ShadowLink>();
 }
 
@@ -205,7 +206,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     throw Error("BREED_WORKCOPY_MANUAL_SCOPE_INVALID");
   const summary={
     enabled:notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
-    scanned:0,notionScanned:0,created:0,updated:0,unchanged:0,failed:0,
+    scanned:0,notionScanned:0,created:0,updated:0,unchanged:0,failed:0,reviewRequired:0,
   };
   if (!requireWorkCopyOnly(args.bindings)) return summary;
   // Never reconcile 344 records from a stale hash or rewrite an entire profile.
@@ -229,7 +230,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     }
     return summary;
   }
-  if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length))
+  if (!args.targetPageId || (args.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"&&!args.manualImport && !args.changedPropertyIds?.length))
     return summary;
   const result=await args.database.prepare(
     // Notion sends dashed UUIDs; historical ACTIVE links store compact UUIDs.
@@ -237,7 +238,15 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     "SELECT * FROM breed_notion_workcopy_links WHERE status='ACTIVE' "+
     "AND replace(lower(work_notion_page_id),'-','')=? LIMIT 1",
   ).bind(normalized(args.targetPageId)).all<ShadowLink>();
+  if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!args.manualImport&&(!result.results.length||result.results[0].work_last_error_code==="INBOUND_ID_PENDING")){
+    const outcome=await importNewBreedWorkCopy({database:args.database,bindings:args.bindings,pageId:args.targetPageId,sourceId:args.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!});
+    if(outcome==="not-ready")return summary;
+    summary.scanned++;summary.notionScanned++;
+    if(outcome==="created")summary.created++;else if(outcome==="review-required")summary.reviewRequired++;else summary.unchanged++;
+    return summary;
+  }
   for (const link of result.results) {
+    if(link.work_last_error_code==="INBOUND_ID_PENDING"){summary.reviewRequired++;summary.scanned++;summary.notionScanned++;continue;}
     if (await notionPageIsTombstoned(args.database,link.work_notion_page_id)) {
       summary.unchanged++; continue;
     }
