@@ -553,3 +553,8 @@ dialog.workspaceModal[open] :is(h2, h3),
 .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle {
   width: 100%;
 }
+
+@media (min-width: 821px) {
+  /* The desktop preview is already visible; the toggle only switches mobile panes. */
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle { display: none; }
+}

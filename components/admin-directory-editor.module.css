@@ -158,7 +158,7 @@
 }
 .sectionPager button { min-height: 44px; }
 @container (max-width: 860px) {
-  .editorWorkspace[data-admin-profile-editor-layout] { grid-template-columns: minmax(0, 1fr); }
+  .editor .editorWorkspace[data-admin-profile-editor-layout] { grid-template-columns: minmax(0, 1fr); }
   .editorWorkspace :global([data-admin-shared-editor-navigation]) {
     position: static;
     top: auto;

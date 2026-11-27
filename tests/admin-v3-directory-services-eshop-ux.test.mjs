@@ -11,7 +11,11 @@ test("e-shop uses the canonical page editor, visible status, guarded leave and l
   assert.match(ui, /<EditorStatus/);
   assert.match(ui, /dirty=\{dirty\}/);
   assert.match(ui, /setSavedSignature\(JSON\.stringify/);
-  assert.match(ui, /window\.confirm\("Zahodiť neuložené zmeny e-shopu/);
+  assert.match(ui, /dirty=\{dirty\}/);
+  assert.match(ui, /onClose=\{\(\) => window\.location\.assign\("\/admin\/recenzie\/eshopy"\)\}/);
+  const workspace = read("components/admin-editor-workspace.tsx");
+  assert.match(workspace, /if \(dirty\) setConfirmClose\(true\)/);
+  assert.match(workspace, /<EditorUnsavedChangesGuard/);
   assert.match(ui, /previewTitle="Živý náhľad e-shopu"/);
   assert.match(ui, /<fieldset className=\{styles\.fields\} disabled=\{saving\}>/);
   for (const section of ["eshop-basics", "eshop-tags", "eshop-images", "eshop-publication"]) {
