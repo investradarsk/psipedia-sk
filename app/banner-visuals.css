@@ -191,7 +191,7 @@
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="dark"] {
     --ps-bnr-waves: url("/images/psipedia-banner-waves-dark.svg");
     --ps-bnr-bg: #174d3a;
-    --ps-bnr-gradient: var(--ps-bnr-dark-gradient);
+      --ps-bnr-gradient: var(--ps-bnr-dark-gradient);
     --ps-bnr-ink: #fffaf0;
     --ps-bnr-body: #e5eee6;
     --ps-bnr-kicker: #f7f2e9;
@@ -455,4 +455,14 @@
   .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"]) :is(a[data-public-action], a.article-block-cta-button, [data-public-banner-content] nav a) {
     min-height: 48px;
   }
+}
+
+/* Direct CTA callouts without the canonical copy wrapper must also reserve
+ * artwork space instead of letting it cover article text. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"]):not(:has(> [data-public-banner-content])) > [data-ps-banner-art] {
+  position: relative !important;
+  inset: auto;
+  width: 100%;
+  height: 44px;
+  flex: 0 0 44px;
 }
