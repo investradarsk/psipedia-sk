@@ -1,3 +1,4 @@
+import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
@@ -700,7 +701,9 @@ async function observeEshopV2(input:EshopV2Scope,field:EshopAdminField,allowUrlC
     try{present=Boolean(raw)&&equalV2(JSON.parse(raw!.focus_tags_json),canonical.focusTags);}catch{present=false;}
   }
   const notion=field==="slug"||field==="status"||field==="logoKey"?{present:false as const}:observeEshopV2Property(page.properties,field);
-  const psipedia=present?{present:true as const,value:field==="logoKey"?after.logoKey:canonical[field]}:{present:false as const};
+  const physical=field==="logoKey"?after.logoKey:canonical[field];
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field==="logoUrl"&&notion.present?await profileMediaSourceAlias("eshops",physical,notion.value,bindings.BUCKET):physical;
+  const psipedia=present?{present:true as const,value:logical}:{present:false as const};
   return {shop:after,page,canonical,notion,psipedia};
 }
 
@@ -739,10 +742,11 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
       if(direction==="pull"){
         if(structural)throw Error("ESHOP_V2_PROTECTED_FIELD");
         let logo:{imageUrl:string|null;imageKey:string|null}|undefined;
+        let mediaProof:VerifiedProfileMedia|undefined;
         if(field==="logoUrl"){
           // External fetch may transform the URL into a new R2 identity.
           // That is not equality proof; defer the alias-aware media workflow.
-          if(value===""&&reservation?.profileAuthority)logo={imageUrl:null,imageKey:null};
+          if(reservation?.profileAuthority){mediaProof=await prepareProfileMedia("eshops",value,input.bindings,fresh.canonical.logoUrl);logo={imageUrl:mediaProof.url,imageKey:mediaProof.key};}
           else {
           const own=typeof value==="string"?localizeOwnAsset(value):null;
           if(!own||!own.startsWith("/media/eshops/")||!input.bindings.BUCKET)
@@ -758,7 +762,7 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
         }
         if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
         await updateEshopV2NotionField({database:input.database,id:first.shop.id,pageId:first.page.id,
-          revision:first.shop.updatedAt,field,value,logo,authorityReservation:reservation??undefined});
+          revision:first.shop.updatedAt,field,value,logo,mediaProof,authorityReservation:reservation??undefined});
       }else{
         const all=notionProperties(fresh.shop,"",new Date().toISOString()) as Record<string,unknown>;
         const names=field==="slug"?["Slug","URL Psipedia"]:field==="status"?["Psipedia stav"]:

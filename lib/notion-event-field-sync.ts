@@ -1,4 +1,4 @@
-import { verifyProfileOwnedMedia, requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { prepareProfileMedia, profileMediaSourceAlias, requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { isAdminNotionSyncLocked, partnerReviewOwnerSql } from "./admin-notion-review-lock";
 import type { DogEvent } from "./events.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
@@ -104,12 +104,10 @@ async function observePilotField(db: D1Database, bindings: EventFieldSyncBinding
   const after = await getManagedEventById(id);
   if (!after || before.updatedAt !== after.updatedAt) throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
   const name = EVENT_NOTION_FIELDS[field];
-  return {
-    page, revision: before.updatedAt,
-    notion: eventObservation(valueFromPage(page.properties?.[name], field),
-      Object.hasOwn(page.properties ?? {}, name), field),
-    psipedia: eventObservation(source.properties[name], Object.hasOwn(source.properties, name), field),
-  };
+  const notion=eventObservation(valueFromPage(page.properties?.[name],field),Object.hasOwn(page.properties??{},name),field);
+  const canonical=source.properties[name];
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field==="imageUrl"&&notion.present?await profileMediaSourceAlias("events",canonical,notion.value,bindings.BUCKET):canonical;
+  return {page,revision:before.updatedAt,canonical,notion,psipedia:eventObservation(logical,Object.hasOwn(source.properties,name),field)};
 }
 async function reservePilotField(db: D1Database, bindings: EventFieldSyncBindings,
   id: number, pageId: string, field: EventNotionField, direction: "pull" | "push" | "observe") {
@@ -339,7 +337,7 @@ export async function syncEventNotionFields(input:{
         if (!planned.reservation) continue;
         const chosen = planned.reservation.value;
         if (typeof chosen !== "string" && typeof chosen !== "boolean") throw Error("EVENT_FIELD_INVALID");
-        const proof=planned.reservation.profileAuthority&&path==="imageUrl"?await verifyProfileOwnedMedia("events",chosen,input.bindings.BUCKET):undefined;
+        const proof=planned.reservation.profileAuthority&&path==="imageUrl"?await prepareProfileMedia("events",chosen,input.bindings,planned.canonical):undefined;
         if(planned.reservation.profileAuthority){const fresh=await observePilotField(input.database,input.bindings,id,input.page.id,path);
           if(fresh.revision!==planned.revision||fresh.page.last_edited_time!==planned.page.last_edited_time||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion)||JSON.stringify(fresh.psipedia)!==JSON.stringify(planned.psipedia))throw Error("EVENT_NOTION_FIELD_CHANGED");}
         await assertUnifiedReservationCurrent(input.database,planned.reservation);
@@ -453,7 +451,7 @@ export async function recoverEventV2Field(database:D1Database,bindings:EventFiel
     const value=planned.reservation.value;
     if(typeof value!=="string"&&typeof value!=="boolean")throw Error("EVENT_FIELD_INVALID");
     await assertUnifiedReservationCurrent(database,planned.reservation);
-    const proof=planned.reservation.profileAuthority&&path==="imageUrl"?await verifyProfileOwnedMedia("events",value,bindings.BUCKET):undefined;
+    const proof=planned.reservation.profileAuthority&&path==="imageUrl"?await prepareProfileMedia("events",value,bindings,planned.canonical):undefined;
     if(planned.reservation.profileAuthority){const current=await observePilotField(database,bindings,id,pageId,path);if(current.revision!==planned.revision||current.page.last_edited_time!==planned.page.last_edited_time||JSON.stringify(current.notion)!==JSON.stringify(planned.notion)||JSON.stringify(current.psipedia)!==JSON.stringify(planned.psipedia))throw Error("EVENT_NOTION_FIELD_CHANGED");}
     await assertUnifiedReservationCurrent(database,planned.reservation);
     await saveField(database,id,path,value,planned.revision,planned.reservation,proof);

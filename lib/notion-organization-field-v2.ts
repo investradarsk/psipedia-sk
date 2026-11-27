@@ -1,4 +1,4 @@
-import { verifyProfileOwnedMedia, requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { prepareProfileMedia, profileMediaSourceAlias, requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import { ORGANIZATION_V2_COLUMNS, isOrganizationV2Field, ORGANIZATION_LOCATION_V2_COLUMNS, isOrganizationLocationV2Field, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import { normalizeOrganizationLocationAdminInput } from "./organization-location-admin.ts";
@@ -73,20 +73,22 @@ async function observe(input: OrganizationV2Scope, field: string, allowSlugChang
   const after=await database.prepare("SELECT updated_at FROM help_organizations WHERE id=?").bind(entityId).first<{updated_at:string}>();
   if(after?.updated_at!==before.updated_at || (isOrganizationLocationV2Field(field) && JSON.stringify(location)!==JSON.stringify(await readLocation(database,entityId))))
     throw Error("ORGANIZATION_V2_REVISION_CHANGED");
+  const notion=organizationNotionObservation(page,field);
+  const canonical=source.properties[field];
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field==="Hlavný obrázok URL"&&notion.present?await profileMediaSourceAlias("organizations",canonical,notion.value,bindings.BUCKET):canonical;
   return {page,source,mapping,location,revision:before.updated_at,archived:before.status==="ARCHIVED"||!!before.archived_at,
-    notion:organizationNotionObservation(page,field),
-    psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:source.properties[field]} : {present:false as const}};
+    notion,psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:logical} : {present:false as const}};
 }
 
 async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string,reservation?:FieldReservation,proof?:VerifiedProfileMedia) {
   const authority=helpAuthorityWriteGuard(reservation,"organizations",input.entityId,input.pageId,field);
   if(!isOrganizationV2Field(field))throw Error("ORGANIZATION_V2_FIELD_PROTECTED");
-  const normalized=normalizeOrganizationNotionField(field,value);
+  const owned=field==="Hlavný obrázok URL"&&reservation?.profileAuthority?requireProfileMediaProof("organizations",value,proof):undefined;
+  const normalized=normalizeOrganizationNotionField(field,owned?profileMediaCanonicalValue(owned):value);
   // URL normalization is allowed only when it does not silently change the
   // requested observed value. A differing canonical value remains review.
   const comparable=field==="Hlavný obrázok URL" && normalized?.startsWith("/") ? "https://psipedia.sk"+normalized : normalized??"";
-  if(comparable!==value)throw Error("ORGANIZATION_V2_NORMALIZATION_REVIEW");
-  const owned=field==="Hlavný obrázok URL"&&reservation?.profileAuthority?requireProfileMediaProof("organizations",value,proof):undefined;
+  if(comparable!==(owned?profileMediaCanonicalValue(owned):value))throw Error("ORGANIZATION_V2_NORMALIZATION_REVIEW");
   const media=field==="Hlavný obrázok URL" ? (owned?",image_key=?":",image_key=NULL")+",thumbnail_display_json=NULL,detail_display_json=NULL" : "";
   const result=await input.database.prepare(
     "UPDATE help_organizations SET "+ORGANIZATION_V2_COLUMNS[field]+"=?"+media+",updated_at=?,updated_by=? "+
@@ -170,7 +172,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
       if(!structural && !reservation)continue;
       const value=reservation ? reservation.value : observation.psipedia.value;
       if(direction==="pull"){
-        const proof=reservation?.profileAuthority&&field==="Hlavný obrázok URL"?await verifyProfileOwnedMedia("organizations",value,input.bindings.BUCKET):undefined;
+        const proof=reservation?.profileAuthority&&field==="Hlavný obrázok URL"?await prepareProfileMedia("organizations",value,input.bindings,observation.source.properties[field]):undefined;
         const fresh=await observe(input,field,false);
         if(fresh.revision!==observation.revision || (reservation?.profileAuthority&&fresh.page.last_edited_time!==observation.page.last_edited_time) || !fresh.notion.present || fresh.notion.value!==value ||
           !fresh.psipedia.present || fresh.psipedia.value!==observation.psipedia.value ||

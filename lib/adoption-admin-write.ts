@@ -1,4 +1,4 @@
-import { requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -170,7 +170,8 @@ export async function updateAdoptionV2NotionField(input:{
   const prepared=await prepareAdoptionWritePayload(database,patch,"notion-events-help-sync@psipedia.sk",existing,new Date(nextHelpV2Revision(revision)));
   const preparedValues=writeValues(prepared);
   const values:Record<string,unknown>=Object.fromEntries(MUTABLE_COLUMNS.map((name,index)=>[name,preparedValues[index]]));
-  if(adoptionV2Value(field,values[column])!==value)throw Error("ADOPTION_V2_NORMALIZATION_REVIEW");
+  const expected=field==="Hlavný obrázok URL"&&input.reservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("adoptions",value,input.media)):value;
+  if(adoptionV2Value(field,values[column])!==expected)throw Error("ADOPTION_V2_NORMALIZATION_REVIEW");
   const columns:string[]=[column];
   if(field==="Plemeno")columns.push("breed_id");
   if(field==="Organizácia")columns.push("organization_id","organization_slug");

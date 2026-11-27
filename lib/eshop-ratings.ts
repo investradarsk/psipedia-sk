@@ -1,3 +1,4 @@
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { commitEshopV2AdminEdit, type EshopV2Field } from "./notion-eshop-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { env } from "cloudflare:workers";
@@ -401,6 +402,7 @@ export async function createManagedEshop(
 export async function updateEshopV2NotionField(input:{
   database:D1Database;id:number;pageId:string;revision:string;field:EshopV2Field;value:unknown;
   logo?:{imageUrl:string|null;imageKey:string|null};
+  mediaProof?:VerifiedProfileMedia;
   authorityReservation?: import("./notion-unified-field-transfer.ts").FieldReservation;
 }) {
   const {database,id,pageId,revision,field,value}=input;
@@ -418,7 +420,8 @@ export async function updateEshopV2NotionField(input:{
     case "logoUrl": {
       if(!input.logo)throw Error("ESHOP_V2_LOGO_PREPARATION_REQUIRED");
       const logo=normalizedOptionalUrl(input.logo.imageUrl,"Logo");
-      if((logo?.startsWith("/")?"https://psipedia.sk"+logo:logo??"")!==value)throw Error("ESHOP_V2_LOGO_NORMALIZATION_REVIEW");
+      const expected=input.authorityReservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("eshops",value,input.mediaProof)):value;
+      if((logo?.startsWith("/")?"https://psipedia.sk"+logo:logo??"")!==expected||(input.authorityReservation?.profileAuthority&&input.logo.imageKey!==input.mediaProof?.key))throw Error("ESHOP_V2_LOGO_NORMALIZATION_REVIEW");
       assignments="logo_url=?,logo_key=?";args=[logo,input.logo.imageKey];break;
     }
     default:throw Error("ESHOP_V2_PROTECTED_FIELD");

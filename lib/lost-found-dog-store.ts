@@ -1,4 +1,4 @@
-import { requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -889,7 +889,8 @@ export async function updateLostFoundV2NotionField(input:{
   }else Object.assign(patch,{[key]:value});
   const clean=await cleanInput(database,patch);
   const desired=clean[key];
-  if(lostFoundV2Value(field,desired)!==value)throw Error("LOST_FOUND_V2_NORMALIZATION_REVIEW");
+  const expected=field==="Hlavný obrázok"&&input.reservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("lost-found",value,input.media)):value;
+  if(lostFoundV2Value(field,desired)!==expected)throw Error("LOST_FOUND_V2_NORMALIZATION_REVIEW");
   const columns:string[]=[column];const values:unknown[]=[desired];
   if(field==="Plemeno"){columns.push("breed_id","breed_unknown");values.push(clean.breedId,clean.breedUnknown?1:0);}
   if(field==="Hlavný obrázok"){columns.push("main_image_key","thumbnail_display_json","detail_display_json");values.push(input.reservation?.profileAuthority?requireProfileMediaProof("lost-found",value,input.media).key:null,null,null);}

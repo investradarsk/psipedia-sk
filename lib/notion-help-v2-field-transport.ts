@@ -1,4 +1,4 @@
-import { verifyProfileOwnedMedia, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
@@ -83,7 +83,10 @@ async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolea
   if(currentMapping?.notion_page_id!==pageId||currentMapping.content_hash!==mapping.content_hash||
     await isAdminNotionSyncLocked(database,agenda,entityId)||await notionPageIsTombstoned(database,pageId))throw Error("HELP_V2_SCOPE_CHANGED");
   const notion=helpV2NotionObservation(page,field,kind);
-  const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:normalizeHelpObservation(field,source.properties[field])}:{present:false};
+  const mediaField=agenda==="adoptions"?"Hlavný obrázok URL":agenda==="lost-found"?"Hlavný obrázok":"Obrázok";
+  const canonical=normalizeHelpObservation(field,source.properties[field]);
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field===mediaField&&notion.present?await profileMediaSourceAlias(agenda,canonical,notion.value,bindings.BUCKET):canonical;
+  const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:logical}:{present:false};
   return {page,source,mapping,revision:before.updated_at,status:before.status,notion,psipedia};
 }
 
@@ -118,7 +121,11 @@ export async function syncHelpV2Fields(input:Adapter){
       if(!structural&&!reservation)continue;
       const value=reservation?reservation.value:observed.psipedia.value;
       const mediaField=agenda==="adoptions"?"Hlavný obrázok URL":agenda==="lost-found"?"Hlavný obrázok":"Obrázok";
-      const media=reservation?.profileAuthority&&field===mediaField?await verifyProfileOwnedMedia(agenda,value,input.bindings.BUCKET):undefined;
+      if(reservation?.profileAuthority&&agenda==="lost-found"&&field===mediaField){
+        const protection=await database.prepare("SELECT source,main_image_key FROM lost_found_dog_reports WHERE id=? AND updated_at=?").bind(entityId,observed.revision).first<{source:string;main_image_key:string|null}>();
+        if(!protection||protection.source==="Používateľské hlásenie"||protection.main_image_key?.startsWith("safe/"))throw Error("LOST_FOUND_V2_MODERATION_MEDIA_LOCKED");
+      }
+      const media=reservation?.profileAuthority&&field===mediaField?await prepareProfileMedia(agenda,value,input.bindings,observed.source.properties[field]):undefined;
       const fresh=await observe(input,field,kind,slug);
       if(fresh.revision!==observed.revision||!fresh.notion.present||!fresh.psipedia.present||
         fresh.notion.value!==observed.notion.value||fresh.psipedia.value!==observed.psipedia.value||

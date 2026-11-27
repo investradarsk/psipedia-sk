@@ -2140,3 +2140,16 @@ test("Notion relation verification rejects incomplete, duplicate and foreign IDs
   assert.equal(sameNotionProperty({type:"relation",has_more:false,relation:[{id},{id}]},desired),false);
   assert.equal(sameNotionProperty({type:"relation",has_more:false,relation:[]},{relation:[]}),true);
 });
+
+test("profile source aliases require the current agenda-scoped R2 object and exact source hash",async()=>{
+  const {profileMediaSourceAlias,requireProfileMediaProof}=await import("../lib/notion-profile-owned-media.ts");
+  const source="https://example.com/photo.jpg",canonical="https://psipedia.sk/media/events/2026/asset.webp";
+  const hash=[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(source)))].map(v=>v.toString(16).padStart(2,"0")).join("");
+  const bucket={head:async key=>key==="events/2026/asset.webp"?{customMetadata:{notionSourceHash:hash}}:null};
+  assert.equal(await profileMediaSourceAlias("events",canonical,source,bucket),source);
+  assert.equal(await profileMediaSourceAlias("events",canonical,source+"?other",bucket),canonical);
+  assert.equal(await profileMediaSourceAlias("events",canonical,source),canonical);
+  assert.equal(await profileMediaSourceAlias("organizations",canonical,source,bucket),canonical);
+  assert.equal(await profileMediaSourceAlias("events",canonical,"https://psipedia.sk/images/test.jpg",bucket),canonical);
+  assert.throws(()=>requireProfileMediaProof("events",source,{url:"/media/events/2026/asset.webp",key:"events/2026/asset.webp",sourceUrl:source+"?other"}));
+});

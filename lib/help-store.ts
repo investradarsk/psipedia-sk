@@ -1,4 +1,4 @@
-import { requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -917,7 +917,8 @@ export async function updateHelpCaseV2NotionField(input:{
     }
     if(field==="Urgentné")desired=value?1:0;
     if(field==="CTA text"&&!value)desired=defaultHelpActionLabel(row.category as HelpCategorySlug);
-    if(helpCaseV2Value(field,desired)!==value)throw Error("HELP_CASE_V2_NORMALIZATION_REVIEW");
+    const expected=field==="Obrázok"&&input.reservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("help-cases",value,input.media)):value;
+    if(helpCaseV2Value(field,desired)!==expected)throw Error("HELP_CASE_V2_NORMALIZATION_REVIEW");
     // Do not infer closure or reopen a collection through a text edit. The
     // same lifecycle projection must agree before any narrow write.
     const lifecycle=applyHelpLifecycle({
