@@ -29,14 +29,17 @@ test("current 90-column Notion schema exactly matches the declared physical cont
     assert.ok(breedWorkcopyPropertyKind(name),"Unclassified column: "+name);
 });
 
-test("all 12 controlled fields have exactly the live names, types and select options",()=>{
+test("all 12 controlled fields match the captured schema plus the approved Kazakhstan option",()=>{
   assert.equal(BREED_CONTROLLED_FIELDS.length,12);
   const keys=new Set();
   for(const field of BREED_CONTROLLED_FIELDS){
     assert.ok(!keys.has(field.notion),"Duplicate typed field "+field.notion);
     keys.add(field.notion);
     assert.equal(notion[field.notion]?.type,field.type,field.notion);
-    if(field.options)assert.deepEqual(sorted(notion[field.notion].options),sorted(field.options));
+    if(field.options){
+      const expected=field.key==="originCountries"?[...new Set([...notion[field.notion].options,"Kazachstan"])]:notion[field.notion].options;
+      assert.deepEqual(sorted(expected),sorted(field.options));
+    }
   }
   assert.equal(BREED_CONTROLLED_FIELDS.find(x=>x.key==="fciGroupSelect").notion,"FCI skupina");
   assert.equal(BREED_CONTROLLED_FIELDS.find(x=>x.key==="originCountries").notion,"Krajiny pôvodu");
