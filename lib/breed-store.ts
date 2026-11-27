@@ -1767,6 +1767,7 @@ export async function saveManagedBreedCombined(input:{
   if(before.updatedAt!==input.expectedRevision)throw new BreedUpdateConflictError();
   const now=nextBreedVersion(input.expectedRevision);
   const merged=mergeManagedBreedEdit(before,input.patch);
+  if(Object.hasOwn(input.patch,"status")&&input.patch.status!=="published"&&input.patch.status!=="draft")throw Error("BREED_COMBINED_STATUS_INVALID");
   const value=clean(merged,before);
   const fieldSet=new Set(input.fields);
   const columns:Record<string,string>={...BREED_EVENT_SCALAR_COLUMNS,slug:"slug",status:"status",imageKey:"image_key",
@@ -1785,6 +1786,7 @@ export async function saveManagedBreedCombined(input:{
     structured.push(...statements);
   }
   if(["name","officialFciName","origin","group","fciSection"].some(field=>fieldSet.has(field)))selected.add("search_text");
+  if(fieldSet.has("image")&&!fieldSet.has("imageKey")&&value.image!==before.image){selected.add("image_key");value.imageKey=null;}
   const entries=breedValueEntries(value).filter(entry=>selected.has(entry.column));
   if(entries.length!==selected.size)throw Error("BREED_COMBINED_COLUMN_UNMAPPED");
   const update=db.prepare("UPDATE managed_breeds SET "+
