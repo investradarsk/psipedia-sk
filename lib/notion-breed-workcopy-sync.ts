@@ -252,10 +252,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
           const pilot = unifiedBreedEnabled(args.bindings) && !args.manualImport
             ? await reserveBreedField(args.database, args.bindings, link, field.field, "pull") : null;
           if (pilot && !pilot.reservation) continue;
+          if(pilot?.reservation)await assertUnifiedReservationCurrent(args.database,pilot.reservation);
           const saved=await saveBreedNotionField({
             database:args.database,breedId:link.breed_id,
             field:field.field,value:pilot?.reservation ? pilot.reservation.value : field.value,
-            expectedRevision: pilot?.revision,
+            expectedRevision: pilot?.revision, authorityReservation:pilot?.reservation??undefined,
           });
           if (pilot?.reservation) {
             const fresh = await observeUnifiedBreedField(args.database, args.bindings, link, field.field);
@@ -560,7 +561,7 @@ export async function recoverBreedV2Field(database:D1Database,bindings:BreedWork
     const fresh=await observeUnifiedBreedField(database,bindings,link,field);
     if(fresh.revision!==planned.revision||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
     await assertUnifiedReservationCurrent(database,planned.reservation);
-    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision});
+    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision,authorityReservation:planned.reservation});
     const verified=await observeUnifiedBreedField(database,bindings,link,field);
     await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
   }
