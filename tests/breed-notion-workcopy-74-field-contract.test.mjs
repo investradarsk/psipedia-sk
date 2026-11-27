@@ -97,3 +97,18 @@ test("live event parser and Admin writer both use the same direct resolver",()=>
   assert.doesNotMatch(event,/splitBreedWorkCopyField/);
   assert.doesNotMatch(writer,/splitBreedWorkCopyField|planBreedWorkCopyMergedFieldPatch/);
 });
+
+
+test("new breed properties are encoded against actual schema types without a remote page or baseline",async()=>{
+ const {encodeBreedWorkCopyCreateProperty:encode}=await import("../lib/notion-breed-workcopy-patch-bridge.mjs");
+ const schema=BREED_NOTION_SCHEMA;
+ const properties=Object.fromEntries(Object.entries(notion).map(([name,p])=>[name,{type:p.type==="text"?"rich_text":p.type}]));
+ const title=encode({schema,properties,fieldId:"name",value:"Nové plemeno"});
+ assert.equal(title.property,"Názov plemena");
+ assert.equal(title.desiredProperty.title[0].text.content,"Nové plemeno");
+ const empty=encode({schema,properties,fieldId:"seo.title",value:""});
+ assert.deepEqual(empty.desiredProperty,{rich_text:[]});
+ assert.throws(()=>encode({schema,properties:{},fieldId:"name",value:"Nové plemeno"}),/PROPERTY_TYPE_MISMATCH/);
+ assert.throws(()=>encode({schema,properties,fieldId:"status",value:"published"}),/FIELD_NOT_EDITABLE/);
+ assert.throws(()=>encode({schema,properties,fieldId:"name",value:null}),/TEXT_REQUIRED/);
+});
