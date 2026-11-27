@@ -77,9 +77,6 @@
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
   display: grid;
-  /* Every CTA follows the copy; no competing right-hand action column. */
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
   gap: 14px 20px;
   width: 100%;
   max-width: none;
@@ -88,8 +85,6 @@
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div {
   min-width: 0;
-  grid-column: auto;
-  grid-row: auto;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3, strong) {
   color: var(--ps-bnr-ink) !important;
@@ -135,24 +130,12 @@
   outline: 3px solid #b44939;
   outline-offset: 3px;
 }
-.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] {
-  grid-template-columns: minmax(0, 1fr);
-}
-.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
-  justify-self: start;
-}
-.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] > a {
-  justify-self: start;
-}
 @media (max-width: 720px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a,
   .ps-public-banner-frame[data-banner-visual][data-banner-size] > a {
-    width: 100%;
-    justify-self: stretch;
     min-height: 48px;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] {
@@ -228,39 +211,17 @@
   font: 0.875rem / 1.5 var(--ps-font-body);
 }
 
-@media (min-width: 721px) {
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"]
-    [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"]
-    [data-public-banner-content]
-    > a {
-    justify-self: start;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="medium"]
-    [data-public-banner-content],
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"]
-    [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 /* A 250px article rail and a 400px inset card must not keep the desktop
  * copy + CTA columns just because the viewport is wider than 720px.
  * Query the rendered banner width itself. */
 @container ps-editorial-banner (max-width: 520px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr) !important;
     gap: 12px;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div,
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > nav,
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > nav {
     min-width: 0;
     width: 100%;
-    grid-column: 1;
-    grid-row: auto;
     justify-self: stretch;
     box-sizing: border-box;
   }
@@ -271,18 +232,6 @@
     word-break: normal;
   }
 }
-/* Small is always a stacked banner, including the desktop article sidebar.
- * Keep this independent of published desktop size presets (which are not
- * applied to automatic article promotions). */
-.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] {
-  grid-template-columns: minmax(0, 1fr) !important;
-}
-.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] > a {
-  justify-self: stretch;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* Approved artwork. It is a DECORATIVE CHILD, not ::before/::after of the
  * container itself, so @container responds to the banner width (including a
  * 225px sidebar on a 1640px desktop). Text, links and partner ads are native. */
@@ -337,11 +286,6 @@
     max-width: 72% !important;
     padding: 0 !important;
   }
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
-    justify-self: start;
-    width: auto !important;
-    max-width: 100%;
-  }
 }
 /* No large drawings in the sidebar, inside a 520px article, or on a narrow
  * mobile viewport. The S variant keeps a barely visible green tonal accent. */
@@ -359,14 +303,6 @@
     width: 100% !important;
     max-width: 100% !important;
     padding: 0 !important;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
-    justify-self: start;
-    width: 100%;
-    max-width: 100%;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::after {
     display: none;
@@ -519,7 +455,7 @@
 
 /* Canonical CTA position: beneath the copy, aligned left in both themes and
  * all size presets. The right lane is reserved for decorative artwork only.
- * Existing compact/mobile full-width controls remain accessible. */
+ * Narrow containers stretch actions in the single query below. */
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
   grid-template-columns: minmax(0, 1fr) !important;
   align-items: start;
