@@ -181,3 +181,9 @@
   [data-admin-workspace] [data-admin-list-filters] :is(button[type="submit"], [data-admin-list-filter-actions] > :is(a, button), button[data-admin-list-toggle]),
   [data-admin-workspace] [data-admin-list-selection] :is(button, a) { min-height: 44px; }
 }
+
+@media (max-width: 820px), (pointer: coarse) {
+  [data-admin-workspace] [data-admin-list-layout="simple"] :is(input,select) { min-height:44px; font-size:16px; }
+  [data-admin-workspace] [data-admin-list-pagination] :is(a,button) { min-width:44px; min-height:44px; }
+}
+[data-admin-workspace] [data-admin-list-layout="simple"] { margin-inline:0; }

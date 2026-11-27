@@ -107,3 +107,13 @@ test("4/10 profile fields share existing geometry and keep article content and t
   assert.match(lexical, /font-size: 16px/);
   assert.doesNotMatch(source("components/admin-article-editor.tsx"), /data-admin-profile-field/);
 });
+
+test("6/10 preview toggle remains reachable at tablet widths and profiles use separate panes", () => {
+  const css = source("components/admin-editor-workspace.module.css");
+  const tail = css.slice(css.indexOf("/* 6/10"));
+  assert.match(tail, /@media \(max-width: 1180px\)/);
+  assert.match(tail, /\.navigation \.previewToggle \{ display: inline-flex/);
+  assert.match(tail, /data-mobile-panel="preview"/);
+  assert.match(tail, /:not\(\[data-editor-layout="article"\]\)/);
+  assert.match(source("tests/e2e/admin-ux-unification.spec.ts"), /\[1024, 390, 320\]/);
+});

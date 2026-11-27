@@ -403,9 +403,10 @@ test("event preview is beside the form on desktop and toggled instead of stacked
   expect(previewBox!.x).toBeGreaterThanOrEqual(contentBox!.x + contentBox!.width - 2);
   await noOverflow(page);
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(content).toBeVisible();
-  await expect(preview).toBeHidden();
+  for (const width of [1024, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(content).toBeVisible();
+    await expect(preview).toBeHidden();
   await expect(previewToggle).toHaveText("Náhľad");
   await previewToggle.click();
   await expect(preview).toBeVisible();
@@ -414,5 +415,27 @@ test("event preview is beside the form on desktop and toggled instead of stacked
   await previewToggle.click();
   await expect(content).toBeVisible();
   await expect(preview).toBeHidden();
-  await noOverflow(page);
+    await noOverflow(page);
+  }
 });
+
+// Read-only list regression: use the existing isolated test database, never production.
+for (const width of [1440, 1024, 390, 320]) {
+  test(`e-shop list filters stay inside the viewport at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/recenzie/eshopy", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const filters = page.getByRole("search", { name: "Filtrovať e-shopy" });
+    await expect(filters).toBeVisible();
+    const search = filters.getByRole("searchbox");
+    await search.fill("neexistujuci-eshop-regresny-test");
+    await expect(page.locator("[data-admin-list-results]")).toContainText("Nájdené: 0 z");
+    await filters.getByRole("button", { name: "Vyčistiť filtre" }).click();
+    await expect(search).toHaveValue("");
+    if (width <= 820) {
+      expect(await search.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+      expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await noOverflow(page);
+  });
+}

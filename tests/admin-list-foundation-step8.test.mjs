@@ -155,3 +155,13 @@ test("Step 2/10: content list filters share search and selection surfaces", () =
   assert.match(eshops, /data-admin-list-search/);
   assert.match(read("components/admin-community-pagination.tsx"), /data-admin-community-pagination data-admin-list-pagination/);
 });
+
+test("6/10 e-shop detail resets on filters, restores focus and stays single-column on phones", () => {
+  const ui = read("app/admin/recenzie/eshopy/eshops-admin-table.tsx");
+  const css = read("app/admin/recenzie/eshopy/eshops-admin.module.css");
+  assert.match(ui, /visible.find\(item => item.id === selectedId\)/);
+  assert.match(ui, /openerRef.current\?\.focus\(\)/);
+  assert.match(ui, /resetDetail\(\); setQuery/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.detail \.card \{ grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(read("components/admin-record-table.module.css"), /@media \(pointer: coarse\)/);
+});

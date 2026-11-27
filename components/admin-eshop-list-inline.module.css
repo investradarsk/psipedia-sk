@@ -12,3 +12,8 @@
 /* A viewport resize must not strand an already-open edit. */
 .desktopOnly[data-editing="true"] { display:block; }
 @media(max-width:560px) { .fields { grid-template-columns:1fr; } }
+
+@media (max-width: 899px), (pointer: coarse) {
+  .fields input { min-height:44px; font-size:16px; box-sizing:border-box; }
+  .desktopOnly[data-editing="true"] :is(button,a) { min-height:44px; }
+}

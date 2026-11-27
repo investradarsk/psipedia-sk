@@ -375,3 +375,13 @@
     gap: 4px;
   }
 }
+
+/* Touch laptops/tablets can exceed the mobile width breakpoint. Keep their
+   actual interaction targets large, without expanding the mouse layout. */
+@media (pointer: coarse) {
+  .workspace .heading button, .workspace .columnPicker summary,
+  .workspace .columnPickerMenu label, .workspace .selectionCheck,
+  .workspace .table td[data-column-id="actions"] :is(button, a) { min-height:44px; }
+  .workspace .selectionCheck { width:44px; }
+  .workspace:not([data-mobile-focus="true"])[data-density="compact"] .table :is(th,td) { height:44px; }
+}

@@ -554,7 +554,25 @@ dialog.workspaceModal[open] :is(h2, h3),
   width: 100%;
 }
 
-@media (min-width: 821px) {
-  /* The desktop preview is already visible; the toggle only switches mobile panes. */
+@media (min-width: 1181px) {
+  /* The desktop preview is already visible; smaller workspaces need the toggle. */
   .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle { display: none; }
+}
+
+/* 6/10: shared responsive preview behavior for profile page editors. The
+   article layout and modal workspaces retain their own behavior. */
+@media (min-width: 1181px) {
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .columns[data-editor-columns="with-preview"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 34%);
+    gap: var(--admin-ui-space-md, .55rem);
+  }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .preview { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 1180px) {
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .columns[data-editor-columns="with-preview"] { display: block; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .columns[data-editor-columns="with-preview"] .preview { display: none; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .workspace[data-mobile-panel="preview"] .content { display: none; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .workspace[data-mobile-panel="preview"] .preview { display: block; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle { display: inline-flex; justify-content:center; min-height:44px; }
 }
