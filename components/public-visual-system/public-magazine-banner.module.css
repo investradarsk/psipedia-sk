@@ -1,104 +1,13 @@
-/* Approved homepage variant, moved unchanged from home-v2.module.css. */
+/* Placement only: the shared frame owns banner surfaces and typography. */
 .magazine:global(.home-magazine-banner) {
-  display: flex;
-  min-height: 134px;
-  justify-content: space-between;
-  align-items: center;
-  gap: 22px;
-  margin-block: 10px 16px;
-  padding: 25px clamp(22px, 3vw, 38px);
-  border: 1px solid var(--ps-banner-border, var(--ps-border-soft));
-  background: linear-gradient(110deg, var(--sage-light), var(--paper));
+  margin-block: 5px 8px;
 }
 .magazine:global(.home-magazine-banner .eyebrow) {
   margin-bottom: 5px;
-}
-.magazine:global(.home-magazine-banner h2) {
-  margin: 0;
-  color: var(--forest);
-  font-size: clamp(1.45rem, 2.1vw, 1.98rem);
-}
-.magazine:global(.home-magazine-banner p) {
-  max-width: 57ch;
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.45;
+  font-weight: 850;
 }
 .magazine:global(.home-magazine-banner .button) {
   flex: none;
-  min-height: 45px;
-  white-space: nowrap;
-}
-@media (max-width: 620px) {
-  .magazine:global(.home-magazine-banner) {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 16px;
-    padding: 21px 19px;
-  }
-  .magazine:global(.home-magazine-banner .button) {
-    justify-content: center;
-  }
-}
-
-.magazine:global(.home-magazine-banner .eyebrow) {
-  color: var(--coral-dark);
-  font-weight: 850;
-}
-
-.magazine:global(.home-magazine-banner h2) {
-  font-family: var(--ps-font-heading);
-  font-weight: 500;
-  letter-spacing: -0.025em;
-}
-.magazine:global(.home-magazine-banner) {
-  min-height: 0;
-  gap: 18px;
-  margin-block: 5px 8px;
-  padding: 18px clamp(18px, 2.4vw, 28px);
-  border-left: 3px solid var(--coral-dark);
-  background: linear-gradient(110deg, var(--sage-light), var(--paper));
-}
-.magazine:global(.home-magazine-banner h2) {
-  font-size: clamp(1.3rem, 1.9vw, 1.7rem);
-}
-.magazine:global(.home-magazine-banner p) {
-  margin-top: 5px;
-}
-
-.magazine:global(.home-magazine-banner .button:focus-visible) {
-  outline: 3px solid var(--coral-dark);
-  outline-offset: 3px;
-}
-@media (max-width: 620px) {
-  .magazine:global(.home-magazine-banner) {
-    gap: 12px;
-    padding: 17px 16px;
-  }
-}
-.magazine:global(.home-magazine-banner) {
-  min-width: 0;
-  border-radius: var(--ps-banner-radius, 18px);
-}
-.magazine:global(.home-magazine-banner > div) {
-  min-width: 0;
-}
-.magazine:global(.home-magazine-banner h2),
-.magazine:global(.home-magazine-banner p) {
-  overflow-wrap: anywhere;
-}
-.magazine:global(.home-magazine-banner .button) {
-  max-width: 100%;
-  min-height: 44px;
-  border-radius: var(--ps-radius-control, 12px);
-  white-space: normal;
-}
-@media (max-width: 620px) {
-  .magazine:global(.home-magazine-banner .button) {
-    width: 100%;
-    min-height: 48px;
-  }
 }
 
 /* Help, article and homepage promos share PublicMagazineBanner geometry.
@@ -107,11 +16,7 @@
 .magazine:global(.home-magazine-banner).withPhoto {
   position: relative;
   isolation: isolate;
-  min-height: 160px;
   overflow: hidden;
-  border-color: rgba(23, 53, 43, 0.3);
-  color: #fff;
-  background: #17352b;
 }
 .withPhoto::before {
   content: "";
@@ -161,22 +66,7 @@
   position: relative;
   z-index: 2;
 }
-.magazine:global(.home-magazine-banner).withPhoto h2,
-.magazine:global(.home-magazine-banner).withPhoto p {
-  color: #fff;
-}
-.magazine:global(.home-magazine-banner).withPhoto .eyebrow {
-  color: var(--ps-premium-kicker-on-dark);
-}
-.magazine:global(.home-magazine-banner).withPhoto :global(.button.button--dark) {
-  border-color: #fff;
-  color: #174b38;
-  background: #fff;
-}
 @media (max-width: 620px) {
-  .magazine:global(.home-magazine-banner).withPhoto {
-    min-height: 0;
-  }
   .withPhoto::before {
     background: linear-gradient(
       90deg,
@@ -196,13 +86,9 @@
   width: 100%;
   margin: 0;
   min-width: 0;
-  padding: 18px;
 }
 .magazine:global(.home-magazine-banner).withLinks {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
-  gap: 13px;
 }
 .links {
   display: grid;
@@ -236,21 +122,6 @@
 }
 .link svg {
   flex: none;
-}
-
-/* Article sidebar and standard promos both use the one shared banner shell. */
-.magazine:global(.home-magazine-banner).compact {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  padding: 16px;
-}
-.magazine:global(.home-magazine-banner).compact :global(.button) {
-  align-self: stretch;
-  justify-content: center;
-  white-space: normal;
-  text-align: center;
 }
 
 /* Owner-approved visual changes are DESKTOP ONLY. Mobile remains untouched. */
@@ -296,11 +167,7 @@
 }
 
 .bannerContent {
-  display: grid;
   min-width: 0;
-  width: 100%;
-  gap: 12px;
-  align-items: center;
 }
 .bannerCopy {
   min-width: 0;
@@ -312,16 +179,6 @@
   margin: 0;
 }
 @media (min-width: 821px) {
-  .bannerContent {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-  }
-  .compact .bannerContent {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .bannerContent > a {
-    min-height: 44px;
-  }
   .bannerCopy .bannerDescription {
     max-width: 65ch;
   }
@@ -356,17 +213,9 @@
 
 /* Desktop promos are text-first. Keep the existing mobile photo composition. */
 @media (min-width: 901px) {
-  .magazine:global(.home-magazine-banner).withPhoto {
-    min-height: 0;
-    background: var(--ps-visual-desktop-bg, #17352b);
-  }
   .withPhoto .photoMedia,
   .withPhoto::before {
     display: none;
-  }
-  .magazine:global(.home-magazine-banner) [data-public-heading] {
-    font-size: var(--ps-heading-content-section);
-    line-height: 1.25;
   }
   /* Published light backgrounds need dark copy, including previously photographic banners. */
   .magazine.withPhoto[style*="--ps-visual-desktop-bg"] [data-public-heading],
