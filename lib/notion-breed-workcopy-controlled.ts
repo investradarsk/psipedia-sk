@@ -30,7 +30,7 @@ export type ControlledBreedBindings = NotionSyncBindings & {
   BREED_SQL_V2_WRITE_MODE?:string;
   NOTION_UNIFIED_FIELD_SYNC_ENABLED?:string;
 };
-type Link = { breed_id:number; work_notion_page_id:string; canonical_slug:string; fci_number:number; status:string };
+type Link = { breed_id:number; work_notion_page_id:string; canonical_slug:string; fci_number:number|null; status:string };
 type Raw = { breed_id:number; values_json:string; notion_values_json:string; revision:number };
 export type ControlledBreedState = {
   values:Record<string,unknown>; revision:number; pendingKeys:string[];
