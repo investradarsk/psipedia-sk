@@ -340,6 +340,8 @@ const unifiedReasonLabels: Record<string,string> = {
   UNVERIFIED_ADMIN_CLEAR:"Chýba potvrdenie vymazania v Admine",
   RECOVERY_DIVERGED:"Nepotvrdený prenos – hodnoty sa líšia",
   SCOPE_INVALIDATED:"Zmena mapovania alebo zámku – nové overenie",
+  CONFIRMED_BLANK_PUSH:"Doplnenie potvrdeného prázdneho poľa v Notione",
+  CONFIRMED_BLANK_CHANGED:"Hodnoty alebo rozsah sa pred doplnením zmenili",
   INITIAL_FILL_PUSH:"Prvotné doplnenie prázdneho Notion poľa",
   INITIAL_FILL_PULL:"Prvotné doplnenie prázdneho poľa Adminu",
   INITIAL_FILL_CHANGED:"Hodnoty sa počas inicializácie zmenili – na kontrolu",

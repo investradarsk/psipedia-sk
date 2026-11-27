@@ -14,6 +14,7 @@ export async function syncOneAdminHelpRecord(input: {
   bindings: NotionEventsHelpSyncBindings & { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string };
   agenda: BidirectionalAgendaKey;
   entityId: number;
+  expectedNotionPageId?: string;
   changedEventFields?: readonly EventNotionField[];
   changedHelpFields?: readonly string[];
 }): Promise<"disabled" | "unlinked" | "synced" | "pending"> {
@@ -32,7 +33,7 @@ export async function syncOneAdminHelpRecord(input: {
     const mapping = await input.database.prepare(
         "SELECT notion_page_id FROM notion_agenda_sync WHERE agenda=? AND entity_id=? LIMIT 1",
       ).bind(input.agenda, input.entityId).first<{ notion_page_id: string }>();
-    if (!mapping?.notion_page_id) return "unlinked";
+    if (!mapping?.notion_page_id || (input.expectedNotionPageId !== undefined && mapping.notion_page_id !== input.expectedNotionPageId)) return "unlinked";
     const summary = await runNotionEventsHelpSyncSweep({
       database: input.database, bindings: input.bindings, mode: "sync",
       agendas: [input.agenda], targetPageId: mapping.notion_page_id, webhookMappedOnly: true,
