@@ -134,3 +134,24 @@ test("compact admin tables share desktop content geometry and e-shops use the sa
     assert.match(read("components/admin-" + name + ".tsx"), /<AdminRecordTable[\s\S]*?\bstretch\b/);
   }
 });
+
+test("Step 2/10: content list filters share search and selection surfaces", () => {
+  for (const name of ["dashboard", "directory-dashboard", "breed-dashboard", "event-dashboard", "adoption-dashboard", "lost-found-dashboard", "organization-publication-dashboard", "help-dashboard", "help-unified-table"]) {
+    const src = read("components/admin-" + name + ".tsx");
+    assert.match(src, /data-admin-list-search/, name);
+    assert.match(src, /data-admin-list-filters/, name);
+  }
+  for (const name of ["adoption-dashboard", "lost-found-dashboard"]) {
+    const src = read("components/admin-" + name + ".tsx");
+    assert.match(src, /<AdminBulkActionToolbar/);
+    assert.match(src, /destructiveAction=\{[\s\S]*?<AdminRecordBulkDelete/);
+  }
+  const unified = read("components/admin-help-unified-table.tsx");
+  assert.match(unified, /hrefForPage=\{next => categoryHref\(category, next\)\}/);
+  assert.match(unified, /data-admin-list-results/);
+  const eshops = read("app/admin/recenzie/eshopy/eshops-admin-table.tsx");
+  assert.match(eshops, /rows=\{visible\}/);
+  assert.match(eshops, /disabled=\{editing\}/);
+  assert.match(eshops, /data-admin-list-search/);
+  assert.match(read("components/admin-community-pagination.tsx"), /data-admin-community-pagination data-admin-list-pagination/);
+});

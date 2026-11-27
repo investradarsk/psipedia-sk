@@ -141,3 +141,43 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* Step 2/10: common search, filter actions and result/selection surfaces.
+   Domain-specific grid layouts and GET/client behavior remain unchanged. */
+[data-admin-workspace] [data-admin-list-filters] [data-admin-list-search] { min-width: 0; }
+[data-admin-workspace] [data-admin-list-filters] [data-admin-list-search] input,
+[data-admin-workspace] [data-admin-list-filters] input[data-admin-list-search] {
+  width: 100%; color: var(--admin-ui-text, #142c21);
+}
+[data-admin-workspace] [data-admin-list-filters] [data-admin-list-filter-actions] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--admin-list-filter-gap); min-width: 0;
+}
+[data-admin-workspace] [data-admin-list-filters] :is(button[type="submit"], [data-admin-list-filter-actions] > :is(a, button), button[data-admin-list-toggle]) {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--admin-list-control-height); padding: 0.3rem 0.65rem;
+  border-radius: var(--admin-ui-field-radius, 9px); font-size: 0.82rem; line-height: 1.25; text-align: center;
+}
+[data-admin-workspace] [data-admin-list-filters] :is(button[type="submit"], button[data-admin-list-toggle], [data-admin-list-filter-actions] > :is(a, button)):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b); outline-offset: 2px;
+}
+[data-admin-workspace] [data-admin-list-results] { margin-block: 0.45rem; }
+[data-admin-workspace] [data-admin-list-selection] {
+  box-sizing: border-box; display: flex; align-items: center; flex-wrap: wrap; gap: var(--admin-list-filter-gap);
+  min-width: 0; max-width: 100%; margin-block: 0.45rem; font-size: 0.83rem;
+}
+[data-admin-workspace] [data-admin-list-selection] :is(button, a) { min-height: var(--admin-list-control-height); }
+[data-admin-workspace] [data-admin-list-filters][data-admin-list-layout="simple"] {
+  display: flex; flex-wrap: wrap; align-items: end; padding: var(--admin-ui-panel-padding, 0.55rem);
+  border: 1px solid var(--admin-ui-border, #dce5de); border-radius: var(--admin-ui-radius, 8px);
+  background: var(--admin-ui-surface, #fff);
+}
+[data-admin-workspace] [data-admin-list-layout="simple"] [data-admin-list-search] { flex: 1 1 16rem; }
+[data-admin-workspace] [data-admin-list-layout="simple"] label { display: grid; gap: 0.2rem; }
+[data-admin-workspace] [data-admin-list-layout="simple"] :is(input, select) {
+  padding: 0.35rem 0.65rem; border: 1px solid var(--admin-ui-border, #dce5de);
+  background: var(--admin-ui-surface, #fff); color: var(--admin-ui-text, #142c21);
+}
+@media (max-width: 820px) {
+  [data-admin-workspace] [data-admin-list-filters] :is(button[type="submit"], [data-admin-list-filter-actions] > :is(a, button), button[data-admin-list-toggle]),
+  [data-admin-workspace] [data-admin-list-selection] :is(button, a) { min-height: 44px; }
+}

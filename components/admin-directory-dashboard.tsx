@@ -171,13 +171,13 @@ export function AdminDirectoryDashboard({ data, filters }: {
 
       <section className="admin-panel" data-admin-directory-list>
         <form className={`admin-directory-category-filter ${styles.filters}`} action="/admin/adresar" method="get" role="search" data-admin-list-filters>
-          <label className={`admin-search ${styles.search}`}>
+          <label className={`admin-search ${styles.search}`} data-admin-list-search>
             <SearchIcon size={19} />
             <span>Hľadať</span>
             <input name="q" defaultValue={filters.q} maxLength={100} placeholder="Názov, Admin ID, mesto, okres alebo služba" />
           </label>
           <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
-          <button type="button" className={styles.advancedToggle} aria-expanded={advancedFiltersOpen}
+          <button type="button" className={styles.advancedToggle} data-admin-list-toggle aria-expanded={advancedFiltersOpen}
             aria-controls="admin-directory-advanced-filters" onClick={() => setAdvancedFiltersOpen(open => !open)}>
             {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
           </button>
@@ -191,7 +191,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
           <label className="admin-select-filter"><span>Overenie</span><select name="verification" defaultValue={filters.verification}><option value="all">Všetky</option><option value="verified">Overené</option><option value="unverified">Neoverené</option></select></label>
           <label className="admin-select-filter"><span>Obrázok</span><select name="media" defaultValue={filters.media}><option value="all">Všetky</option><option value="with-image">S obrázkom</option><option value="without-image">Bez obrázka</option></select></label>
           </div>
-          <div className={styles.filterActions}>
+          <div className={styles.filterActions} data-admin-list-filter-actions>
             <AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton>
             <Link className={styles.clearFilters} href="/admin/adresar">Vyčistiť</Link>
           </div>

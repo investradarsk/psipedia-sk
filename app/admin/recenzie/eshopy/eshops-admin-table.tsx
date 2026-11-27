@@ -14,12 +14,28 @@ function format(value: number) {
 const statusLabel = { published: "Publikované", archived: "Archivované", draft: "Koncept" } as const;
 
 export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<ManagedEshop["status"] | "all">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const shop = shops.find(item => item.id === selectedId);
+  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("sk").trim();
+  const terms = normalize(query).split(/\s+/).filter(Boolean);
+  const visible = shops.filter(item => (status === "all" || item.status === status) &&
+    terms.every(term => normalize([item.id, item.name, item.websiteUrl, ...item.focusTags].join(" ")).includes(term)));
   return <>
-    {shops.length ? <AdminRecordTable
-      rows={shops}
+    <fieldset role="search" aria-label="Filtrovať e-shopy" data-admin-list-filters data-admin-list-layout="simple" disabled={editing}>
+      <legend className="sr-only">Vyhľadávanie a filtre e-shopov</legend>
+      <label data-admin-list-search><span>Hľadať</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Názov, Admin ID, web alebo zameranie" /></label>
+      <label><span>Stav</span><select value={status} onChange={event => setStatus(event.target.value as typeof status)}>
+        <option value="all">Všetky stavy</option>
+        {Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <div data-admin-list-filter-actions><button className="admin-secondary-action" type="button" onClick={() => { setQuery(""); setStatus("all"); }}>Vyčistiť filtre</button></div>
+    </fieldset>
+    <p role="status" data-admin-list-results>Nájdené: {visible.length} z {shops.length}</p>
+    {visible.length ? <AdminRecordTable
+      rows={visible}
       label="E-shopy"
       density="compact"
       stretch
@@ -38,7 +54,7 @@ export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
           <button type="button" disabled={editing} aria-expanded={selectedId === item.id} aria-controls={selectedId === item.id && shop ? "eshop-list-detail" : undefined} onClick={() => setSelectedId(item.id)}>Detail a rýchla úprava</button>
         </div> },
       ]}
-    /> : <p className={styles.empty}>E-shopy sa momentálne nepodarilo načítať.</p>}
+    /> : <p className={styles.empty}>{shops.length ? "Žiadny e-shop nezodpovedá filtrom." : "E-shopy sa momentálne nepodarilo načítať."}</p>}
     {shop && <section id="eshop-list-detail" className={styles.detail} aria-label={`Detail e-shopu ${shop.name}`}>
       <div className={styles.detailHeader}>
         <strong>{shop.name} · ID {shop.id}</strong>

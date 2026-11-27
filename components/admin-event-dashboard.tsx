@@ -287,7 +287,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       <section className="admin-panel" data-admin-event-list>
         <fieldset className="admin-event-controls" data-admin-list-filters aria-label="Filtrovať podujatia" disabled={!hydrated || busy}>
           <legend className="sr-only">Vyhľadávanie a filtre podujatí</legend>
-          <label className="admin-search">
+          <label className="admin-search" data-admin-list-search>
             <span className="sr-only">Hľadať podujatie</span>
             <input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, Admin ID, mesto, areál, organizátor alebo slug" />
           </label>
@@ -296,7 +296,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
               <button type="button" key={value} aria-pressed={filters.time === value} className={filters.time === value ? "is-active" : ""} onClick={() => changeFilter("time", value)}>{label}</button>
             ))}
           </div>
-          <button type="button" className={styles.advancedToggle} aria-controls="admin-event-advanced-filters"
+          <button type="button" className={styles.advancedToggle} data-admin-list-toggle aria-controls="admin-event-advanced-filters"
             aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
             {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
           </button>
@@ -311,7 +311,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
           <button type="button" onClick={() => { setFilters(defaultEventFilters); setPage(1); clearSelection(); setMessage(""); }}>Zrušiť filtre</button>
         </fieldset>
 
-        {!!selected.size && <div className="admin-event-bulk"><span role="status">Vybrané: {selected.size}</span></div>}
+        {!!selected.size && <div className="admin-event-bulk" data-admin-list-selection><span role="status">Vybrané: {selected.size}</span></div>}
 
         {selected.size > 500 && <p role="alert">V jednej dávke vyber najviac 500 podujatí.</p>}
 

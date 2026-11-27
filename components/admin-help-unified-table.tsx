@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminNumberedPagination } from "@/components/admin-pagination";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -436,11 +437,11 @@ export function AdminHelpUnifiedTable({
       <form key={category + ":" + query} className={styles.search} method="get" role="search" data-admin-list-filters>
         <input type="hidden" name="category" value={category} />
         <label htmlFor="help-unified-query">Hľadať v kategórii</label>
-        <input id="help-unified-query" name="q" defaultValue={query} placeholder="Admin ID, meno psa, názov alebo mesto…" maxLength={80} />
+        <input data-admin-list-search id="help-unified-query" name="q" defaultValue={query} placeholder="Admin ID, meno psa, názov alebo mesto…" maxLength={80} />
         <button type="submit">Hľadať</button>
         {query && <Link prefetch={false} href={categoryHref(category, 1, "")}>Vyčistiť</Link>}
       </form>
-      <p className={styles.count}>Nájdených záznamov: <strong>{total}</strong> · Strana {page} z {pages}</p>
+      <p className={styles.count} role="status" data-admin-list-results>Nájdených záznamov: <strong>{total}</strong> · Strana {page} z {pages}</p>
 
       {canBulkEdit && rows.length > 0 && (
         <div className={styles.bulkPanel} aria-busy={bulkBusy}>
@@ -504,11 +505,7 @@ export function AdminHelpUnifiedTable({
       {!canBulkEdit && rows.length > 0 && !canInlineEditOrganizations && !canInlineEditDogs && (
         <p className={styles.bulkHint}>Táto kategória má vlastné pravidlá zmien. Hromadné úpravy sa vykonávajú iba v príslušnom module, nie cez spoločnú tabuľku.</p>
       )}
-      {pages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie Pomoci psom">
-        {page > 1 ? <Link href={categoryHref(category, page - 1)}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}
-        <span>{page} / {pages}</span>
-        {page < pages ? <Link href={categoryHref(category, page + 1)}>Ďalšia →</Link> : <span>Ďalšia →</span>}
-      </nav>}
+      <AdminNumberedPagination page={page} totalPages={pages} hrefForPage={next => categoryHref(category, next)} className={styles.pagination} ariaLabel="Stránkovanie Pomoci psom" />
 
       <AdminModalDialog
         open={activeReview !== null}
