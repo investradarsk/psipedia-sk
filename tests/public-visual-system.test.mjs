@@ -502,7 +502,7 @@ test("DS-4 shared banners own organizer layout without page-local CSS overrides"
   const eventsCss = read("components/events-public.module.css");
   assert.match(component, /inline\?: boolean/);
   assert.match(component, /data-public-context-banner-layout/);
-  assert.match(events, /<PublicMagazineBanner\s+compact\s+size="medium"\s+photoTone="volunteer"\s+testId="events-organizer-cta"/);
+  assert.match(events, /<PublicMagazineBanner\s+compact\s+size="large"\s+photoTone="volunteer"\s+testId="events-organizer-cta"/);
   const sharedBannerCss = read("app/banner-visuals.css");
   assert.doesNotMatch(styles, /grid-template-columns:/);
   assert.match(sharedBannerCss, /\[data-public-banner-content\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) !important/);
