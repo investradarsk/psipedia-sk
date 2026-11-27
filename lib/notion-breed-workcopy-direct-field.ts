@@ -1,3 +1,4 @@
+import { physicalBreedMediaValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { breedOwnedMediaKey } from "./notion-breed-structured-authority.mjs";
 import { breedAdminFieldReceipt } from "./notion-breed-admin-receipts.ts";
 import { getManagedBreed, type ManagedBreed } from "@/lib/breed-store";
@@ -43,6 +44,7 @@ export async function saveBreedNotionField(input:{
   expectedRevision?:string;
   recordAdminReceipt?:boolean;
   authorityReservation?: import("./notion-unified-field-transfer.ts").FieldReservation;
+  mediaProofs?:readonly VerifiedProfileMedia[];
 }):Promise<{updated:boolean;breed:ManagedBreed}> {
   if (!Number.isSafeInteger(input.breedId) || input.breedId<1)
     throw Error("BREED_EVENT_PSI_ID_INVALID");
@@ -54,10 +56,12 @@ export async function saveBreedNotionField(input:{
     const previous=input.field==="fciNumber"
       ?before.fciNumber
       :(breedFieldSnapshot(before) as Record<string,unknown>)[input.field];
-    if (JSON.stringify(previous)===JSON.stringify(input.value))
+    const media=input.authorityReservation?.profileAuthority&&(input.field==="image"||input.field==="gallery");
+    const physical=media?physicalBreedMediaValue(input.field as "image"|"gallery",input.value,input.mediaProofs):input.value;
+    if (JSON.stringify(previous)===JSON.stringify(physical)&&!(media&&input.field==="image"&&before.imageKey!==(input.mediaProofs?.[0]?.key??null)))
       return {updated:false,breed:before};
-    const patch=breedEventD1FieldPatch(input.field,input.value,
-      searchAfter(before,input.field,input.value));
+    const patch=breedEventD1FieldPatch(input.field,physical,
+      searchAfter(before,input.field,physical));
     // Step 4/6: one shared routing plan for Admin and signed Notion events.
     // Never execute a second SQL write until 0174/backfill + atomic
     // per-field shadow-write transaction are verified in steps 5–6.
@@ -83,8 +87,8 @@ export async function saveBreedNotionField(input:{
     const assignments=sqlOnlyObjectField?[]:patch.assignments;
     const params=sqlOnlyObjectField?[]:patch.params;
     if(input.authorityReservation?.profileAuthority===true&&input.field==="image"){
-      const key=input.value===""?null:breedOwnedMediaKey(input.value);
-      if(input.value!==""&&!key)throw Error("BREED_MEDIA_REVIEW_REQUIRED");
+      const key=physical===""?null:breedOwnedMediaKey(physical);
+      if(physical!==""&&!key)throw Error("BREED_MEDIA_REVIEW_REQUIRED");
       const index=assignments.indexOf("image_key=NULL");
       if(index<0)throw Error("BREED_MEDIA_SQL_MAPPING_MISSING");
       assignments[index]="image_key=?";params.push(key);
@@ -110,7 +114,7 @@ export async function saveBreedNotionField(input:{
             ...(authority?[input.authorityReservation!.identity.pageId,input.authorityReservation!.identity.pageId,input.authorityReservation!.identity.field,input.authorityReservation!.version]:[])),
         breedSqlV2CasGuard(input.database),
         ...breedSqlV2DirectFieldStatements(input.database,input.breedId,
-          input.field,input.value),
+          input.field,physical),
         ...(input.recordAdminReceipt ? breedAdminFieldReceipt(input.database, {
           breedId: input.breedId, field: input.field, value: input.value, revision: next,
         }) : []),

@@ -1,4 +1,5 @@
-import { breedOwnedMediaKey, validateBreedStructuredValue } from "./notion-breed-structured-authority.mjs";
+import { prepareBreedMediaProofs, logicalBreedMediaValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { validateBreedStructuredValue } from "./notion-breed-structured-authority.mjs";
 import { importNewBreedWorkCopy } from "./notion-breed-inbound-import.ts";
 import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
 import { BREED_WORKCOPY_EDITORIAL_PROPERTIES } from "./breed-notion-workcopy-field-contract.mjs";
@@ -173,13 +174,8 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
     throw Error("BREED_UNIFIED_REVISION_CHANGED");
   const parsed = breedWorkcopyEventValues(page, Object.keys(page.properties ?? {}), BREED_NOTION_SCHEMA, true);
   const remote = parsed.values.find(item => item.field === field);
-  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&remote&&(field==="image"||field==="gallery")){
-    if(!validateBreedStructuredValue(field,remote.value))throw Error("BREED_MEDIA_REVIEW_REQUIRED");
-    const keys=field==="image"?(remote.value===""?[]:[breedOwnedMediaKey(remote.value)]):
-      (remote.value as {imageUrl:string}[]).map(item=>breedOwnedMediaKey(item.imageUrl));
-    for(const key of keys)if(!key||!bindings.BUCKET||!await bindings.BUCKET.head(key))throw Error("BREED_MEDIA_ASSET_MISSING");
-    if((await getManagedBreed(link.breed_id))?.updatedAt!==after.updatedAt)throw Error("BREED_UNIFIED_REVISION_CHANGED");
-  }
+  const stagedMedia=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&remote&&(field==="image"||field==="gallery");
+  if(stagedMedia&&!validateBreedStructuredValue(field,remote.value))throw Error("BREED_MEDIA_REVIEW_REQUIRED");
   const snapshot = breedFieldSnapshot(after) as Record<string, unknown>;
   const value = field === "fciNumber" ? after.fciNumber : snapshot[field];
   if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
@@ -192,10 +188,12 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
         throw Error("BREED_STRUCTURED_CANONICAL_UNKNOWN");
     }
   }
-  return { page, revision: after.updatedAt, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
+  const logical=stagedMedia?await logicalBreedMediaValue(field as "image"|"gallery",value,after.imageKey,remote.value,bindings.BUCKET):value;
+  if(stagedMedia&&(await getManagedBreed(link.breed_id))?.updatedAt!==after.updatedAt)throw Error("BREED_UNIFIED_REVISION_CHANGED");
+  return { page, revision: after.updatedAt, physicalValue:value, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
     notionSiblings:Object.fromEntries(parsed.values.map(item=>[item.field,item.value])),
     notion: breedWorkcopyObservation(remote?.value, !!remote),
-    psipedia: breedWorkcopyObservation(value, field === "fciNumber" || Object.hasOwn(snapshot, field)),
+    psipedia: breedWorkcopyObservation(logical, field === "fciNumber" || Object.hasOwn(snapshot, field)),
   };
 }
 
@@ -309,8 +307,10 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
           const pilot = unifiedBreedEnabled(args.bindings) && !args.manualImport
             ? await reserveBreedField(args.database, args.bindings, link, field.field, "pull") : null;
           if (pilot && !pilot.reservation) continue;
+          let mediaProofs:VerifiedProfileMedia[]|undefined;
           if(pilot?.reservation){
             if(pilot.reservation.profileAuthority){
+              if(field.field==="image"||field.field==="gallery")mediaProofs=await prepareBreedMediaProofs(field.field,pilot.reservation.value,pilot.physicalValue,args.bindings);
               const fresh=await observeUnifiedBreedField(args.database,args.bindings,link,field.field);
               if(fresh.revision!==pilot.revision||fresh.page.last_edited_time!==pilot.page.last_edited_time||!same(fresh.notion,pilot.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
             }
@@ -319,7 +319,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
           const saved=await saveBreedNotionField({
             database:args.database,breedId:link.breed_id,
             field:field.field,value:pilot?.reservation ? pilot.reservation.value : field.value,
-            expectedRevision: pilot?.revision, authorityReservation:pilot?.reservation??undefined,
+            expectedRevision: pilot?.revision, authorityReservation:pilot?.reservation??undefined,mediaProofs,
           });
           if (pilot?.reservation) {
             const fresh = await observeUnifiedBreedField(args.database, args.bindings, link, field.field);
@@ -625,10 +625,11 @@ export async function recoverBreedV2Field(database:D1Database,bindings:BreedWork
   if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"&&direction==="observe"&&await repairLegacyBreedDuplicate(database,bindings,link,field))return;
   const planned=await reserveBreedField(database,bindings,link,field,direction);
   if(direction==="pull"&&planned.reservation){
+    const mediaProofs=planned.reservation.profileAuthority&&(field==="image"||field==="gallery")?await prepareBreedMediaProofs(field,planned.reservation.value,planned.physicalValue,bindings):undefined;
     const fresh=await observeUnifiedBreedField(database,bindings,link,field);
-    if(fresh.revision!==planned.revision||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
+    if(fresh.revision!==planned.revision||fresh.page.last_edited_time!==planned.page.last_edited_time||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
     await assertUnifiedReservationCurrent(database,planned.reservation);
-    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision,authorityReservation:planned.reservation});
+    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision,authorityReservation:planned.reservation,mediaProofs});
     const verified=await observeUnifiedBreedField(database,bindings,link,field);
     await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
   }

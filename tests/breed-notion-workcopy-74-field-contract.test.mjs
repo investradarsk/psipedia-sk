@@ -182,6 +182,10 @@ test("structured breed authority rejects malformed or truncated lists and accept
   assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageKey:"articles/unrelated.webp"}]),false);
   assert.equal(breedOwnedMediaKey("https://psipedia.sk/media/breeds/test.webp"),"breeds/test.webp");
   assert.equal(breedOwnedMediaKey("https://example.com/media/breeds/test.webp"),null);
+  assert.equal(validateBreedStructuredValue("image","https://example.com/photo.jpg"),true);
+  assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageUrl:"https://example.com/photo.jpg",imageKey:null}]),true);
+  assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageUrl:"https://example.com/photo.jpg"}]),false);
+  assert.equal(validateBreedStructuredValue("image","https://psipedia.sk/media/safe/file.jpg"),false);
   assert.equal(breedOwnedMediaKey("/media/breeds/../secret.webp"),null);
   assert.equal(verify("image",{type:"url",url:null},present(""),BREED_NOTION_SCHEMA),true);
   assert.equal(verify("image",{type:"url"},present(""),BREED_NOTION_SCHEMA),false);

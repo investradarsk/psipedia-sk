@@ -75,3 +75,52 @@ export async function prepareProfileMedia(agenda:ProfileMediaAgenda,value:unknow
 export function profileMediaCanonicalValue(proof:VerifiedProfileMedia):string{
   return proof.url?"https://psipedia.sk"+proof.url:"";
 }
+
+type BreedGalleryMedia={imageUrl:string;imageKey?:string|null;alt:string;caption:string;credit:string};
+function absoluteMedia(value:unknown):unknown{return typeof value==="string"&&value.startsWith("/")?"https://psipedia.sk"+value:value;}
+/** Map the exact logical Notion media value to physical stored values.
+ * All gallery entries must be proven before any D1 change. */
+export async function prepareBreedMediaProofs(field:"image"|"gallery",value:unknown,current:unknown,bindings:NotionSyncBindings):Promise<VerifiedProfileMedia[]>{
+  if(field==="image")return [await prepareProfileMedia("breeds",absoluteMedia(value),bindings,absoluteMedia(current))];
+  if(!Array.isArray(value)||value.length>30)throw Error("BREED_MEDIA_INVALID_GALLERY");
+  const proofs:VerifiedProfileMedia[]=[];
+  for(let i=0;i<value.length;i++){
+    const item=value[i] as BreedGalleryMedia;
+    const old=Array.isArray(current)?current[i] as BreedGalleryMedia|undefined:undefined;
+    proofs.push(await prepareProfileMedia("breeds",absoluteMedia(item.imageUrl),bindings,absoluteMedia(old?.imageUrl)));
+  }
+  if(new Set(proofs.map(p=>p.key)).size!==proofs.length)throw Error("BREED_MEDIA_DUPLICATE_ASSET");
+  return proofs;
+}
+export function physicalBreedMediaValue(field:"image"|"gallery",value:unknown,proofs:readonly VerifiedProfileMedia[]|undefined):unknown{
+  if(field==="image"){
+    if(proofs?.length!==1)throw Error("BREED_MEDIA_PROOF_MISSING");
+    return requireProfileMediaProof("breeds",absoluteMedia(value),proofs[0]).url??"";
+  }
+  if(!Array.isArray(value)||proofs?.length!==value.length)throw Error("BREED_MEDIA_PROOF_MISSING");
+  return value.map((item:BreedGalleryMedia,i:number)=>{
+    const proof=requireProfileMediaProof("breeds",absoluteMedia(item.imageUrl),proofs[i]);
+    if(!proof.url||!proof.key||(item.imageKey&&item.imageKey!==proof.key))throw Error("BREED_MEDIA_PROOF_MISSING");
+    return {...item,imageUrl:proof.url,imageKey:proof.key};
+  });
+}
+async function matchesBreedMedia(canonical:unknown,key:unknown,remote:unknown,bucket?:Pick<R2Bucket,"head">){
+  if(remote==="")return canonical===""&&!key;
+  let owned:VerifiedProfileMedia;
+  try{owned=profileOwnedMediaReference("breeds",absoluteMedia(canonical));}catch{return false;}
+  if(!owned.key||owned.key!==key||!bucket)return false;
+  const target=absoluteMedia(remote),actual=absoluteMedia(canonical);
+  if(isExternalProfileMedia(target))return await profileMediaSourceAlias("breeds",actual,target,bucket)===target;
+  return actual===target&&Boolean(await bucket.head(owned.key));
+}
+export async function logicalBreedMediaValue(field:"image"|"gallery",canonical:unknown,currentKey:unknown,remote:unknown,bucket?:Pick<R2Bucket,"head">):Promise<unknown>{
+  if(field==="image")return await matchesBreedMedia(canonical,currentKey,remote,bucket)?remote:canonical;
+  if(!Array.isArray(canonical)||!Array.isArray(remote)||canonical.length!==remote.length)return canonical;
+  for(let i=0;i<remote.length;i++){
+    const a=canonical[i] as BreedGalleryMedia,b=remote[i] as BreedGalleryMedia;
+    if(!a||!b||a.alt!==b.alt||a.caption!==b.caption||a.credit!==b.credit||
+      (b.imageKey!=null&&a.imageKey!==b.imageKey)||
+      !await matchesBreedMedia(a.imageUrl,a.imageKey,b.imageUrl,bucket))return canonical;
+  }
+  return remote;
+}
