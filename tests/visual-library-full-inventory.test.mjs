@@ -25,7 +25,7 @@ test("complete source inventory includes every public or shared component file e
     "Source inventory is stale: update the file list, not the count alone");
   assert.equal(new Set(paths).size,paths.length);
   assert.equal(inventory.version,1);
-  assert.equal(paths.length,194);
+  assert.equal(paths.length,201);
 });
 
 test("real visual previews and server examples are accounted for without mislabeling helper files", () => {
@@ -47,6 +47,12 @@ test("real visual previews and server examples are accounted for without mislabe
   assert.equal(byPath.get("components/service-review-catalog.tsx").coverage,"page-composite");
   assert.equal(byPath.get("components/article-feedback.tsx").coverage,"needs-preview");
   assert.equal(byPath.get("components/partner-workspace-navigation.tsx").coverage,"needs-preview");
+  for (const path of ["dog-calculators", "dog-health-calendar", "event-subscription", "puppy-equipment-checklist"]) {
+    assert.equal(byPath.get("components/" + path + ".tsx").coverage,"needs-preview");
+  }
+  for (const path of ["dog-calculators-page", "dog-health-calendar-page", "puppy-equipment-page"]) {
+    assert.equal(byPath.get("components/" + path + ".tsx").coverage,"page-composite");
+  }
   assert.equal(previewMatches.length,84);
   assert.equal(previewPaths.size,55);
 });
