@@ -71,7 +71,7 @@ export type BreedEditorial = {
   heroTraits?: BreedHeroTrait[];
 };
 export type BreedHeroTrait = { label: string; rating: number };
-export type BreedSport = { key: string; label: string; rating: number; note?: string };
+export type BreedSport = { key: string; label: string; rating: number | null; note?: string };
 export type ManagedBreed = Breed & {
   id: number;
   status: BreedStatus;
@@ -476,7 +476,7 @@ function isBreedSport(value: unknown): value is BreedSport {
       typeof item === "object" &&
       typeof item.key === "string" &&
       typeof item.label === "string" &&
-      Number.isFinite(item.rating),
+      (item.rating === null || Number.isFinite(item.rating)),
   );
 }
 function isBreedHeroTrait(value: unknown): value is BreedHeroTrait {
@@ -1390,9 +1390,9 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEd
   for (const item of unchangedLegacySports ? [] : rawSports) {
     const key = text(item.key, 80);
     const label = text(item.label, 120);
-    const rating = Number(item.rating);
+    const rating = item.rating === null ? null : Number(item.rating);
     if (!key || !label) throw new Error("Každý šport musí mať interný kľúč a názov.");
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5)
+    if (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5))
       throw new Error(`Šport „${label}“ musí mať vhodnosť od 1 do 5.`);
     const next = { key, label, rating, note: text(item.note, 500) };
     const previous = sportKeys.get(key);

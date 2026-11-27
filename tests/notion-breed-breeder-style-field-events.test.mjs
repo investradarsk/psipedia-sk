@@ -187,3 +187,34 @@ test("signed webhook and Admin save both use same per-field engine",()=>{
   assert.match(editor,/changedFieldKeys=breedAdminDirtyPaths\(baseFormRef.current,submittedForm\)/);
   assert.doesNotMatch(sync,/updateManagedBreed\(canonical\.id, candidate/);
 });
+
+test("legacy text sports preserve names without invented ratings",()=>{
+  const props={"Športy a aktivity":rich("sports","Aportovanie a retriever tréning\nPachové hry, nosework a mantrailing","sports")};
+  const parsed=breedWorkcopyEventValues(page(props),["sports"],BREED_NOTION_SCHEMA,true);
+  assert.deepEqual(parsed.failures,[]);
+  assert.deepEqual(parsed.values[0].value,[
+    {key:"notion-aportovanie-a-retriever-trening",label:"Aportovanie a retriever tréning",rating:null,note:""},
+    {key:"notion-pachove-hry-nosework-a-mantrailing",label:"Pachové hry, nosework a mantrailing",rating:null,note:""},
+  ]);
+  const encoded=breedEventD1FieldPatch("sports",parsed.values[0].value);
+  assert.deepEqual(JSON.parse(encoded.params[0]),parsed.values[0].value);
+  props["Športy a aktivity"]=rich("sports","[broken","sports");
+  assert.equal(breedWorkcopyEventValues(page(props),["sports"],BREED_NOTION_SCHEMA,true).failures.length,1);
+});
+test("legacy concatenation strips only exact already-preserved siblings",async()=>{
+  const {isLegacyBreedDuplicate}=await import("../lib/notion-breed-legacy-duplicates.mjs");
+  const canonical={"fciStandard.oci":"Hnedé","editorial.coatTip":"Osušiť"};
+  assert.equal(isLegacyBreedDuplicate("editorial.coatCare","Text — Praktický tip k srsti: Osušiť","Text",canonical,{}),true);
+  assert.equal(isLegacyBreedDuplicate("editorial.coatCare","Text — Praktický tip k srsti: Nové","Text",canonical,{}),false);
+  assert.equal(isLegacyBreedDuplicate("editorial.coatCare","Text — Praktický tip k srsti: Osušiť — Neznáme: X","Text",canonical,{}),false);
+  assert.equal(isLegacyBreedDuplicate("fciStandard.hlava_lebecna_cast","Lebka — Oči podľa FCI: Hnedé","Lebka",canonical,{}),false);
+  assert.equal(isLegacyBreedDuplicate("fciStandard.hlava_lebecna_cast","Lebka — Oči podľa FCI: Hnedé","Lebka",canonical,{"fciStandard.oci":"Hnedé"}),true);
+});
+test("breed cursor restarts on changed field catalog and retains position otherwise",async()=>{
+  const {decodeBreedCursor,encodeBreedCursor}=await import("../lib/notion-breed-recovery-cursor.mjs");
+  const fields=["apartment","energy","grooming"];
+  assert.deepEqual(decodeBreedCursor(fields,2,12),{id:0,offset:0});
+  const stored=encodeBreedCursor(fields,2);
+  assert.deepEqual(decodeBreedCursor(fields,2,stored),{id:2,offset:2});
+  assert.deepEqual(decodeBreedCursor(["apartment","grooming"],2,stored),{id:0,offset:0});
+});
