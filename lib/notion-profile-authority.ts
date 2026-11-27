@@ -23,8 +23,8 @@ const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
     ...breedControlledKeys.map((key:string)=>"controlled."+key)],
   events:["title","eventType","startDate","endDate","startTime","endTime","organizer","excerpt","description","practicalInfo","contactPhone","contactEmail","admissionFee","websiteUrl","registrationUrl","imageAlt","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
   organizations:["Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram"],
-  adoptions:["Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
-  "lost-found":["Meno psa","Pohlavie","Farba","Vek","Veľkosť","Krátky popis","Popis","Rozlišovacie znaky","Obojok","Čip","Dátum udalosti","Kraj","Okres","Mesto"],
+  adoptions:["Plemeno","Organizácia","Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
+  "lost-found":["Plemeno","Naposledy videný","Zdroj URL","Meno psa","Pohlavie","Farba","Vek","Veľkosť","Krátky popis","Popis","Rozlišovacie znaky","Obojok","Čip","Dátum udalosti","Kraj","Okres","Mesto"],
   "help-cases":["Názov","Perex","Popis","Pes","Plemeno","Vek","Mesto","Kraj","Miesto","Dátum hlásenia","Deadline","CTA text","CTA URL","Cieľ","Vyzbierané","Urgentné"],
   eshops:["name","websiteUrl","description","sourceUrl","focusTags","logoUrl"],
 };
@@ -88,4 +88,17 @@ export function directoryAuthorityWriteGuard(reservation: {identity:FieldIdentit
     AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id AND m.notion_page_id=?)
     AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda='directory' AND s.entity_id=CAST(directory_profiles.id AS TEXT) AND s.notion_page_id=? AND s.field_key=? AND s.version=? AND s.status='PENDING')`,
     params:[identity.pageId,identity.pageId,identity.field,reservation.version]};
+}
+
+/** Common V2 reservation predicate for the four Help canonical SQL owners.
+ * The existing mapping/review/partner/tombstone checks remain in their writers. */
+export function helpAuthorityWriteGuard(reservation:{identity:FieldIdentity;version:number;profileAuthority?:true}|undefined,
+  agenda:"adoptions"|"lost-found"|"help-cases"|"organizations",id:number,pageId:string,field:string){
+  if(!reservation?.profileAuthority)return {sql:"",params:[] as (string|number)[]};
+  const identity=reservation.identity,table=specs[agenda].table;
+  if(identity.agenda!==agenda||identity.entityId!==String(id)||identity.pageId!==pageId||identity.field!==field||!Number.isSafeInteger(reservation.version))
+    throw Error("HELP_AUTHORITY_RESERVATION_SCOPE");
+  return {sql:" AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=? AND f.entity_id=CAST("+table+".id AS TEXT))"+
+    " AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda=? AND s.entity_id=CAST("+table+".id AS TEXT) AND s.notion_page_id=? AND s.field_key=? AND s.version=? AND s.status='PENDING')",
+    params:[agenda,agenda,pageId,field,reservation.version]};
 }

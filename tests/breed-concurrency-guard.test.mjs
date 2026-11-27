@@ -363,6 +363,7 @@ test("staged combined breed editor rolls back canonical, controlled and review c
       CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
       CREATE TABLE notion_unified_manual_fence(agenda TEXT,entity_id TEXT);
       CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER,reviewed_at TEXT,reviewed_by TEXT,PRIMARY KEY(entity_type,entity_id));
+      CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER PRIMARY KEY,work_last_error_code TEXT);
       CREATE TABLE breed_notion_controlled_values(breed_id INTEGER PRIMARY KEY,values_json TEXT,revision INTEGER);
       INSERT INTO breed_notion_controlled_values VALUES(1,'{"heightMin":20}',3);
       INSERT INTO breed_fci_standard(breed_id) VALUES(1);

@@ -242,6 +242,9 @@ export function isVerifiedAuthorityProperty(raw:unknown,observed:FieldObservatio
   if(type==="date"){
     if(value===null)return observed.value===""||observed.value===null;
     const d=value as {start?:unknown;end?:unknown}|undefined;
+    if(typeof d?.start==="string"&&!d.end&&typeof observed.value==="string"&&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(d.start)&&Number.isFinite(Date.parse(d.start)))
+      return new Date(d.start).toISOString()===observed.value;
     return typeof d?.start==="string"&&!d.end&&typeof observed.value==="string"&&
       /^\d{4}-\d{2}-\d{2}$/.test(d.start)&&Number.isFinite(Date.parse(d.start))&&
       new Date(d.start+"T00:00:00Z").toISOString().slice(0,10)===d.start&&d.start===observed.value;

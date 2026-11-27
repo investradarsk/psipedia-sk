@@ -246,7 +246,7 @@ async function syncAuthoritativeCatalogRelation(input:Parameters<typeof syncProf
     const membership=await loadServiceProfileMembership(db,profileId);
     if(!membership||membership.primary!==category||membership.status==="archived")throw Error("SERVICES_RELATION_PROFILE_CATEGORY_CHANGED");
     const page=await readRemote(bindings,pageId,directoryDataSourceId);
-    if(!isVerifiedAuthorityProperty(page.properties?.["Psipedia ID"],{present:true,value:String(profileId)}))
+    if(!isVerifiedAuthorityProperty(page.properties?.["Psipedia ID"],{present:true,value:String(profileId)})&&!isVerifiedAuthorityProperty(page.properties?.["Psipedia ID"],{present:true,value:profileId}))
       throw Error("SERVICES_RELATION_PROFILE_ID_CHANGED");
     const raw=relationIds(page);
     if(raw===null)throw Error("SERVICES_RELATION_SCHEMA_MISSING");

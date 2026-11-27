@@ -1,3 +1,5 @@
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
+import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitAdoptionV2AdminEdit, ADOPTION_V2_FIELDS, isAdoptionV2Field, adoptionV2Value } from "./notion-adoption-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
@@ -134,9 +136,10 @@ export async function updateAdoptionFromAdmin(
  * field, but the SQL write cannot change unrelated content, lifecycle,
  * gallery or freshness metadata. All identity/lock predicates are atomic. */
 export async function updateAdoptionV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;
 }) {
   const {database,id,pageId,field,value,revision}=input;
+  const authority=helpAuthorityWriteGuard(input.reservation,"adoptions",id,pageId,field);
   if(!isAdoptionV2Field(field))throw Error("ADOPTION_V2_FIELD_PROTECTED");
   const existing=await getAdoptionById(id,database);
   if(!existing || existing.updatedAt!==revision || existing.status==="ARCHIVED")
@@ -144,15 +147,15 @@ export async function updateAdoptionV2NotionField(input:{
   const [column,key]=ADOPTION_V2_FIELDS[field];
   const patch:ManagedAdoptionInput={};
   if(field==="Plemeno" || field==="Organizácia"){
-    if(typeof value!=="string" || !value.trim())throw Error("ADOPTION_V2_RELATION_INVALID");
+    if(typeof value!=="string" || (!value.trim()&&!input.reservation?.profileAuthority))throw Error("ADOPTION_V2_RELATION_INVALID");
     const table=field==="Plemeno"?"managed_breeds":"help_organizations";
     const rows=await database.prepare("SELECT id,name,slug FROM "+table+" WHERE lower(trim(name))=lower(trim(?))"+
-      (field==="Organizácia"?" AND archived_at IS NULL":"")+" ORDER BY id LIMIT 2").bind(value).all<{id:number;name:string;slug:string}>();
+      (field==="Organizácia"?" AND archived_at IS NULL AND status<>'ARCHIVED'":input.reservation?.profileAuthority?" AND status='published'":"")+" ORDER BY id LIMIT 2").bind(value).all<{id:number;name:string;slug:string}>();
     if(rows.results.length>1)throw Error("ADOPTION_V2_RELATION_AMBIGUOUS");
     const target=rows.results[0];
     // A typed Notion name must not silently unlink an existing canonical
     // relationship just because its new label cannot be resolved.
-    if(!target && (field==="Plemeno"?existing.breedId:existing.organizationId))
+    if(!target && (input.reservation?.profileAuthority?Boolean(value.trim()):(field==="Plemeno"?existing.breedId:existing.organizationId)))
       throw Error("ADOPTION_V2_RELATION_UNRESOLVED");
     if(field==="Plemeno"){patch.breedId=target?.id??null;patch.breedName=value;}
     else{patch.organizationId=target?.id??null;patch.organizationName=value;patch.organizationSlug=target?.slug??null;}
@@ -196,7 +199,7 @@ export async function updateAdoptionV2NotionField(input:{
     "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ADOPTION' AND entity_id=adoption_dogs.id) "+
     "AND NOT "+partnerReviewOwnerSql("ADOPTION","adoption_dogs.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='adoptions' AND record_id=adoption_dogs.id) "+
-    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='adoptions' AND entity_id=adoption_dogs.id AND notion_page_id=?)"+relationGuard)
-    .bind(...columns.map(c=>values[c]),id,revision,pageId,...relationArgs).run();
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='adoptions' AND entity_id=adoption_dogs.id AND notion_page_id=?)"+relationGuard+authority.sql)
+    .bind(...columns.map(c=>values[c]),id,revision,pageId,...relationArgs,...authority.params).run();
   if(result.meta.changes!==1)throw Error("ADOPTION_V2_WRITE_CONFLICT");
 }

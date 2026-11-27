@@ -1,3 +1,5 @@
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
+import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitHelpCaseV2AdminEdit, HELP_CASE_V2_FIELDS, HELP_CASE_V2_SEO, isHelpCaseV2Field, isHelpCaseV2SeoField, helpCaseV2Kind, helpCaseV2Value } from "./notion-help-case-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
@@ -870,9 +872,10 @@ export function isHelpCaseConflict(error: unknown) {
  * dedicated adoption/organization/Lost-Found domains. Public editorial
  * contact text is existing canonical content, not a private contact store. */
 export async function updateHelpCaseV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;
 }) {
   const {database,id,pageId,field,value,revision}=input;
+  const authority=helpAuthorityWriteGuard(input.reservation,"help-cases",id,pageId,field);
   if(!isHelpCaseV2Field(field)&&!isHelpCaseV2SeoField(field))throw Error("HELP_CASE_V2_PROTECTED");
   const row=await database.prepare("SELECT * FROM help_cases WHERE id=? AND updated_at=? AND "+HELP_ADMIN_DOMAIN_SQL)
     .bind(id,revision).first<HelpCaseRow>();
@@ -942,7 +945,7 @@ export async function updateHelpCaseV2NotionField(input:{
     " AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='HELP_CASE' AND entity_id=help_cases.id)"+
     " AND NOT "+partnerReviewOwnerSql("HELP_CASE","help_cases.id")+
     " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='help' AND record_id=help_cases.id)"+
-    " AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=help_cases.id AND notion_page_id=?)")
-    .bind(...args,id,revision,pageId).run();
+    " AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=help_cases.id AND notion_page_id=?)"+authority.sql)
+    .bind(...args,id,revision,pageId,...authority.params).run();
   if(result.meta.changes!==1)throw Error("HELP_CASE_V2_WRITE_CONFLICT");
 }

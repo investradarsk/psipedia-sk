@@ -137,7 +137,10 @@ export async function saveBreederRelationSelection(
       ).bind(profileId,id,now,actor,profileId,id));
     }
     const target=field==="breedIds"?"SELECT id FROM managed_breeds WHERE status='published'":"SELECT id FROM directory_profiles WHERE category='chovatelske-kluby' AND status IN ('draft','published')";
-    statements.unshift(database.prepare("SELECT CASE WHEN (SELECT COUNT(*) FROM ("+target+") WHERE id IN (SELECT value FROM json_each(?)))=? THEN 1 ELSE json_extract('RELATION_TARGET_CHANGED',' = unified.authenticatedAdmin ? planDirectoryAdminReceipts(database, {
+    statements.unshift(database.prepare("SELECT CASE WHEN (SELECT COUNT(*) FROM ("+target+") WHERE id IN (SELECT value FROM json_each(?)))=? THEN 1 ELSE json_extract('RELATION_TARGET_CHANGED','$') END AS verified").bind(wanted,chosen[field].length));
+  }
+  if (unified && revision) {
+    const receipt = unified.authenticatedAdmin ? planDirectoryAdminReceipts(database, {
       id: profileId, expectedRevision: revision.updated_at, nextRevision: now, editor: actor, fields: [],
       structured: [directoryBreederRelationReceiptField("breedIds"),
         ...(profile.category === "chovatelske-stanice" ? [directoryBreederRelationReceiptField("clubIds")] : [])],
@@ -146,85 +149,6 @@ export async function saveBreederRelationSelection(
     const canonical = database.prepare(
       "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+" RETURNING id",
     ).bind(now,actor,profileId,profile.category,revision.updated_at,...guard.params);
-    const verify = database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT','$') END AS cas_ok");
-    const results = await database.batch([...receipt.before,canonical,verify,...statements,...receipt.after]);
-    if (!(results[receipt.before.length]?.results ?? []).length) throw Error("DIRECTORY_RELATION_CAS_CONFLICT");
-    return chosen;
-  }
-  statements.push(database.prepare(
-    "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND status<>'archived' RETURNING id",
-  ).bind(now,actor,profileId));
-  const results = await database.batch(statements);
-  if (!(results.at(-1)?.results ?? []).length)
-    throw Error("Profil sa nepodarilo potvrdiť po uložení vzťahov.");
-  return chosen;
-}
-
-export async function listPublicBreederClubLinks(
-  database: Database, profileId: number,
-): Promise<BreederPublicLink[]> {
-  const profile = await breeder(database, profileId);
-  if (!profile || profile.category !== "chovatelske-stanice") return [];
-  const result = await database.prepare(
-    `SELECT d.id,d.name,d.slug FROM directory_breeder_club_relations r
-     JOIN directory_profiles d ON d.id=r.club_profile_id
-     WHERE r.station_profile_id=? AND d.category='chovatelske-kluby'
-       AND d.status='published' AND d.archived_at IS NULL
-     ORDER BY d.name COLLATE NOCASE`,
-  ).bind(profileId).all<{ id: number; name: string; slug: string }>();
-  return (result.results ?? []).map(row => ({
-    id: row.id, name: row.name, href: "/adresar/chovatelske-kluby/" + row.slug,
-  }));
-}
-
-/** Reverse lookup: the same SQL relation, never separate club metadata. */
-export async function listPublicClubStationLinks(
-  database: Database, profileId: number,
-): Promise<BreederPublicLink[]> {
-  const profile = await breeder(database, profileId);
-  if (!profile || profile.category !== "chovatelske-kluby") return [];
-  const result = await database.prepare(
-    `SELECT d.id,d.name,d.slug FROM directory_breeder_club_relations r
-     JOIN directory_profiles d ON d.id=r.station_profile_id
-     WHERE r.club_profile_id=? AND d.category='chovatelske-stanice'
-       AND d.status='published' AND d.archived_at IS NULL
-     ORDER BY d.name COLLATE NOCASE`,
-  ).bind(profileId).all<{ id: number; name: string; slug: string }>();
-  return (result.results ?? []).map(row => ({
-    id: row.id, name: row.name, href: "/adresar/chovatelske-stanice/" + row.slug,
-  }));
-}
-/** Show every selected canonical, published breed, not the generic six-item teaser. */
-export async function listPublicBreederBreedLinks(
-  database: Database, profileId: number,
-): Promise<PublicRelatedBreed[]> {
-  const profile = await breeder(database, profileId);
-  if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)) return [];
-  const rows = await database.prepare(
-    `SELECT DISTINCT b.id,b.name,b.slug,b.image_url,b.fci_group
-     FROM breed_directory_relations r
-     JOIN managed_breeds b ON b.id=r.breed_id
-     WHERE r.profile_id=? AND b.id IN (${canonicalBreedIdsSqlV2})
-     ORDER BY b.fci_group,b.name COLLATE NOCASE LIMIT 40`,
-  ).bind(profileId).all<{
-    id: number; name: string; slug: string; image_url: string | null; fci_group: number;
-  }>();
-  return (rows.results ?? []).map(row => ({
-    id: row.id, name: row.name, slug: row.slug,
-    href: breedProfileHref(row.slug, row.fci_group), imageUrl: row.image_url, fciGroup: row.fci_group,
-  }));
-}
-) END AS verified").bind(wanted,chosen[field].length));
-  }
-  if (unified && revision) {
-    const receipt = unified.authenticatedAdmin ? planDirectoryAdminReceipts(database, {
-      id: profileId, expectedRevision: revision.updated_at, nextRevision: now, editor: actor, fields: [],
-      structured: [directoryBreederRelationReceiptField("breedIds"),
-        ...(profile.category === "chovatelske-stanice" ? [directoryBreederRelationReceiptField("clubIds")] : [])],
-    }) : { before: [], after: [] };
-    const canonical = database.prepare(
-      "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id",
-    ).bind(now,actor,profileId,profile.category,revision.updated_at);
     const verify = database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT','$') END AS cas_ok");
     const results = await database.batch([...receipt.before,canonical,verify,...statements,...receipt.after]);
     if (!(results[receipt.before.length]?.results ?? []).length) throw Error("DIRECTORY_RELATION_CAS_CONFLICT");

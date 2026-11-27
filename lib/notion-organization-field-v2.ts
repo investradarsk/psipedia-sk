@@ -1,8 +1,9 @@
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import { ORGANIZATION_V2_COLUMNS, isOrganizationV2Field, ORGANIZATION_LOCATION_V2_COLUMNS, isOrganizationLocationV2Field, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import { normalizeOrganizationLocationAdminInput } from "./organization-location-admin.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeOrganizationNotionField } from "./help-organization-admin-input.ts";
-import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { loadNotionBulkOrganizations } from "./notion-bulk-sources.ts";
@@ -76,7 +77,8 @@ async function observe(input: OrganizationV2Scope, field: string, allowSlugChang
     psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:source.properties[field]} : {present:false as const}};
 }
 
-async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string) {
+async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string,reservation?:FieldReservation) {
+  const authority=helpAuthorityWriteGuard(reservation,"organizations",input.entityId,input.pageId,field);
   if(!isOrganizationV2Field(field))throw Error("ORGANIZATION_V2_FIELD_PROTECTED");
   const normalized=normalizeOrganizationNotionField(field,value);
   // URL normalization is allowed only when it does not silently change the
@@ -90,8 +92,8 @@ async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,r
     "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ORGANIZATION' AND entity_id=help_organizations.id) "+
     "AND NOT "+partnerReviewOwnerSql("ORGANIZATION","help_organizations.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=help_organizations.id) "+
-    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"
-  ).bind(normalized,nextOrganizationEditRevision(revision,new Date()),ACTOR,input.entityId,revision,input.pageId).run();
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"+authority.sql
+  ).bind(normalized,nextOrganizationEditRevision(revision,new Date()),ACTOR,input.entityId,revision,input.pageId,...authority.params).run();
   if(result.meta.changes!==1)throw Error("ORGANIZATION_V2_WRITE_CONFLICT");
 }
 
@@ -136,6 +138,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>;
 }) {
   const {database,entityId,pageId,direction}=input;
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&direction==="push")return {pulled:0,pushed:0,failed:[] as string[]};
   const failed:string[]=[];
   let pulled=0,pushed=0;
   const fields=[...new Set(input.fields)];
@@ -171,7 +174,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
           throw Error("ORGANIZATION_V2_SOURCE_CHANGED");
         if(reservation)await assertUnifiedReservationCurrent(database,reservation);
         if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh);
-        else await pullScalar(input,field,value,observation.revision);
+        else await pullScalar(input,field,value,observation.revision,reservation??undefined);
         pulled++;
       }else{
         const fresh=await observe(input,field,slug);

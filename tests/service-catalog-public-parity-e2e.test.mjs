@@ -208,7 +208,9 @@ test("the two Notion service properties have isolated write paths",()=>{
  assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan.target\)/);
  assert.doesNotMatch(relation,/reflectPublicServiceText|ensureCanonicalServiceChoicesInLegacy|projectServiceChoiceToDirectoryNotion/);
  assert.doesNotMatch(route,/projectServiceChoiceToDirectoryNotion|notionProjection/);
- assert.doesNotMatch(bridge,/UPDATE directory_profiles|services_json\s*=|projectServiceChoiceToDirectoryNotion/);
+ assert.doesNotMatch(bridge,/services_json\s*=|projectServiceChoiceToDirectoryNotion/);
+ assert.match(bridge,/UPDATE directory_profiles SET updated_at=\?,updated_by=\?/);
+ assert.doesNotMatch(bridge,/UPDATE directory_profiles SET (?!updated_at=\?,updated_by=\?)/);
 });
 
 

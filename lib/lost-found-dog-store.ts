@@ -1,3 +1,5 @@
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
+import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitLostFoundV2AdminEdit, LOST_FOUND_V2_FIELDS, isLostFoundV2Field, lostFoundV2Value } from "./notion-lost-found-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
@@ -856,9 +858,10 @@ function cleanImageNullable(value: unknown) { const text = cleanText(value, 1000
  * dependent SQL fields. Never reads or decrypts lost_found_dog_private_details,
  * invokes moderation, changes publication, or modifies public contact approval. */
 export async function updateLostFoundV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;
 }) {
   const {database,id,pageId,field,value,revision}=input;
+  const authority=helpAuthorityWriteGuard(input.reservation,"lost-found",id,pageId,field);
   if(!isLostFoundV2Field(field)||typeof value!=="string")throw Error("LOST_FOUND_V2_PROTECTED_FIELD");
   const row=await database.prepare("SELECT type,status,slug,breed_id,breed_unknown,source,main_image_key,duplicate_of_id,updated_at,"+
     "dog_name,breed,color,short_description,description,distinguishing_marks,region,district,city,location_description "+
@@ -877,7 +880,7 @@ export async function updateLostFoundV2NotionField(input:{
   if(field==="Plemeno"){
     const matches=await database.prepare("SELECT id,name FROM managed_breeds WHERE status='published' AND lower(trim(name))=lower(trim(?)) ORDER BY id LIMIT 2")
       .bind(value).all<{id:number;name:string}>();
-    if(matches.results.length>1||(!matches.results.length&&row.breed_id!==null))throw Error("LOST_FOUND_V2_BREED_AMBIGUOUS");
+    if(matches.results.length>1||(!matches.results.length&&(input.reservation?.profileAuthority?Boolean(value.trim()):row.breed_id!==null)))throw Error("LOST_FOUND_V2_BREED_AMBIGUOUS");
     patch.breedId=matches.results[0]?.id??null;patch.breed=value;patch.breedUnknown=!value;
   }else if(field==="Hlavný obrázok"){
     patch.mainImage=value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
@@ -903,6 +906,6 @@ export async function updateLostFoundV2NotionField(input:{
     "AND NOT "+partnerReviewOwnerSql("LOST_FOUND","lost_found_dog_reports.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='lost-found' AND record_id=lost_found_dog_reports.id) "+
     "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='lost-found' AND entity_id=lost_found_dog_reports.id AND notion_page_id=?)"+
-    relationGuard).bind(...values,id,revision,pageId,...(relationGuard?[clean.breedId,clean.breed]:[])).run();
+    relationGuard+authority.sql).bind(...values,id,revision,pageId,...(relationGuard?[clean.breedId,clean.breed]:[]),...authority.params).run();
   if(result.meta.changes!==1)throw Error("LOST_FOUND_V2_WRITE_CONFLICT");
 }

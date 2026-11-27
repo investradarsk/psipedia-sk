@@ -162,3 +162,8 @@ Changes committed:
 - Decoder regression added, execution unconfirmed; still need transaction fixture/live provider tests, first-copy/unlock parity, secondary-category facets, other media/relations and 6C legacy path audit. No production mode change.
 
 - Added an isolated SQLite fixture exercising the actual atomic writer with existing 0133/0134/0149 migrations: review and membership races, forced mid-transaction rollback (including audit and revision), successful secondary-category selection, explicit empty set, preservation of NO/attributes, monotonic choice version after reset. Execution awaits CI.
+
+### Step 1/11 — remaining core integration (continuation)
+- Restored breeder relation SQL and removed a duplicated corrupted suffix that caused the last build/lint failure. Preserved exact reservation and target guards. Updated the breed fixture and the service isolation assertion to permit only a parent revision update, not legacy service text writes.
+- Help/adoptions/lost-found/organization scalar inbound writers now receive the same field reservation and add a fence + pending reservation CAS inside their existing guarded SQL. Staged ordinary Help/Organization push paths return without content PATCH, even for structural fields. Existing adoption and lost/found name relation adapters enabled for strictly observed mapped values; explicit blank can unlink, nonempty unresolved/ambiguous names fail in staged mode. Exact timestamp decoding and numeric Psipedia ID proof added. No private contact fields enabled.
+- No production writes, no schema apply. Remaining media, secondary facet transport, creation/unlock parity and lifecycle/bypass checks still open; test results not confirmed. Keep staged switch off.

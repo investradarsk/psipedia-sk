@@ -1,4 +1,4 @@
-import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock.ts";
@@ -59,7 +59,7 @@ type Scope={database:D1Database;bindings:NotionSyncBindings;agenda:Agenda;entity
   load:(db:D1Database,id:number)=>Promise<CanonicalSourceRecord[]>};
 type Adapter=Scope & {fields:readonly string[];direction:"pull"|"push";
   kind:(field:string)=>FieldKind|undefined;protectedFields:ReadonlySet<string>;
-  pull:(field:string,value:unknown,revision:string)=>Promise<void>;
+  pull:(field:string,value:unknown,revision:string,reservation?:FieldReservation)=>Promise<void>;
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>};
 
 async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolean){
@@ -91,6 +91,7 @@ async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolea
  * adapter must enforce a revision/mapping/lock CAS inside its own SQL write. */
 export async function syncHelpV2Fields(input:Adapter){
   const {database,agenda,entityId,pageId,direction}=input;
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&direction==="push")return {pulled:0,pushed:0,failed:[] as string[]};
   const fields=[...new Set(input.fields)];
   if(direction==="push")for(const key of ["Slug",...(agenda==="lost-found"?["Typ"]:agenda==="help-cases"?["Kategória"]:[])]){
     if(fields.includes(key))fields.splice(0,0,...fields.splice(fields.indexOf(key),1));
@@ -121,7 +122,7 @@ export async function syncHelpV2Fields(input:Adapter){
         fresh.page.last_edited_time!==observed.page.last_edited_time)
         throw Error("HELP_V2_SOURCE_CHANGED");
       if(reservation)await assertUnifiedReservationCurrent(database,reservation);
-      if(direction==="pull")await input.pull(field,value,observed.revision);
+      if(direction==="pull")await input.pull(field,value,observed.revision,reservation??undefined);
       else {
         const values:Record<string,ReconciliationValue>={[field]:value as ReconciliationValue};
         if(slug)values["URL Psipedia"]=fresh.source.url;
