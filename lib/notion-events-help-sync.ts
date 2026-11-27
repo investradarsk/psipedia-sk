@@ -10,7 +10,8 @@ import { updateAdoptionV2NotionField } from "./adoption-admin-write.ts";
 import { syncOrganizationV2Fields } from "./notion-organization-field-v2.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
-import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
+import { isAdminNotionSyncLocked, isActiveAdminPartnerOwner, partnerReviewOwnerSql, reviewTypeForAgenda } from "./admin-notion-review-lock";
+import { runUnifiedReviewTransition } from "./notion-unified-manual-fence.ts";
 import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot, sameHelpFieldValue } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
@@ -62,7 +63,7 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
-import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
+import { selectiveNotionProperties, sameNotionProperty } from "./notion-selective-property-patch.ts";
 import {
   EVENT_NOTION_CONTACT_FIELDS,
   withoutEventContactFields,
@@ -2620,4 +2621,123 @@ export async function recoverEventsHelpV2Field(database:D1Database,bindings:Noti
   const kind=agenda==="lost-found"?lostFoundV2Kind(field):helpCaseV2Kind(field);
   if(!kind||protectedFields.has(field))throw Error("HELP_V2_RECOVERY_SCOPE");
   await recoverHelpV2Field({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases},field,kind);
+}
+
+
+/** One explicit reviewed-profile export, not an ordinary outbound sync.
+ * Keep the canonical review and persistent fence throughout provider I/O.
+ * The existing source loaders only export the agenda's approved projection. */
+export async function unlockReviewedEventsHelpProfile(input:{
+  database:D1Database;bindings:NotionEventsHelpSyncBindings;
+  agenda:BidirectionalAgendaKey;entityId:number;
+}):Promise<void>{
+  const {database:db,bindings,agenda,entityId:id}=input;
+  if(!enabled(bindings)||bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")
+    throw Error("REVIEW_UNLOCK_DISABLED");
+  const type=reviewTypeForAgenda(agenda);
+  const definition=definitions.find(item=>item.key===agenda);
+  if(!definition||!Number.isSafeInteger(id)||id<1)throw Error("REVIEW_UNLOCK_SCOPE_INVALID");
+  const table=({events:"managed_events",organizations:"help_organizations",adoptions:"adoption_dogs",
+    "lost-found":"lost_found_dog_reports","help-cases":"help_cases"} as const)[agenda];
+  const kind=agenda==="help-cases"?"help":agenda;
+  const mapTable=agenda==="events"?"event_notion_sync":"notion_agenda_sync";
+  const mapId=agenda==="events"?"event_id":"entity_id";
+  const mapScope=agenda==="events"?"":" AND agenda=?";
+  const mapArgs=agenda==="events"?[]:[agenda];
+  const readMapping=()=>db.prepare("SELECT notion_page_id FROM "+mapTable+" WHERE "+mapId+"=?"+mapScope)
+    .bind(id,...mapArgs).first<{notion_page_id:string}>();
+  async function snapshot(){
+    if(await isActiveAdminPartnerOwner(db,type,id))throw Error("REVIEW_UNLOCK_PARTNER_OWNED");
+    const local=await db.prepare("SELECT p.updated_at,p.status FROM "+table+" p WHERE p.id=? "+
+      "AND EXISTS(SELECT 1 FROM admin_entity_reviews r WHERE r.entity_type=? AND r.entity_id=p.id) "+
+      "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=? AND t.record_id=p.id)")
+      .bind(id,type,kind).first<{updated_at:string;status:string}>();
+    if(!local||String(local.status).toLowerCase()==="archived")throw Error("REVIEW_UNLOCK_CANONICAL_LOCK_REQUIRED");
+    const mapping=await readMapping();
+    if(!mapping)throw Error("REVIEW_UNLOCK_MAPPING_MISSING");
+    const target=await resolveNotionCanonicalTarget({database:db,
+      bindings:bindings as NotionEventsHelpSyncBindings & Record<string,unknown>,
+      definition:canonicalTargetDefinition(definition!),allowCreate:false,persist:false});
+    if(!target.dataSourceId)throw Error("REVIEW_UNLOCK_TARGET_MISSING");
+    const schema=(await fetchDataSource(bindings,target.dataSourceId)).properties??{};
+    const source=(await definition!.load(db,id)).find(item=>sourceId(item)===id);
+    if(!source||await canonicalUpdatedAt(agenda,id,db)!==local.updated_at||
+      (await readMapping())?.notion_page_id!==mapping.notion_page_id)
+      throw Error("REVIEW_UNLOCK_REVISION_CHANGED");
+    // Never manufacture a clear from a missing canonical property or schema.
+    const required=[...agendaEditableFields[agenda],"Psipedia ID","URL Psipedia","Odkontrolované"];
+    const values:Record<string,ReconciliationValue>={...source.properties,
+      "Psipedia ID":source.id,"URL Psipedia":source.url,"Odkontrolované":true};
+    if(required.some(name=>!schema[name]||!Object.hasOwn(values,name)||values[name]===undefined))
+      throw Error("REVIEW_UNLOCK_SCHEMA_INCOMPLETE");
+    const desired=encodeProperties(values,schema);
+    if(required.some(name=>!Object.hasOwn(desired,name))||propertyType(schema["Odkontrolované"])!=="checkbox")
+      throw Error("REVIEW_UNLOCK_ENCODING_INCOMPLETE");
+    const hash=await snapshotHash(agenda,editableSnapshot(agenda,source.properties,schema));
+    return {revision:local.updated_at,content:{pageId:mapping.notion_page_id,
+      dataSourceId:target.dataSourceId,desired,hash}};
+  }
+  // Reject obvious missing mapping/invalid schema before acquiring a durable
+  // fence. Re-read inside it before any mutation.
+  await snapshot();
+  let verifiedEditedAt:string|null=null;
+  await runUnifiedReviewTransition(db,{scope:agenda,profile_id:id},{
+    kind:"unlock",
+    readLockedSnapshot:snapshot,
+    async transferAndVerify(_fence,expected){
+      const current=await snapshot();
+      if(JSON.stringify(current)!==JSON.stringify(expected))return false;
+      const {pageId,dataSourceId,desired}=expected.content;
+      const read=async()=>{
+        const page=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(pageId));
+        if(page.id!==pageId||!notionPageBelongsToDataSource(page,dataSourceId)||
+          identityPage(page).psipediaId!==String(id))throw Error("REVIEW_UNLOCK_REMOTE_IDENTITY");
+        for(const [key,wanted] of Object.entries(desired)){
+          const raw=page.properties?.[key] as Record<string,unknown>|undefined;
+          const property=Object.keys(wanted as Record<string,unknown>)[0];
+          if(!raw||raw.type!==property||!Object.hasOwn(raw,property)||raw.has_more===true||
+            (Array.isArray(raw[property])&&(raw[property] as unknown[]).length>=25))
+            throw Error("REVIEW_UNLOCK_REMOTE_PROPERTY_INCOMPLETE");
+        }
+        return page;
+      };
+      const page=await read();
+      const patch=selectiveNotionProperties(page.properties??{},desired);
+      // The lock's technical mirror stays true during the entire transfer.
+      if(patch)await patchPage(bindings,pageId,patch);
+      const confirmed=await read();
+      if(Object.entries(desired).some(([key,wanted])=>!sameNotionProperty(confirmed.properties?.[key],wanted)))
+        return false;
+      if(JSON.stringify(await snapshot())!==JSON.stringify(expected))return false;
+      verifiedEditedAt=confirmed.last_edited_time??null;
+      return true;
+    },
+    async unlockIfCurrent(fence,expected){
+      if(!verifiedEditedAt)return false;
+      const current=await snapshot();
+      if(JSON.stringify(current)!==JSON.stringify(expected))return false;
+      const guard="EXISTS(SELECT 1 FROM "+table+" p WHERE p.id=? AND p.updated_at=? AND lower(p.status)<>'archived')"+
+        " AND EXISTS(SELECT 1 FROM "+mapTable+" WHERE "+mapId+"=? AND notion_page_id=?"+mapScope+")"+
+        " AND EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=? AND owner_token=?)"+
+        " AND EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=? AND entity_id=?)"+
+        " AND NOT "+partnerReviewOwnerSql(type,String(id))+
+        " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind=? AND record_id=?)";
+      const args=[id,expected.revision,id,expected.content.pageId,...mapArgs,agenda,String(id),fence.token,type,id,kind,id];
+      const now=new Date().toISOString();
+      const requireOne=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('REVIEW_UNLOCK_CAS_CONFLICT','$') END");
+      const result=await db.batch([
+        db.prepare("UPDATE "+mapTable+" SET content_hash=?,notion_last_edited_time=?,psipedia_updated_at=?,last_synced_at=?,updated_at=?"+
+          (agenda==="events"?",inbound_locked_at=NULL,inbound_lock_reason=NULL":"")+
+          " WHERE "+mapId+"=?"+mapScope+" AND notion_page_id=? AND "+guard)
+          .bind(expected.content.hash,verifiedEditedAt,expected.revision,now,now,id,...mapArgs,expected.content.pageId,...args),
+        requireOne(),
+        db.prepare("DELETE FROM admin_entity_reviews WHERE entity_type=? AND entity_id=? AND "+guard)
+          .bind(type,id,...args),
+        requireOne(),
+      ]);
+      return result.every(row=>row.success)&&result[2]?.meta.changes===1;
+    },
+  });
+  // The normal metadata mirror will publish Odkontrolované=false after this
+  // verified D1 commit. A failed mirror must never reopen an unverified profile.
 }
