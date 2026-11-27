@@ -1156,7 +1156,12 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
   assert.doesNotMatch(helpHtml, /Pomoc psom · tam, kde ju treba/);
-  assert.doesNotMatch(helpHtml, /Rýchle vstupy používajú existujúce verejné kategórie|synchronizované|WIP|TODO/i);
+  // Check user-facing copy, not generated JS/CSS asset hashes (e.g. DiWIPHA7).
+  const helpVisibleText = helpHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  assert.doesNotMatch(helpVisibleText, /Rýchle vstupy používajú existujúce verejné kategórie|synchronizované|\b(?:WIP|TODO)\b/i);
   assert.match(helpHtml, /Kategórie pomoci/);
   assert.match(helpHtml, /Pomáhajme spolu/);
   assert.match(helpHtml, /Postup krok za krokom/);
