@@ -126,6 +126,39 @@ async function commitControlledShadow(args:{
   catch{throw Error("BREED_CONTROLLED_EDIT_CONFLICT")}
 }
 
+/** SQL numeric FCI group and Notion select labels have distinct storage
+ * types. Translate explicitly, never compare a number with its string label. */
+async function canonicalControlledValue(database:D1Database,id:number,key:string):Promise<unknown>{
+  const field=BREED_CONTROLLED_FIELDS.find(item=>item.key===key);
+  if(!field)throw Error("BREED_CONTROLLED_UNKNOWN_FIELD");
+  const sample=key==="fciGroupSelect"?1:field.type==="select"?"":field.type==="multi_select"?[]:null;
+  const route=planBreedSqlV2FieldWrite("controlled."+key,sample);
+  if(!route||!("column" in route))throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
+  const raw=await database.prepare("SELECT "+route.column+" AS value FROM "+route.table+
+    " WHERE "+(route.table==="managed_breeds"?"id":"breed_id")+"=?").bind(id).first<{value:unknown}>();
+  if(!raw)throw Error("BREED_CONTROLLED_CANONICAL_MISSING");
+  let actual=raw.value;
+  if(route.format==="json-array"){
+    if(typeof actual!=="string")throw Error("BREED_CONTROLLED_LIST_UNKNOWN");
+    actual=JSON.parse(actual);
+  }
+  if(key==="fciGroupSelect"&&typeof actual==="number")actual=String(actual);
+  if(field.type==="select"&&actual==="")actual=null;
+  return validateBreedControlledValue(key,actual);
+}
+
+export async function readNewBreedControlledProjection(database:D1Database,id:number){
+  const values:Record<string,unknown>={},properties:Record<string,unknown>={};
+  for(const key of breedControlledKeys){
+    values[key]=await canonicalControlledValue(database,id,key);
+    Object.assign(properties,breedControlledNotionPayload(key,values[key]));
+  }
+  const shadow=await record(database,id);
+  if(shadow&&!eq(parseBreedControlledValues(shadow.values_json),values))
+    throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
+  return {values,properties};
+}
+
 async function observeControlledV2(database:D1Database,bindings:ControlledBreedBindings,
   link:Link,key:string) {
   const before=await getManagedBreed(link.breed_id);
@@ -139,19 +172,14 @@ async function observeControlledV2(database:D1Database,bindings:ControlledBreedB
   const remote=readBreedControlledNotionPage(page,[key]);
   const remoteValues=remote.values as Record<string,unknown>;
   const shadow=parseBreedControlledValues(row.values_json);
-  const route=planBreedSqlV2FieldWrite("controlled."+key,shadow[key]);
-  if(!route || !("column" in route))throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
-  const raw=await database.prepare("SELECT "+route.column+" AS value FROM "+route.table+
-    " WHERE "+(route.table==="managed_breeds"?"id":"breed_id")+"=?").bind(link.breed_id).first<{value:unknown}>();
-  const actual=raw && route.format==="json-array" && typeof raw.value==="string"
-    ? JSON.parse(raw.value) : raw?.value;
+  const actual=await canonicalControlledValue(database,link.breed_id,key);
   const after=await getManagedBreed(link.breed_id);
   const current=await record(database,link.breed_id);
   if(!after || after.updatedAt!==before.updatedAt || current?.revision!==row.revision)
     throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
   // The legacy shadow is only transport metadata. Reject disagreement with
   // the typed canonical owner rather than copying the shadow into SQL.
-  if(!raw || !eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
+  if(!eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
   return {page,row,revision:after.updatedAt,
     notion:remote.errors.length || !Object.hasOwn(remote.values,key)
       ? {present:false as const} : {present:true as const,value:remoteValues[key]},
@@ -491,12 +519,8 @@ export async function readReviewedBreedControlledProjection(database:D1Database,
   const properties:Record<string,unknown>={};
   for(const key of breedControlledKeys){
     if(!Object.hasOwn(shadow,key))throw Error("BREED_CONTROLLED_CANONICAL_INCOMPLETE");
-    const route=planBreedSqlV2FieldWrite("controlled."+key,shadow[key]);
-    if(!route||!("column" in route))throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
-    const raw=await database.prepare("SELECT "+route.column+" AS value FROM "+route.table+
-      " WHERE "+(route.table==="managed_breeds"?"id":"breed_id")+"=?").bind(id).first<{value:unknown}>();
-    const actual=raw&&route.format==="json-array"&&typeof raw.value==="string"?JSON.parse(raw.value):raw?.value;
-    if(!raw||!eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
+    const actual=await canonicalControlledValue(database,id,key);
+    if(!eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
     Object.assign(properties,breedControlledNotionPayload(key,actual));
   }
   if((await record(database,id))?.revision!==row.revision)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
