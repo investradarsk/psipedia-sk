@@ -356,7 +356,7 @@ export function EditorWorkspace({
   const resolvedActions = typeof actions === "function" ? actions(requestClose) : actions;
 
   const body = (
-    <div className={styles.workspace} data-editor-workspace data-mobile-panel={showPreview ? "preview" : "edit"}>
+    <div className={styles.workspace} data-editor-workspace data-admin-profile-editor-layout={mode === "page" && sectionMode === "switch" && !articleLayout ? true : undefined} data-mobile-panel={showPreview ? "preview" : "edit"}>
       <EditorHeader status={mode === "modal" ? status : undefined} />
       <EditorSectionNavigation
         sections={sections}
@@ -368,7 +368,7 @@ export function EditorWorkspace({
         showingPreview={showPreview}
         onTogglePreview={() => setShowPreview((value) => !value)}
       />
-      <div className={styles.columns} data-editor-columns={preview ? "with-preview" : "single"}>
+      <div className={styles.columns} data-admin-profile-editor-content={mode === "page" && sectionMode === "switch" && !articleLayout ? true : undefined} data-editor-columns={preview ? "with-preview" : "single"}>
         <EditorContent contentRef={contentRef}>
           <AdminEditorSectionVisibility.Provider value={sectionVisibility}>
             {children}

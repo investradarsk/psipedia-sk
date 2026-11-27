@@ -15,7 +15,7 @@ test("e-shop uses the canonical page editor, visible status, guarded leave and l
   assert.match(ui, /previewTitle="Živý náhľad e-shopu"/);
   assert.match(ui, /<fieldset className=\{styles\.fields\} disabled=\{saving\}>/);
   for (const section of ["eshop-basics", "eshop-tags", "eshop-images", "eshop-publication"]) {
-    assert.match(ui, new RegExp('<section id="' + section + '" data-admin-editor-section tabIndex=\\{-1\\}'));
+    assert.match(ui, new RegExp('<EditorSection id="' + section + '"'));
   }
   // UI unification must not change the established payload or upload destination.
   assert.match(ui, /fetch\(\x60\/api\/admin\/eshops\/\$\{shop\.id\}\x60/);

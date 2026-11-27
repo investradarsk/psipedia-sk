@@ -1,4 +1,6 @@
 "use client";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
@@ -733,17 +735,8 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       </div>
     </AdminEditorSection>
 
-    <div data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami plemena">
-      <AdminActionButton variant="neutral" disabled={editorNavigation[0].id===activeBreedSection}
-        onClick={()=>chooseBreedSection(editorNavigation[Math.max(0,editorNavigation.findIndex(item=>item.id===activeBreedSection)-1)].id)}>
-        ← Predchádzajúca
-      </AdminActionButton>
-      <span>{editorNavigation.findIndex(item=>item.id===activeBreedSection)+1} / {editorNavigation.length}</span>
-      <AdminActionButton variant="secondary" disabled={editorNavigation[editorNavigation.length-1].id===activeBreedSection}
-        onClick={()=>chooseBreedSection(editorNavigation[Math.min(editorNavigation.length-1,editorNavigation.findIndex(item=>item.id===activeBreedSection)+1)].id)}>
-        Ďalšia →
-      </AdminActionButton>
-    </div>
+    <AdminEditorSectionPager sections={editorNavigation} index={editorNavigation.findIndex(item => item.id === activeBreedSection)} onNavigate={chooseBreedSection}
+        ariaLabel="Prechod medzi sekciami plemena" ready={hydrated} />
 
 
     <AdminDrawer

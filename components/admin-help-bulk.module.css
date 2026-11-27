@@ -45,7 +45,7 @@
    unsaved changes mounted; the existing editor still owns all mutations. */
 .helpEditorLayout {
   display: grid;
-  grid-template-columns: minmax(184px, 216px) minmax(0, 1fr);
+  grid-template-columns: var(--admin-profile-sidebar, minmax(184px, 216px)) minmax(0, 1fr);
   align-items: start;
   gap: 12px;
   min-width: 0;

@@ -417,7 +417,7 @@ dialog.workspaceModal[open] :is(h2, h3),
    opt-in attribute; existing long-form article/event editors are untouched. */
 .pageWorkspace[data-editor-section-mode="switch"] > .workspace {
   display: grid;
-  grid-template-columns: minmax(160px, 192px) minmax(0, 1fr);
+  grid-template-columns: var(--admin-profile-sidebar, minmax(160px, 192px)) minmax(0, 1fr);
   align-items: start;
   gap: var(--admin-ui-section-gap, 0.625rem);
   min-height: 0;
@@ -540,4 +540,16 @@ dialog.workspaceModal[open] :is(h2, h3),
     textarea, select) {
     scroll-margin-bottom: 16px;
   }
+}
+
+/* Profile preview toggle belongs below the sidebar, not alongside it. */
+.pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation {
+  display: grid;
+  align-items: start;
+}
+.pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation > :global([data-admin-shared-editor-navigation]) {
+  position: static;
+}
+.pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle {
+  width: 100%;
 }

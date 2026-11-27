@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
+import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
+
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
@@ -11,8 +14,15 @@ import { AdminActionButton } from "@/components/admin-interaction-system";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
-import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
+import { EditorActionBar, EditorSection, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import styles from "./admin-eshop-editor.module.css";
+
+const ESHOP_SECTIONS = [
+  { id: "eshop-basics", label: "Základné údaje" },
+  { id: "eshop-tags", label: "Sortiment" },
+  { id: "eshop-images", label: "Obrázky" },
+  { id: "eshop-publication", label: "Publikovanie" },
+];
 
 function tagsFromText(value: string) {
   return value
@@ -22,6 +32,8 @@ function tagsFromText(value: string) {
 }
 
 export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
+  const [activeSection, setActiveSection] = useState(ESHOP_SECTIONS[0].id);
+  const navigatePager = useProfileEditorSectionPager(activeSection, setActiveSection);
   const [name, setName] = useState(shop.name);
   const [slug, setSlug] = useState(shop.slug);
   const [websiteUrl, setWebsiteUrl] = useState(shop.websiteUrl);
@@ -122,12 +134,10 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         title={"E-shop — " + (name || "Úprava profilu")}
         description="Uprav údaje, sortiment, obrázok a publikovanie na jednom mieste."
         status={<><EditorStatus label={status === "published" ? "Publikovaný" : status === "archived" ? "Archivovaný" : "Koncept"} tone={status === "published" ? "success" : status === "archived" ? "danger" : "warning"}/>{dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}</>}
-        sections={[
-          { id: "eshop-basics", label: "Základné údaje" },
-          { id: "eshop-tags", label: "Sortiment" },
-          { id: "eshop-images", label: "Obrázky" },
-          { id: "eshop-publication", label: "Publikovanie" },
-        ]}
+        sections={ESHOP_SECTIONS}
+        sectionMode="switch"
+        activeSectionId={activeSection}
+        onSectionChange={setActiveSection}
         dirty={dirty}
         onClose={() => window.location.assign("/admin/recenzie/eshopy")}
         previewTitle="Živý náhľad e-shopu"
@@ -146,7 +156,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         />}
       >
       <fieldset className={styles.fields} disabled={saving}>
-      <section id="eshop-basics" data-admin-editor-section tabIndex={-1} className={styles.card}>
+      <EditorSection id="eshop-basics" className={styles.card}>
         <div className={styles.heading}>
           <span>01</span>
           <div><h2>Základ profilu</h2><p>Názov, verejný web a popis e-shopu.</p></div>
@@ -158,9 +168,9 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           <div className={styles.wide}><label><span>Popis</span><AdminLexicalTextField rows={6} value={description} onChange={setDescription} ariaLabel="Popis e-shopu" /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
           <label className={styles.wide}><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
         </div>
-      </section>
+      </EditorSection>
 
-      <section id="eshop-tags" data-admin-editor-section tabIndex={-1} className={styles.card}>
+      <EditorSection id="eshop-tags" className={styles.card}>
         <div className={styles.heading}>
           <span>02</span>
           <div><h2>Zameranie sortimentu</h2><p>Nie je to ďalšia kategória. Sú to jednoduché štítky, podľa ktorých návštevník hneď pochopí, na čo sa e-shop zameriava.</p></div>
@@ -178,9 +188,9 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         <div className={styles.tagPreview}>
           {tagsFromText(focusTags).slice(0, 12).map((tag) => <span key={tag}>{tag}</span>)}
         </div>
-      </section>
+      </EditorSection>
 
-      <section id="eshop-images" data-admin-editor-section tabIndex={-1} className={styles.card}>
+      <EditorSection id="eshop-images" className={styles.card}>
         <div className={styles.heading}>
           <span>03</span>
           <div><h2>Logo</h2><p>Nahraj logo do Psipedia úložiska alebo použi verejnú URL.</p></div>
@@ -194,9 +204,9 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
             {logoUrl ? <button type="button" className={styles.remove} onClick={() => { setLogoUrl(""); setLogoKey(""); }}>Odstrániť logo</button> : null}
           </div>
         </div>
-      </section>
+      </EditorSection>
 
-      <section id="eshop-publication" data-admin-editor-section tabIndex={-1} className={styles.card}>
+      <EditorSection id="eshop-publication" className={styles.card}>
         <div className={styles.heading}>
           <span>04</span>
           <div><h2>Publikácia</h2><p>Určuje, či je profil viditeľný návštevníkom.</p></div>
@@ -209,8 +219,10 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
             <option value="archived">Archivovaný</option>
           </select>
         </label>
-      </section>
+      </EditorSection>
 
+      <AdminEditorSectionPager sections={ESHOP_SECTIONS} index={ESHOP_SECTIONS.findIndex(section => section.id === activeSection)}
+        onNavigate={navigatePager} ariaLabel="Prechod medzi sekciami e-shopu" />
       </fieldset>
       <AdminFormFeedback message={message} error={error} pending={saving} errorClassName={styles.error} successClassName={styles.success} />
       </EditorWorkspace>
