@@ -1,3 +1,4 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
@@ -9,7 +10,7 @@ import { updateAdoptionInlineName } from "@/lib/adoption-store";
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 function unifiedAdoptionReceiptsEnabled(){return (env as unknown as TargetedNotionSaveBindings).NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true";}
-type Body = { payload?: ManagedAdoptionInput; expectedUpdatedAt?: string };
+type Body = { payload?: ManagedAdoptionInput; expectedUpdatedAt?: string;reviewOnSave?:unknown };
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
 async function numericId(params: Props["params"]) { const value = Number.parseInt((await params).id, 10); return Number.isSafeInteger(value) && value > 0 ? value : null; }
 function errorResponse(error: unknown) {
@@ -66,11 +67,14 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Neplatný payload adopčného profilu alebo chýbajúca verzia záznamu." }, { status: 400 });
     }
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
-    const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt,undefined,unifiedAdoptionReceiptsEnabled());
+    const authority=(env as unknown as TargetedNotionSaveBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const reviewOnSave=authority&&body.reviewOnSave===true;
+    if(reviewOnSave&&!unifiedAdoptionReceiptsEnabled())return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
+    const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt,undefined,unifiedAdoptionReceiptsEnabled(),reviewOnSave);
     if (!item) return Response.json({ error: "Adopčný profil sa nenašiel." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"adoptions",id,item.status);
-    return Response.json({ item, notionFieldSync });
+    return Response.json({ item, notionFieldSync, ...(authority?{review:await getAdminEntityReview("ADOPTION",id).catch(()=>null)}:{}) });
   } catch (error) {
     return errorResponse(error);
   }
