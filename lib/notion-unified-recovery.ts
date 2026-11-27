@@ -1,3 +1,4 @@
+import { decodeBreedCursor, encodeBreedCursor } from "./notion-breed-recovery-cursor.mjs";
 import { nonMirroredBreedPredicate } from "./notion-breed-unified-policy.ts";
 import { UNIFIED_SYNC_AGENDAS, decideUnifiedField, type FieldIdentity, type UnifiedSyncAgenda } from "./notion-unified-field-sync.ts";
 import { readUnifiedFieldState } from "./notion-unified-field-state.ts";
@@ -172,12 +173,14 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
     .first<{agenda:UnifiedSyncAgenda;entity_id:number;field_offset:number;version:number}>();
   if(!cursor)return result;
   let id=cursor.entity_id, offset=cursor.field_offset;
+  const breedCatalog=cursor.agenda==="breeds"?await fields(database,"breeds",0):null;
+  if(breedCatalog){const decoded=decodeBreedCursor(breedCatalog,id,offset);id=decoded.id;offset=decoded.offset;}
   try{
     const mapping=await database.prepare(mappingSql[cursor.agenda]).bind(id).first<{id:number;page:string}>();
     if(!mapping){id=0;offset=0;}
     else{
       if(id!==mapping.id){id=mapping.id;offset=0;}
-      const catalog=await fields(database,cursor.agenda,id);
+      const catalog=breedCatalog??await fields(database,cursor.agenda,id);
       if(offset>=catalog.length){id++;offset=0;}
       else{
         const key={agenda:cursor.agenda,entityId:String(id),pageId:mapping.page,field:catalog[offset]};
@@ -194,7 +197,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
   }catch{result.failed++;}
   finally{
     await database.prepare("UPDATE notion_unified_recovery_cursor SET entity_id=?,field_offset=?,lease_until=NULL WHERE agenda=? AND version=?")
-      .bind(id,offset,cursor.agenda,cursor.version).run();
+      .bind(id,breedCatalog?encodeBreedCursor(breedCatalog,offset):offset,cursor.agenda,cursor.version).run();
   }
   return result;
 }

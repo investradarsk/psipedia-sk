@@ -53,7 +53,7 @@ export async function reserveUnifiedField(input: {
   const initialMarker = old?.reason === "INITIAL_FILL_PUSH" || old?.reason === "INITIAL_FILL_PULL";
   const initialCandidate = !input.historicalBaseline && !input.notionEdit && !input.psipediaEdit &&
     (!old || (old.status === "REVIEW" && old.baseline === undefined && !old.baselineVersion &&
-      !old.notionEdit && !old.psipediaEdit && (old.reason === "BASELINE_UNAVAILABLE" || initialMarker)));
+      !old.notionEdit && !old.psipediaEdit && (old.reason === "BASELINE_UNAVAILABLE" || (identity.agenda==="breeds"&&identity.field==="sports"&&old.reason==="MISSING_FIELD") || initialMarker)));
   const confirmedMarker = old?.status === "REVIEW" && old.reason === "CONFIRMED_BLANK_PUSH";
   const confirmedCandidate = old?.status === "REVIEW" &&
     (old.reason === "RECOVERY_DIRECTION_REQUIRED" || confirmedMarker) &&
