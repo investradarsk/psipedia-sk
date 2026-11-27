@@ -26,7 +26,7 @@ import {
 export const dynamic = "force-dynamic";
 
 type RouteProps = { params: Promise<{ id: string }> };
-type BreedRouteBindings = NotionBreedSyncBindings & { DB?: D1Database };
+type BreedRouteBindings = NotionBreedSyncBindings & { DB?: D1Database; NOTION_UNIFIED_FIELD_SYNC_ENABLED?:string };
 
 async function parsedId(params: RouteProps["params"]) {
   const { id } = await params;
