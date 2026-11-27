@@ -185,13 +185,13 @@
     --ps-bnr-button-bg: #174d3a;
     --ps-bnr-art: #174d3a;
     --ps-bnr-button-text: #fff;
-    --ps-bnr-border: rgba(23, 53, 43, 0.17);
+    --ps-bnr-border: rgba(23, 77, 58, 0.15);
     border-color: var(--ps-bnr-border);
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="dark"] {
     --ps-bnr-waves: url("/images/psipedia-banner-waves-dark.svg");
     --ps-bnr-bg: #174d3a;
-      --ps-bnr-gradient: var(--ps-bnr-dark-gradient);
+    --ps-bnr-gradient: var(--ps-bnr-dark-gradient);
     --ps-bnr-ink: #fffaf0;
     --ps-bnr-body: #e5eee6;
     --ps-bnr-kicker: #f7f2e9;
@@ -222,6 +222,11 @@
   margin-top: 5px;
   color: var(--ps-bnr-body) !important;
   font: 0.875rem / 1.5 var(--ps-bnr-body-font) !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-description] p {
+  font-family: var(--ps-bnr-body-font) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
 }
 
 /* A 250px article rail and a 400px inset card must not keep the desktop
