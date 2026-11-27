@@ -276,7 +276,8 @@ test("existing Psipedia profiles bootstrap into Notion in bounded batches", () =
   assert.match(syncSource, /bootstrapped \+= 1/);
   assert.match(syncSource, /export async function runNotionDirectoryBootstrapSweep/);
   assert.match(syncSource, /summary\.selected = bootstrapIds\.length/);
-  assert.match(syncSource, /summary\.hasMore = \(await bootstrapProfileIds\(input\.database\)\)\.length > 0/);
+  assert.match(syncSource, /ensureFirstProfileNotionCopy/);
+  assert.match(syncSource, /summary\.hasMore = \(await bootstrapProfileIds\(input\.database,input\.bindings\.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"\)\)\.length > 0/);
 });
 
 test("directory mirror runs full bidirectional sync hourly and bootstrap-only backfill every five minutes", () => {
