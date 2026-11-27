@@ -14,7 +14,7 @@ import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
  * source. A signed Notion page with an ACTIVE link and matching numeric
  * Psipedia ID is enough for independent field updates.
  *
- * No creation or deletion of breeds, no changes to canonical publication.
+ * Ordinary mapped field sync never creates or deletes breeds or changes publication.\n * The staged new-page importer is a separate verified draft-only entrypoint.
  * Real FCI, media and structured fields are editable with type-safe storage;
  * invalid siblings never lock otherwise valid fields.
  */
@@ -115,6 +115,7 @@ function assertOwnedPage(
   bindings: BreedWorkCopyBindings,
 ) {
   const source = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!;
+  if(link.work_last_error_code==="INBOUND_ID_PENDING")throw Error("BREED_INBOUND_ID_PENDING");
   // Page/source ownership prevents cross-database writes. The ONLY breed
   // matching key is the immutable Admin / Psipedia numeric ID. Every other
   // Notion value (including name, FCI, slug-adjacent text and provenance) is
