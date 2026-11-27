@@ -2246,13 +2246,13 @@ async function syncBreederEvent(input: {
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds)
           .filter(field => input.profile.category !== "chovatelske-kluby" || field === "breedIds") : [];
     const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
-    const facetFields = staged || isDirectoryFieldEventCategory(input.profile.category)
+    const facetFields = isDirectoryFieldEventCategory(input.profile.category) || staged
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => {const category=getDirectoryFilterDefinition(id)?.category;
             return category===input.profile.category||(staged&&!!category&&input.profile.additionalCategories?.includes(category));})
       : [];
     const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
-    const pilotMetaFields = staged || isDirectoryFieldEventCategory(input.profile.category)
+    const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category) || staged
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
     if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
       return "unchanged";
