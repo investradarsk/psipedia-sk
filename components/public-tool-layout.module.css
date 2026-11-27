@@ -4,7 +4,7 @@
   min-width: 0;
   background: var(--white);
   border: 1px solid var(--ps-border-soft, var(--line));
-  border-radius: var(--ps-radius-card);
+  border-radius: var(--ps-radius-card, 22px);
   padding: clamp(14px, 2.2vw, 22px);
   overflow-wrap: anywhere;
 }
@@ -14,8 +14,8 @@
   font-weight: var(--ps-component-heading-weight, 650);
   line-height: 1.25;
 }
-.panel h2 { font-size: clamp(1.15rem, 2vw, 1.4rem); margin: 0 0 .5rem; }
-.panel h3 { font-size: 1.05rem; }
+.panel :where(h2) { font-size: clamp(1.15rem, 2vw, 1.4rem); margin: 0 0 .5rem; }
+.panel :where(h3) { font-size: 1.05rem; }
 .note {
   color: var(--muted);
   font-size: var(--ps-type-compact, .875rem);

@@ -14,7 +14,7 @@
 .form .wide,.form .actions { grid-column:1/-1; }
 .form label.choice,.choice { display:flex; align-items:center; gap:.5rem; min-height:44px; }
 .choice input { flex:0 0 20px; width:20px; height:20px; min-height:0; accent-color:var(--forest); }
-.note { composes: note from "./public-tool-layout.module.css"; color:var(--muted); font-size:.85rem; line-height:1.5; margin:.45rem 0; }
+.note { composes: note from "./public-tool-layout.module.css"; margin:.45rem 0; }
 .error { color:var(--brand-accent-strong); font-weight:650; }
 .confirm { padding:.65rem; border:1px solid var(--ps-border-strong, var(--line)); border-radius:var(--ps-radius-control); }
 .confirm p { flex:1 1 100%; margin:0; }
@@ -37,7 +37,7 @@
 .entry small { display:block; color:var(--muted); font-size:.82rem; margin:.2rem 0; }
 .entry p { margin:.25rem 0; white-space:pre-wrap; }
 .actions { align-items:center; }
-.actions a,.toolLink { composes: toolLink from "./public-tool-layout.module.css"; }
+.toolLink { composes: toolLink from "./public-tool-layout.module.css"; }
 .page :is(a,button,input,select,textarea):focus-visible,.toolLink:focus-visible { outline:3px solid var(--brand-focus, var(--forest)); outline-offset:2px; }
 @media(max-width:720px) { .form { grid-template-columns:minmax(0,1fr); } .stats div { padding:.4rem; } }
 

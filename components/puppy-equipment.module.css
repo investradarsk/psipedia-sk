@@ -11,10 +11,11 @@
 .summaryTop p,.partners p { margin:.25rem 0; line-height:1.5; }
 .summaryTop > strong { color:var(--forest); font-size:clamp(1.4rem,4vw,2.1rem); white-space:nowrap; font-variant-numeric:tabular-nums; }
 .progress { width:100%; height:.75rem; accent-color:var(--forest); margin-block:.65rem; }
-.note { composes: note from "./public-tool-layout.module.css"; color:var(--muted); font-size:.85rem; line-height:1.5; margin:.25rem 0; }
+.note { composes: note from "./public-tool-layout.module.css"; margin:.25rem 0; }
 .controls,.confirm,.partnerLinks,.related > div { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
 .controls { justify-content:space-between; }
-.filter,.confirm { margin-top:.6rem; }
+.filter { min-height:44px; display:inline-flex; align-items:center; gap:.5rem; cursor:pointer; }
+.confirm { margin-top:.6rem; }
 .confirm p { margin:0; }
 .groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; align-items:start; }
 .groupHeading h3 { margin:0; font-size:1.05rem; }

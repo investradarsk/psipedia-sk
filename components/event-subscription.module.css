@@ -4,7 +4,7 @@
 .panel p { font-size:.87rem; line-height:1.5; margin:0; }
 .fields { display:grid; gap:.5rem; }
 .fields label,.address { display:grid; gap:.25rem; min-width:0; font-size:.85rem; font-weight:650; }
-.fields select,.address input { border:1px solid var(--ps-border-strong, var(--line)); border-radius:var(--ps-radius-control); padding:.45rem; color:var(--forest); }
+.fields select,.address input { width:100%; min-width:0; max-width:100%; box-sizing:border-box; min-height:44px; font-size:16px; }
 .actions { display:flex; flex-wrap:wrap; align-items:center; gap:.45rem; }
 .actions a { min-height:44px; display:inline-flex; align-items:center; color:var(--forest); font-size:.85rem; font-weight:650; }
 .panel summary { cursor:pointer; font-weight:650; min-height:44px; display:flex; align-items:center; }
