@@ -164,7 +164,7 @@ test("banner artwork stays inside a real responsive child and outside CTA lanes"
   assert.match(dark, /viewBox="0 0 2172 724"/);
   assert.match(dog, /viewBox="0 0 772 545"/);
   assert.match(frame, /<i data-ps-banner-art aria-hidden="true" \/>/, "art must be a descendant of the container");
-  assert.match(css, /@container ps-editorial-banner \(min-width: 521px\)/);
+  assert.match(css, /@container ps-editorial-banner \(width > 520px\)/);
   assert.match(css, /@container ps-editorial-banner \(max-width: 520px\)/);
   assert.match(css, /width: 72% !important;/, "CTA region excludes the illustrated right lane");
   assert.doesNotMatch(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after\s*\{\s*display: none;/);
