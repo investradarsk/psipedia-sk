@@ -2025,3 +2025,93 @@ test("V3 service relation proof requires complete one-to-one canonical mapping",
   assert.equal(verify({property:{type:"relation",has_more:false,relation:[]},mapping:[]},obs([])),true);
   assert.equal(verify({property:{type:"relation",relation:[]},mapping:[]},obs([])),false);
 });
+
+test("V3 authoritative service set is atomic and preserves unrelated choices",async()=>{
+  const {importAuthoritativeNotionServiceIds:apply}=await import("../lib/service-profile-notion-bridge.ts");
+  const {saveAdminServiceChoice:save}=await import("../lib/service-catalog-admin-store.ts");
+  const {serviceCatalog,attributeCatalog}=await import("../lib/service-catalog-contract.ts");
+  const vet=serviceCatalog.find(x=>x.categories.includes("veterinari")&&!x.categories.includes("treneri"));
+  const trainer=serviceCatalog.find(x=>x.categories.includes("treneri")&&!x.categories.includes("veterinari"));
+  const unrelated=serviceCatalog.find(x=>x.id!==trainer.id&&x.categories.includes("treneri"));
+  const attribute=attributeCatalog.find(x=>x.valueKind==="tri_state"&&x.categories.includes("veterinari"));
+  assert.ok(vet&&trainer&&unrelated&&attribute);
+  const sqlite=new DatabaseSync(":memory:");
+  const migration=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
+  try{
+    sqlite.exec(`
+      PRAGMA foreign_keys=ON;
+      CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,category TEXT,status TEXT,updated_at TEXT,updated_by TEXT);
+      CREATE TABLE directory_profile_additional_categories(profile_id INTEGER,category TEXT,PRIMARY KEY(profile_id,category));
+      CREATE TABLE directory_profile_review_state(profile_id INTEGER PRIMARY KEY,reviewed_at TEXT,unlock_pending INTEGER DEFAULT 0);
+      CREATE TABLE partner_resources(id INTEGER PRIMARY KEY,entity_type TEXT,directory_profile_id INTEGER);
+      CREATE TABLE partner_memberships(resource_id INTEGER,revoked_at TEXT);
+      CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
+      CREATE TABLE notion_unified_manual_fence(agenda TEXT,entity_id TEXT);
+      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT);
+      CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,version INTEGER,status TEXT);
+      INSERT INTO directory_profiles VALUES(1,'treneri','published','2026-11-27T22:00:00.000Z','admin');
+      INSERT INTO directory_profile_additional_categories VALUES(1,'veterinari');
+      INSERT INTO directory_notion_sync VALUES(1,'page');
+      INSERT INTO notion_unified_field_state VALUES('directory','1','page','serviceIds',1,'PENDING');
+    `);
+    for(const path of ["drizzle/0133_services_canonical_admin_foundation.sql","drizzle/0134_services_admin_change_audit.sql","drizzle/0149_services_builtin_admin_overrides.sql"])sqlite.exec(await migration(path));
+    let race;
+    const db={
+      prepare(sql){
+        const positions=[...sql.matchAll(/\?(\d+)/g)].map(m=>Number(m[1])-1);
+        const wrap=values=>({
+          sql,bind(...args){return wrap(args)},
+          async first(){return sqlite.prepare(sql.replace(/\?\d+/g,"?")).get(...(positions.length?positions.map(i=>values[i]):values))??null},
+          async all(){return {success:true,results:sqlite.prepare(sql.replace(/\?\d+/g,"?")).all(...(positions.length?positions.map(i=>values[i]):values))}},
+          async run(){sqlite.prepare(sql).run(...values);return {success:true,results:[]}}
+        });
+        return wrap([]);
+      },
+      async batch(statements){
+        if(race){const action=race;race=undefined;action();}
+        sqlite.exec("BEGIN");
+        try{
+          const out=[];
+          for(const stmt of statements)out.push(/^(SELECT|WITH)\b/i.test(stmt.sql)||/RETURNING/i.test(stmt.sql)?await stmt.all():await stmt.run());
+          sqlite.exec("COMMIT");return out;
+        }catch(err){sqlite.exec("ROLLBACK");throw err}
+      }
+    };
+    const actor="admin@example.com";
+    const first=await save(db,{profileId:1,optionId:vet.id,choice:"yes",expectedVersion:0},actor);
+    await save(db,{profileId:1,optionId:trainer.id,choice:"no",expectedVersion:0},actor);
+    await save(db,{profileId:1,optionId:unrelated.id,choice:"no",expectedVersion:0},actor);
+    await save(db,{profileId:1,optionId:attribute.id,choice:"yes",expectedVersion:0},actor);
+    const values=()=>sqlite.prepare("SELECT option_id,choice,version FROM service_profile_option_choices ORDER BY option_id").all();
+    const audit=()=>sqlite.prepare("SELECT COUNT(*) n FROM service_catalog_admin_change_audit").get().n;
+    const input=(ids,expectedYes)=>({profileId:1,category:"treneri",categories:["treneri","veterinari"],ids,expectedYes,
+      reservation:{identity:{agenda:"directory",entityId:"1",pageId:"page",field:"serviceIds"},version:1,value:ids,profileAuthority:true}});
+    const initial=values(),initialAudit=audit();
+    race=()=>sqlite.exec("INSERT INTO directory_profile_review_state VALUES(1,'reviewed',0)");
+    await assert.rejects(()=>apply(db,input([trainer.id],[vet.id])));
+    assert.deepEqual(values(),initial);assert.equal(audit(),initialAudit);
+    sqlite.exec("DELETE FROM directory_profile_review_state");
+    race=()=>sqlite.exec("DELETE FROM directory_profile_additional_categories WHERE profile_id=1");
+    await assert.rejects(()=>apply(db,input([trainer.id],[vet.id])));
+    assert.deepEqual(values(),initial);assert.equal(audit(),initialAudit);
+    sqlite.exec("INSERT INTO directory_profile_additional_categories VALUES(1,'veterinari')");
+    // A mid-transaction write failure must roll back the parent, resets, and audit.
+    sqlite.exec("CREATE TRIGGER reject_test_choice BEFORE UPDATE ON service_profile_option_choices WHEN NEW.choice='yes' BEGIN SELECT RAISE(ABORT,'test rollback'); END;");
+    const revision=sqlite.prepare("SELECT updated_at FROM directory_profiles WHERE id=1").get().updated_at;
+    await assert.rejects(()=>apply(db,input([trainer.id],[vet.id])));
+    assert.deepEqual(values(),initial);assert.equal(audit(),initialAudit);
+    assert.equal(sqlite.prepare("SELECT updated_at FROM directory_profiles WHERE id=1").get().updated_at,revision);
+    sqlite.exec("DROP TRIGGER reject_test_choice");
+    await apply(db,input([trainer.id],[vet.id]));
+    assert.equal(values().some(row=>row.option_id===vet.id),false);
+    assert.equal(values().find(row=>row.option_id===trainer.id).choice,"yes");
+    assert.equal(values().find(row=>row.option_id===unrelated.id).choice,"no");
+    assert.equal(values().find(row=>row.option_id===attribute.id).choice,"yes");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM service_catalog_admin_change_audit WHERE operation='RESET' AND option_id=?").get(vet.id).n,1);
+    await apply(db,input([],[trainer.id]));
+    await apply(db,input([vet.id],[]));
+    assert.ok(values().find(row=>row.option_id===vet.id).version>first.version);
+    assert.equal(values().find(row=>row.option_id===attribute.id).choice,"yes");
+    assert.deepEqual(sqlite.prepare("PRAGMA foreign_key_check").all(),[]);
+  }finally{sqlite.close();}
+});
