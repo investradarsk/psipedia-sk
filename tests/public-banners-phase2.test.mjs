@@ -52,8 +52,8 @@ test("legacy banner adapters retain their semantic hooks and destinations", () =
     read("components/public-visual-system/public-magazine-banner.tsx"),
     /<PublicActionLink/,
   );
-  assert.match(css, /\.tone_forest \{/);
-  assert.match(css, /\.tone_coral \{/);
+  assert.match(css, /\.tone_forest,/);
+  assert.match(css, /\.tone_coral,/);
   assert.match(css, /\.inline > \.copy \{/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(help, /href="\/pomoc-psom\/nahlasit-psa-v-nudzi"/);
