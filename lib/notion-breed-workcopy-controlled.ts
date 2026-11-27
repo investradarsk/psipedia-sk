@@ -526,3 +526,49 @@ export async function readReviewedBreedControlledProjection(database:D1Database,
   if((await record(database,id))?.revision!==row.revision)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
   return properties;
 }
+
+
+/** Prepare the typed portion of the combined Admin save. The caller must
+ * commit these statements with the exact parent CAS, never independently.
+ * Shared canonical aliases are reconciled in one place, not written twice. */
+export async function prepareCombinedBreedControlledEdit(input:{
+  database:D1Database;bindings:ControlledBreedBindings;breedId:number;
+  expectedRevision:unknown;changes:unknown;canonicalPatch:Record<string,unknown>;
+}){
+  requireNewEngine(input.bindings);
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")throw Error("BREED_COMBINED_MODE_DISABLED");
+  if(!input.changes||typeof input.changes!=="object"||Array.isArray(input.changes))throw Error("BREED_CONTROLLED_INPUT_INVALID");
+  const changes={...input.changes} as Record<string,unknown>;
+  const aliases={fciGroupSelect:"fciGroup",fciSectionSelect:"fciSectionNumber",sizeSelect:"size"} as const;
+  const canonicalPatch={...input.canonicalPatch};
+  for(const [key,field] of Object.entries(aliases)){
+    if(Object.hasOwn(canonicalPatch,field)){
+      const raw=canonicalPatch[field];
+      const value=validateBreedControlledValue(key,raw===""||raw===null?null:String(raw));
+      if(Object.hasOwn(changes,key)&&!eq(validateBreedControlledValue(key,changes[key]),value))
+        throw Error("BREED_CONTROLLED_ALIAS_CONFLICT");
+      changes[key]=value;
+    }
+    if(Object.hasOwn(changes,key)){
+      const value=validateBreedControlledValue(key,changes[key]);
+      if(key==="fciGroupSelect"&&value===null)throw Error("BREED_CONTROLLED_GROUP_REQUIRED");
+      canonicalPatch[field]=key==="fciGroupSelect"?Number(value):value??"";
+    }
+  }
+  const edited=Object.keys(changes);
+  if(!edited.length)return {canonicalPatch,controlled:null,statements:(_revision:string):D1PreparedStatement[]=>[]};
+  if(!Number.isSafeInteger(input.expectedRevision)||Number(input.expectedRevision)<0)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
+  const row=await record(input.database,input.breedId);
+  if(!row||row.revision!==input.expectedRevision)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
+  const values=parseBreedControlledValues(row.values_json) as Record<string,unknown>;
+  for(const key of edited)values[key]=validateBreedControlledValue(key,changes[key]);
+  const actualChanges=Object.fromEntries(edited.filter(key=>!Object.hasOwn(aliases,key)).map(key=>[key,values[key]]));
+  const db=input.database,id=input.breedId;
+  const controlled:ControlledBreedState={values,revision:row.revision+1,pendingKeys:[]};
+  return {canonicalPatch,controlled,statements:(revision:string):D1PreparedStatement[]=>[
+    db.prepare("UPDATE breed_notion_controlled_values SET values_json=?,revision=revision+1,updated_at=? WHERE breed_id=? AND revision=?")
+      .bind(JSON.stringify(values),revision,id,row.revision),
+    breedSqlV2CasGuard(db),
+    ...breedSqlV2ControlledStatements(db,id,actualChanges),
+  ]};
+}
