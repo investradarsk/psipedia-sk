@@ -1727,3 +1727,23 @@ test("authority reservation across all eight mapped agendas rejects missing raw 
     }
   }finally{db.close()}
 });
+
+
+test("raw authority observations preserve typed blank, zero, false and exact list values",async()=>{
+  const {isVerifiedAuthorityProperty:verified}=await import("../lib/notion-unified-field-transfer.ts");
+  const present=value=>({present:true,value});
+  for(const [raw,value] of [
+    [{type:"number",number:0},0],[{type:"number",number:null},null],
+    [{type:"checkbox",checkbox:false},false],[{type:"url",url:null},""],
+    [{type:"select",select:null},""],[{type:"date",date:{start:"2026-11-27",end:null}},"2026-11-27"],
+    [{type:"multi_select",multi_select:[{name:"Krmivo"}]},["Krmivo"]],
+    [{type:"multi_select",multi_select:[]},[]],
+  ]) assert.equal(verified(raw,present(value)),true);
+  for(const [raw,value] of [
+    [{type:"number"},null],[{type:"checkbox",checkbox:"false"},false],
+    [{type:"url",url:false},""],[{type:"select",select:{}},""],
+    [{type:"date",date:{start:"2026-02-30"}},"2026-02-30"],
+    [{type:"multi_select",multi_select:[{name:"Krmivo"},{name:"Krmivo"}]},["Krmivo","Krmivo"]],
+    [{type:"multi_select",multi_select:[],has_more:true},[]],
+  ]) assert.equal(verified(raw,present(value)),false);
+});
