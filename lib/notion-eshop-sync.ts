@@ -3,7 +3,7 @@ import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneR
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
-import { notionPageIsTombstoned } from "./admin-record-lifecycle";
+import { notionPageIsTombstoned, notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { updateEshopV2NotionField } from "./eshop-ratings.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { sameNotionProperty } from "./notion-selective-property-patch.ts";
@@ -799,6 +799,7 @@ async function syncMapped(input: {
   webhookChangedPropertyIds?: readonly string[];
   adminChangedFields?: readonly EshopAdminField[];
 }) {
+  if(await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id))return "unchanged" as const;
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
   const page = input.page ?? await fetchPage(input.bindings, input.mapping.notion_page_id);
@@ -1017,6 +1018,7 @@ async function mirrorEshopSystemFields(input: {
   database: D1Database; bindings: NotionEshopSyncBindings;
   dataSourceId: string; mapping: EshopNotionMapping;
 }): Promise<"pushed" | "unchanged"> {
+  if(await notionPageIsTombstoned(input.database,input.mapping.notion_page_id))return "unchanged";
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) return "unchanged";
   const page = await fetchPage(input.bindings, input.mapping.notion_page_id);
@@ -1206,6 +1208,7 @@ export async function runNotionEshopSyncSweep(input: {
 
   for (const page of pages) {
     try {
+      if(await notionPageMustSkipInboundSync(input.database,page.id)){summary.unchanged++;continue;}
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMapping({ database: input.database, page });
 
