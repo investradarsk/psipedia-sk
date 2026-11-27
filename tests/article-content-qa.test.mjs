@@ -402,3 +402,18 @@ test("CONTENT-QA dental remediation never invents a missing canonical target", (
   assert.equal(result.addedRelatedArticle, false);
   assert.ok(result.manualRequired.some((item) => item.includes("nebol automaticky pridaný")));
 });
+
+
+test("CONTENT-QA ignores blank ordinary text blocks but still blocks empty required widgets and headings", () => {
+  const blocks = [
+    { id: "empty", type: "text", content: "" },
+    { id: "spaces", type: "text", content: " \t\n" },
+    { id: "heading", type: "h2", text: "" },
+    { id: "tip", type: "tip", content: "" },
+    { id: "warning", type: "warning", content: "" },
+    { id: "quote", type: "quote", content: "" },
+    { id: "real", type: "text", content: "Verejný obsah" },
+  ];
+  const issues = blockerIssues(assessArticleContentQa(base({ blocks })));
+  assert.deepEqual(issues.filter(issue => issue.code === "EMPTY_REQUIRED_BLOCK").map(issue => issue.blockId), ["heading", "tip", "warning", "quote"]);
+});
