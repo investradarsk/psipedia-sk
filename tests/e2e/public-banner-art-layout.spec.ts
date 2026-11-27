@@ -34,7 +34,7 @@ test("banner art uses its own right lane on wide home promos", async ({ page }) 
   expect(result!.artVisible).toBe(true);
 });
 
-test("narrow directory cards hide dog art without obscuring buttons", async ({ page }) => {
+test("narrow directory cards reserve a separate lane for the same dog artwork", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/adresar");
   const banner = page.locator("[data-directory-map-cta] [data-public-banner-frame]").first();
@@ -47,12 +47,14 @@ test("narrow directory cards hide dog art without obscuring buttons", async ({ p
     const button = action.getBoundingClientRect();
     return {
       width: outer.width,
-      dogHidden: getComputedStyle(art, "::after").display === "none",
+      dogVisible: getComputedStyle(art, "::after").display !== "none",
+      artBelowAction: art.getBoundingClientRect().top >= button.bottom - 1,
       actionInside: button.left >= outer.left && button.right <= outer.right + 1,
     };
   });
   expect(result).not.toBeNull();
   expect(result!.width).toBeLessThan(520);
-  expect(result!.dogHidden).toBe(true);
+  expect(result!.dogVisible).toBe(true);
+  expect(result!.artBelowAction).toBe(true);
   expect(result!.actionInside).toBe(true);
 });
