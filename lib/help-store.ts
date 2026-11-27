@@ -1,3 +1,4 @@
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitHelpCaseV2AdminEdit, HELP_CASE_V2_FIELDS, HELP_CASE_V2_SEO, isHelpCaseV2Field, isHelpCaseV2SeoField, helpCaseV2Kind, helpCaseV2Value } from "./notion-help-case-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
@@ -771,7 +772,9 @@ export async function updateManagedHelpCase(
   editorEmail: string,
   existingItem?: HelpCase,
   unifiedExpectedRevision?: string,
+  reviewOnSave=false,
 ) {
+  if(reviewOnSave&&unifiedExpectedRevision===undefined)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   const database = requireD1Binding();
   await ensureHelpStore(database);
   const existing = existingItem ?? (await getManagedHelpCaseById(id));
@@ -840,7 +843,7 @@ export async function updateManagedHelpCase(
       ...(unifiedExpectedRevision === undefined ? [] : [unifiedExpectedRevision]),
     );
   const row = unifiedExpectedRevision === undefined ? await statement.first<HelpCaseRow>() :
-    (await commitHelpCaseV2AdminEdit(database,statement,{id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:editorEmail})).results?.[0] as HelpCaseRow | undefined;
+    (await commitHelpCaseV2AdminEdit(database,statement,{id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:editorEmail,companionStatements:reviewOnSave?reviewOnSaveStatements(database,{type:"HELP_CASE",id,revision:now,actor:editorEmail}):[]})).results?.[0] as HelpCaseRow | undefined;
   if (unifiedExpectedRevision !== undefined && !row) throw Error("HELP_CASE_V2_STALE");
   return row ? rowToHelpCase(row) : null;
 }
