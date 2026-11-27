@@ -148,6 +148,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           <small>{websiteUrl || "Web ešte nie je vyplnený"}</small>
         </div>}
         actions={<EditorActionBar
+          dirty={dirty} pending={saving} uploading={uploading}
           secondary={<div className={styles.actionLinks}>
             <Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>
             {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}

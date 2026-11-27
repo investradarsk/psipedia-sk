@@ -42,7 +42,7 @@ test("Admin V5 stage 4 footer follows desktop token, mobile safe areas and retai
   assert.match(footer, /env\(safe-area-inset-bottom\)/);
   assert.match(footer, /\.end > :global\(\.admin-editor-actions\)/);
   assert.match(component, /role="status" aria-live="polite"/);
-  assert.match(component, /aria-busy=\{pending\}/);
+  assert.match(component, /aria-busy=\{busy\}/);
   assert.match(workspace, /MOBILE-STABILITY STEP 7/);
   assert.match(workspace, /\) \.pageActions \{[\s\S]*?position: static/);
 });

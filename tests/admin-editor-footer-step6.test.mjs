@@ -14,7 +14,7 @@ test("EDITOR-6: one save footer preserves each editor's own callbacks and form s
   assert.match(footer, /data-editor-save-pending/);
   assert.match(footer, /role="status"/);
   assert.match(footer, /aria-live="polite"/);
-  assert.match(footer, /aria-busy=\{pending\}/);
+  assert.match(footer, /aria-busy=\{busy\}/);
   assert.doesNotMatch(footer, /fetch\s*\(|onSubmit|router\.push|window\.location|notion|database\.prepare/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
   assert.match(css, /min-height: 44px/);
@@ -28,9 +28,9 @@ test("EDITOR-6: directory, organization, help, adoption and lost/found opt into 
   const variants = [
     ["components/admin-directory-editor.tsx", /dirty=\{formDirty\}/, /pending=\{saving\}/],
     ["components/admin-organization-editor.tsx", /dirty=\{dirty\}/, /pending=\{saving\}/],
-    ["components/admin-help-editor.tsx", /dirty=\{navigation\.dirty\}/, /pending=\{saving \|\| uploading\}/],
-    ["components/admin-adoption-editor.tsx", /dirty=\{navigation\.dirty\}/, /pending=\{saving \|\| uploading \|\| galleryUploading\}/],
-    ["components/admin-lost-found-editor.tsx", /dirty=\{navigation\.dirty\}/, /pending=\{saving \|\| uploading \|\| galleryUploading\}/],
+    ["components/admin-help-editor.tsx", /dirty=\{navigation\.dirty\}/, /pending=\{saving\} uploading=\{uploading\}/],
+    ["components/admin-adoption-editor.tsx", /dirty=\{navigation\.dirty\}/, /pending=\{saving\} uploading=\{uploading \|\| galleryUploading\}/],
+    ["components/admin-lost-found-editor.tsx", /dirty=\{navigation\.dirty\}/, /pending=\{saving\} uploading=\{uploading \|\| galleryUploading\}/],
   ];
   for (const [path, dirty, pending] of variants) {
     const src = read(path);
@@ -63,4 +63,34 @@ test("EDITOR-6: publish, unpublish and return still belong to canonical code", (
   assert.match(guard, /Neuložené zmeny/);
   assert.match(guard, /Zahodiť zmeny a zavrieť/);
   assert.match(read("components/admin-shadcn-editor-preview.tsx"), /Simulovať publikovanie/);
+});
+
+test("5/10 all nine canonical editors distinguish saving and uploads", () => {
+  const footer = read("components/admin-editor-footer.tsx");
+  assert.match(footer, /pending \? "Ukladám…" : uploading \? "Nahrávam súbory…"/);
+  assert.match(footer, /data-editor-work-state=\{state\}/);
+  assert.match(footer, /data-editor-save-pending=\{pending \? "true" : "false"\}/);
+  assert.match(footer, /aria-busy=\{busy\}/);
+  const workspace = read("components/admin-editor-workspace.tsx");
+  assert.match(workspace, /pending=\{pending\}/);
+  assert.match(workspace, /uploading=\{uploading\}/);
+  for (const name of ["directory","adoption","organization","lost-found","help","breed","event","article","eshop"]) {
+    const editor = read("components/admin-" + name + "-editor.tsx");
+    assert.match(editor, /(?:<AdminEditorFooter|<EditorActionBar)[\s\S]*?pending=\{saving\}\s+uploading=/, name);
+  }
+});
+test("5/10 Notion status remains independent of local saves and cannot leak across revisions", () => {
+  const sync = read("components/admin-help-notion-status.tsx");
+  assert.match(sync, /snapshot\?\.key===key\?snapshot.state:"checking"/);
+  assert.match(sync, /state:"unavailable"/);
+  assert.match(sync, /if\(inFlight\)return/);
+  assert.match(sync, /setInterval\(\(\)=>void refresh\(\),30_000\)/);
+  const status = read("components/admin-editor-sync-status.tsx");
+  assert.match(status, /data-admin-editor-sync=\{state\}/);
+  assert.doesNotMatch(status, /fetch\(/);
+  for (const name of ["adoption","organization","lost-found","help"]) {
+    assert.match(read("components/admin-" + name + "-editor.tsx"), /sync=\{<AdminHelpNotionStatus/);
+  }
+  assert.match(read("components/admin-directory-editor.tsx"), /state="disabled" label="Pozastavená/);
+  assert.match(read("components/admin-article-editor.tsx"), /data-admin-editor-notion-receipt=\{receipt.status\}/);
 });

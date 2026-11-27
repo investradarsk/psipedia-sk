@@ -355,7 +355,8 @@ export function AdminOrganizationEditor({
     {imageEditorOpen && draft.imageUrl && <ImageDisplayEditor src={draft.imageUrl} alt={draft.name || "Organizácia"} title={draft.name} excerpt={draft.shortDescription} entityLabel="organizácie" thumbnailAspectRatio="4 / 3"
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
-<AdminHelpNotionStatus agenda="organizations" recordId={organization?.id} revision={syncRevision} />    <AdminEditorFooter dirty={dirty} pending={saving}>
+<AdminEditorFooter dirty={dirty} pending={saving} uploading={uploading}
+      sync={<AdminHelpNotionStatus agenda="organizations" recordId={organization?.id} revision={syncRevision} />}>
       {organization && <AdminRecordLifecycleActions kind="organizations" recordId={organization.id} status={organization.status} disabled={!hydrated || saving || uploading} returnHref={returnHref} />}
       <div className="admin-editor-actions">
       <div><Link href={returnHref}>← Späť na organizácie</Link></div>

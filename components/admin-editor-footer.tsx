@@ -14,6 +14,9 @@ export function AdminEditorFooter({
   feedback,
   dirty,
   pending = false,
+  uploading = false,
+  activityLabel,
+  sync,
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement> & {
@@ -24,21 +27,29 @@ export function AdminEditorFooter({
   feedback?: ReactNode;
   dirty?: boolean;
   pending?: boolean;
+  uploading?: boolean;
+  /** Non-save activity, for example changing the reviewed flag. */
+  activityLabel?: string;
+  /** Independently confirmed synchronization status, not a save acknowledgement. */
+  sync?: ReactNode;
 }) {
-  const showStatus = dirty !== undefined || Boolean(message) || Boolean(feedback) || Boolean(destructive) || Boolean(back);
+  const busy = pending || uploading || Boolean(activityLabel);
+  const state = pending ? "saving" : uploading ? "uploading" : activityLabel ? "working" : dirty ? "dirty" : "idle";
+  const showStatus = busy || dirty !== undefined || Boolean(message) || Boolean(feedback) || Boolean(destructive) || Boolean(back) || Boolean(sync);
   return (
     <div {...props} className={[styles.footer, className].filter(Boolean).join(" ")}
-      data-admin-editor-footer data-editor-save-pending={pending ? "true" : "false"} aria-busy={pending}>
+      data-admin-editor-footer data-editor-save-pending={pending ? "true" : "false"} data-editor-work-state={state} aria-busy={busy}>
       {showStatus ? (
         <div className={styles.start}>
           {back}
           {destructive}
-          {(message || dirty !== undefined) && (
+          {(busy || message || dirty !== undefined) && (
             <div className={styles.status} role="status" aria-live="polite">
-              {message ?? (pending ? "Ukladám…" : dirty ? "Neuložené zmeny" : "Bez neuložených zmien")}
+              {pending ? "Ukladám…" : uploading ? "Nahrávam súbory…" : activityLabel ?? message ?? (dirty ? "Neuložené zmeny" : "Bez neuložených zmien")}
             </div>
           )}
           {feedback}
+          {sync && <div className={styles.sync}>{sync}</div>}
         </div>
       ) : null}
       <div className={styles.end}>{children}</div>

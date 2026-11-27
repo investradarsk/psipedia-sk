@@ -253,7 +253,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na podujatia"}
         actions={
           <EditorActionBar
-            message={dirty ? "Neuložené zmeny" : undefined}
+            dirty={dirty} pending={saving} uploading={uploading}
             secondary={<>
               {event && <details className={styles.moreActions} data-admin-event-more-actions>
                 <summary>Ďalšie akcie</summary>

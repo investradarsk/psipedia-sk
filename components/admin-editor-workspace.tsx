@@ -145,6 +145,10 @@ export function EditorActionBar({
   destructive,
   message,
   feedback,
+  dirty,
+  pending = false,
+  uploading = false,
+  sync,
 }: {
   primary?: ReactNode;
   secondary?: ReactNode;
@@ -152,6 +156,10 @@ export function EditorActionBar({
   message?: ReactNode;
   /** Already-announced alert/status element; render without nesting in another live region. */
   feedback?: ReactNode;
+  dirty?: boolean;
+  pending?: boolean;
+  uploading?: boolean;
+  sync?: ReactNode;
 }) {
   return (
     <AdminEditorFooter
@@ -160,6 +168,10 @@ export function EditorActionBar({
       destructive={destructive}
       message={message}
       feedback={feedback}
+      dirty={dirty}
+      pending={pending}
+      uploading={uploading}
+      sync={sync}
     >
       {secondary}{primary}
     </AdminEditorFooter>

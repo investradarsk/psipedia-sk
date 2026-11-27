@@ -12,7 +12,7 @@ import styles from "./admin-adoption-editor.module.css";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
-import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { useAdminUnsavedFormLinks } from "@/components/admin-unsaved-form-links";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
@@ -217,8 +217,8 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
       </div>
     </AdminEditorSectionVisibility.Provider>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
-    {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
-<AdminHelpNotionStatus agenda="adoptions" recordId={item?.id} revision={syncRevision} />    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+<AdminEditorFooter dirty={navigation.dirty} pending={saving} uploading={uploading || galleryUploading}
+      sync={<AdminHelpNotionStatus agenda="adoptions" recordId={item?.id} revision={syncRevision} />}>
       {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
       <div className="admin-editor-actions"><Link href={returnHref}>Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>

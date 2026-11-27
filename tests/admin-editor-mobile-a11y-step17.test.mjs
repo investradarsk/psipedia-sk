@@ -51,7 +51,7 @@ test("EDITOR-17: 320px navigation, section focus, motion and shared action bar a
   assert.match(footerCss, /min-height: 44px/);
   assert.match(footerCss, /max-width: 100%/);
   assert.match(footerCss, /overflow-wrap: anywhere/);
-  assert.match(footer, /aria-busy=\{pending\}/);
+  assert.match(footer, /aria-busy=\{busy\}/);
   assert.match(footer, /role="status" aria-live="polite"/);
 });
 

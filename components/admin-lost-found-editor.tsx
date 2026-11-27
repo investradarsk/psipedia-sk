@@ -171,7 +171,6 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-hydrated="false" data-admin-form-system="v4" data-admin-lost-found-editor data-admin-content-module="lost-found-editor" onChangeCapture={navigation.captureChange} onSubmit={(e)=>{e.preventDefault();void save()}}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
-    {navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}
     <AdminFormFeedback message={message} error={error} pending={saving} className={styles.message} errorClassName={styles.error} />
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeLostFoundSection, mode: "switch" }}>
     <div className={styles.editorLayout} data-admin-profile-editor-layout data-admin-lost-found-editor-workspace>
@@ -203,7 +202,8 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
     </AdminEditorSectionVisibility.Provider>
     {report && state.status === "ACTIVE" && publicHref && <AdminShareToFacebook title={state.dogName || state.breed || "Pes"} publicPath={publicHref} />}
     {imageEditorOpen && state.mainImage && <ImageDisplayEditor src={state.mainImage} alt={state.dogName||"Pes"} title={state.dogName} entityLabel="strateného alebo nájdeného psa" thumbnailAspectRatio="4 / 3" thumbnail={state.thumbnailImageDisplay} detail={state.detailImageDisplay} onCancel={()=>setImageEditorOpen(false)} onSave={(thumbnail,detail)=>{navigation.markDirty();setState(s=>({...s,thumbnailImageDisplay:thumbnail,detailImageDisplay:detail}));setImageEditorOpen(false)}}/>}
-<AdminHelpNotionStatus agenda="lost-found" recordId={report?.id} revision={syncRevision} />    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+<AdminEditorFooter dirty={navigation.dirty} pending={saving} uploading={uploading || galleryUploading}
+      sync={<AdminHelpNotionStatus agenda="lost-found" recordId={report?.id} revision={syncRevision} />}>
       {report && <AdminRecordLifecycleActions kind="lost-found" recordId={report.id} status={state.status} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={()=>setState(current=>({...current,status:"DRAFT"}))} />}
       <div className={styles.actions}><Link className={styles.secondary} href={returnHref}>← Späť</Link><div><button type="submit" className={styles.primary} disabled={saving||uploading||galleryUploading}>{saving?"Ukladám…":report?"Uložiť":"Vytvoriť koncept"}</button>{report&&allowedTransitions.map((status)=><button key={status} type="button" className={status==="ACTIVE"?styles.primary:styles.secondary} disabled={saving||uploading||galleryUploading} onClick={()=>void save(status)}>{transitionLabel[status]}</button>)}</div></div></AdminEditorFooter>
   </form>;

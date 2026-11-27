@@ -3,6 +3,7 @@
 import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
+import { AdminEditorSyncStatus } from "@/components/admin-editor-sync-status";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
@@ -1477,7 +1478,9 @@ export function AdminDirectoryEditor({
 
       </NotionDraftFields>
       </AdminEditorSectionVisibility.Provider>
-      <AdminEditorFooter dirty={formDirty} pending={saving}>
+      <AdminEditorFooter dirty={formDirty} pending={saving} uploading={uploading || galleryBusy}
+        activityLabel={reviewSaving ? "Mením stav kontroly…" : undefined}
+        sync={profile && reviewed ? <AdminEditorSyncStatus state="disabled" label="Pozastavená · odkontrolovaný profil" /> : undefined}>
       <div className="admin-editor-actions">
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href={returnHref}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (

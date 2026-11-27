@@ -1,0 +1,3 @@
+.status { display:flex; flex-wrap:wrap; align-items:baseline; gap: .3rem; margin:0; padding:.3rem .5rem; border:1px solid var(--admin-ui-border,#e1e7e2); border-radius:var(--admin-ui-field-radius,8px); color:var(--admin-ui-muted,#52695c); background:var(--admin-v3-surface-muted,#f8faf8); font-size:var(--admin-ui-type-caption,.77rem); line-height:1.4; overflow-wrap:anywhere; }
+.status[data-admin-editor-sync="synced"] { color:var(--admin-v3-green,#174b38); }
+.status:is([data-admin-editor-sync="pending"],[data-admin-editor-sync="review"],[data-admin-editor-sync="setup"],[data-admin-editor-sync="unavailable"]) { color:#795119; border-color:#e0d2b7; }

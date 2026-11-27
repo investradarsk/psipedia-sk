@@ -438,7 +438,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       onClose={()=>{ setDirty(false); router.push(returnHref); }}
       closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na plemená"}
       actions={<EditorActionBar
-        message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
+        dirty={dirty} pending={saving} uploading={uploading}
         secondary={
           <details className={styles.moreActions} data-breed-more-actions>
             <summary>Ďalšie akcie</summary>
