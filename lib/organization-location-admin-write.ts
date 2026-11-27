@@ -280,3 +280,36 @@ export async function deleteOrganizationLocationFromAdmin(
   const result=(unifiedEditor ? await commitOrganizationLocationAdminEdit(db,statement,organizationId,unifiedEditor) : await statement.run()) as RunResult;
   return resultChanges(result) >= 1;
 }
+
+
+/** Prepare an address-only mutation for the parent form transaction. Never
+ * promote/demote another location or infer an address from the parent row.
+ * Compare the actual submitted location snapshot, including Google edits
+ * which may not have advanced the parent revision. */
+export async function planCombinedOrganizationAddress(db:D1Database,organizationId:number,raw:unknown){
+  if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new OrganizationLocationMutationConflictError("Neplatná adresa.");
+  const request=raw as {expected?:unknown;payload?:unknown};
+  const input=normalizeOrganizationLocationAdminInput(request.payload);
+  const guard=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('ORGANIZATION_ADDRESS_CAS_FAILED','$') END");
+  if(request.expected===null){
+    const statement=insertStatement(db,organizationId,input) as unknown as D1PreparedStatement;
+    return {statements:[statement,guard()],locationId:null,geoRevision:undefined};
+  }
+  if(!request.expected||typeof request.expected!=="object")throw new OrganizationLocationMutationConflictError("Chýba pôvodná adresa.");
+  const old=request.expected as import("./organization-location-admin-store.ts").OrganizationLocationAdminRecord;
+  if(!Number.isSafeInteger(old.id)||old.id<1||old.organizationId!==organizationId||
+    !["role","label","address","city","district","region","countryCode"].every(key=>typeof (old as unknown as Record<string,unknown>)[key]==="string")||
+    typeof old.isPrimary!=="boolean"||!Number.isSafeInteger(old.sortOrder))
+    throw new OrganizationLocationMutationConflictError("Neplatná pôvodná adresa.");
+  const geo=await prepareGoogleSourceGeoInvalidation("ORGANIZATION_LOCATION",old.id,db as unknown as Parameters<typeof prepareGoogleSourceGeoInvalidation>[2],undefined,
+    {sql:"SELECT 1 FROM organization_locations WHERE id=? AND organization_id=? AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?",
+      args:[old.id,organizationId,input.address,input.city,input.district,input.region,input.countryCode]});
+  const write=db.prepare("UPDATE organization_locations SET address=?,city=?,district=?,region=?,country_code=? "+
+    "WHERE id=? AND organization_id=? AND role IS ? AND label IS ? AND address IS ? AND city IS ? AND district IS ? "+
+    "AND region IS ? AND country_code IS ? AND is_primary=? AND sort_order=? "+
+    "AND id=(SELECT id FROM organization_locations WHERE organization_id=? ORDER BY CASE WHEN role='SITE' THEN 0 ELSE 1 END,is_primary DESC,sort_order,id LIMIT 1) AND "+geo.sourceGuard)
+    .bind(input.address,input.city,input.district,input.region,input.countryCode,old.id,organizationId,old.role,old.label,
+      old.address,old.city,old.district,old.region,old.countryCode,old.isPrimary?1:0,old.sortOrder,organizationId,...geo.sourceGuardArgs);
+  return {statements:[write,guard(),...(geo.invalidation?[geo.invalidation as unknown as D1PreparedStatement,guard()]:[])],
+    locationId:old.id,geoRevision:geo.current?geo.now:null};
+}
