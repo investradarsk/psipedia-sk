@@ -1215,8 +1215,8 @@ async function syncAgenda(input: {
             dataSourceId:target.dataSourceId,load:loadNotionV2HelpCases,fields,
             direction:inbound?"pull":"push",protectedFields:HELP_CASE_V2_PROTECTED,
             kind:helpCaseV2Kind,
-            pull:(field,value,revision,reservation)=>updateHelpCaseV2NotionField({
-              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,
+            pull:(field,value,revision,reservation,media)=>updateHelpCaseV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,media,
             }),
             encode:values=>encodeProperties(values,schema),
           });
@@ -1236,8 +1236,8 @@ async function syncAgenda(input: {
             dataSourceId:target.dataSourceId,load:loadNotionBulkLostFound,fields,
             direction:inbound?"pull":"push",protectedFields:LOST_FOUND_V2_PROTECTED,
             kind:lostFoundV2Kind,
-            pull:(field,value,revision,reservation)=>updateLostFoundV2NotionField({
-              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,
+            pull:(field,value,revision,reservation,media)=>updateLostFoundV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,media,
             }),
             encode:values=>encodeProperties(values,schema),
           });
@@ -1259,8 +1259,8 @@ async function syncAgenda(input: {
             kind:field=>field==="Vek mesiace"||field==="Hmotnosť"?"number":
               field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":
               isAdoptionV2Field(field)||field==="Slug"||field==="Stav"?"text":undefined,
-            pull:(field,value,revision,reservation)=>updateAdoptionV2NotionField({
-              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,
+            pull:(field,value,revision,reservation,media)=>updateAdoptionV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,media,
             }),
             encode:values=>encodeProperties(values,schema),
           });
@@ -2625,11 +2625,11 @@ export async function recoverEventsHelpV2Field(database:D1Database,bindings:Noti
       return;
     }
     if(agenda==="adoptions"){
-      const result=await syncHelpV2Fields({...scope,agenda,load:loadNotionV2Adoptions,fields,direction,protectedFields:new Set(["Slug","Stav"]),kind:key=>key==="Vek mesiace"||key==="Hmotnosť"?"number":key==="Kríženec"?"checkbox":key==="Dátum narodenia"?"date":isAdoptionV2Field(key)?"text":undefined,pull:(key,value,revision,reservation)=>updateAdoptionV2NotionField({database,id,pageId,field:key,value,revision,reservation}),encode:unavailable});
+      const result=await syncHelpV2Fields({...scope,agenda,load:loadNotionV2Adoptions,fields,direction,protectedFields:new Set(["Slug","Stav"]),kind:key=>key==="Vek mesiace"||key==="Hmotnosť"?"number":key==="Kríženec"?"checkbox":key==="Dátum narodenia"?"date":isAdoptionV2Field(key)?"text":undefined,pull:(key,value,revision,reservation,media)=>updateAdoptionV2NotionField({database,id,pageId,field:key,value,revision,reservation,media}),encode:unavailable});
       if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
       return;
     }
-    const result=await syncHelpV2Fields({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases,fields,direction,protectedFields:agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED,kind:agenda==="lost-found"?lostFoundV2Kind:helpCaseV2Kind,pull:(key,value,revision,reservation)=>agenda==="lost-found"?updateLostFoundV2NotionField({database,id,pageId,field:key,value,revision,reservation}):updateHelpCaseV2NotionField({database,id,pageId,field:key,value,revision,reservation}),encode:unavailable});
+    const result=await syncHelpV2Fields({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases,fields,direction,protectedFields:agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED,kind:agenda==="lost-found"?lostFoundV2Kind:helpCaseV2Kind,pull:(key,value,revision,reservation,media)=>agenda==="lost-found"?updateLostFoundV2NotionField({database,id,pageId,field:key,value,revision,reservation,media}):updateHelpCaseV2NotionField({database,id,pageId,field:key,value,revision,reservation,media}),encode:unavailable});
     if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
     return;
   }

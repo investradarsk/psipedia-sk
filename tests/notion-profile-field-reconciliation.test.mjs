@@ -2115,3 +2115,17 @@ test("V3 authoritative service set is atomic and preserves unrelated choices",as
     assert.deepEqual(sqlite.prepare("PRAGMA foreign_key_check").all(),[]);
   }finally{sqlite.close();}
 });
+
+test("profile media accepts only exact public agenda-scoped R2 assets or an explicit clear",async()=>{
+  const {verifyProfileOwnedMedia,requireProfileMediaProof}=await import("../lib/notion-profile-owned-media.ts");
+  const calls=[];const bucket={head:async key=>{calls.push(key);return key==="events/2026/ok.webp"?{key}:null}};
+  const media=await verifyProfileOwnedMedia("events","https://psipedia.sk/media/events/2026/ok.webp",bucket);
+  assert.deepEqual(media,{url:"/media/events/2026/ok.webp",key:"events/2026/ok.webp"});
+  assert.deepEqual(requireProfileMediaProof("events","https://psipedia.sk/media/events/2026/ok.webp",media),media);
+  assert.deepEqual(await verifyProfileOwnedMedia("events",""),{url:null,key:null});
+  for(const invalid of [null,undefined,"https://example.com/a.jpg","https://psipedia.sk/media/events/../a.jpg","https://psipedia.sk/media/events/%2e%2e/a.jpg","https://psipedia.sk/media/safe/secret.jpg","https://psipedia.sk/media/help/a.jpg","https://psipedia.sk/media/events/a.jpg?x=1","https://psipedia.sk/media/events/a.svg"])
+    await assert.rejects(()=>verifyProfileOwnedMedia("events",invalid,bucket));
+  await assert.rejects(()=>verifyProfileOwnedMedia("events","https://psipedia.sk/media/events/2026/missing.webp",bucket));
+  assert.throws(()=>requireProfileMediaProof("events","",media));
+  assert.deepEqual(calls,["events/2026/ok.webp","events/2026/missing.webp"]);
+});

@@ -1,3 +1,4 @@
+import { verifyProfileOwnedMedia, requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import { ORGANIZATION_V2_COLUMNS, isOrganizationV2Field, ORGANIZATION_LOCATION_V2_COLUMNS, isOrganizationLocationV2Field, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import { normalizeOrganizationLocationAdminInput } from "./organization-location-admin.ts";
@@ -77,7 +78,7 @@ async function observe(input: OrganizationV2Scope, field: string, allowSlugChang
     psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:source.properties[field]} : {present:false as const}};
 }
 
-async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string,reservation?:FieldReservation) {
+async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string,reservation?:FieldReservation,proof?:VerifiedProfileMedia) {
   const authority=helpAuthorityWriteGuard(reservation,"organizations",input.entityId,input.pageId,field);
   if(!isOrganizationV2Field(field))throw Error("ORGANIZATION_V2_FIELD_PROTECTED");
   const normalized=normalizeOrganizationNotionField(field,value);
@@ -85,7 +86,8 @@ async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,r
   // requested observed value. A differing canonical value remains review.
   const comparable=field==="Hlavný obrázok URL" && normalized?.startsWith("/") ? "https://psipedia.sk"+normalized : normalized??"";
   if(comparable!==value)throw Error("ORGANIZATION_V2_NORMALIZATION_REVIEW");
-  const media=field==="Hlavný obrázok URL" ? ",image_key=NULL,thumbnail_display_json=NULL,detail_display_json=NULL" : "";
+  const owned=field==="Hlavný obrázok URL"&&reservation?.profileAuthority?requireProfileMediaProof("organizations",value,proof):undefined;
+  const media=field==="Hlavný obrázok URL" ? (owned?",image_key=?":",image_key=NULL")+",thumbnail_display_json=NULL,detail_display_json=NULL" : "";
   const result=await input.database.prepare(
     "UPDATE help_organizations SET "+ORGANIZATION_V2_COLUMNS[field]+"=?"+media+",updated_at=?,updated_by=? "+
     "WHERE id=? AND updated_at=? AND archived_at IS NULL AND status<>'ARCHIVED' "+
@@ -93,7 +95,7 @@ async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,r
     "AND NOT "+partnerReviewOwnerSql("ORGANIZATION","help_organizations.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=help_organizations.id) "+
     "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"+authority.sql
-  ).bind(normalized,nextOrganizationEditRevision(revision,new Date()),ACTOR,input.entityId,revision,input.pageId,...authority.params).run();
+  ).bind(owned?owned.url:normalized,...(owned?[owned.key]:[]),nextOrganizationEditRevision(revision,new Date()),ACTOR,input.entityId,revision,input.pageId,...authority.params).run();
   if(result.meta.changes!==1)throw Error("ORGANIZATION_V2_WRITE_CONFLICT");
 }
 
@@ -168,14 +170,15 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
       if(!structural && !reservation)continue;
       const value=reservation ? reservation.value : observation.psipedia.value;
       if(direction==="pull"){
-        const fresh=await observe(input,field,false);
+        const proof=reservation?.profileAuthority&&field==="Hlavný obrázok URL"?await verifyProfileOwnedMedia("organizations",value,input.bindings.BUCKET):undefined;
+         const fresh=await observe(input,field,false);
         if(fresh.revision!==observation.revision || !fresh.notion.present || fresh.notion.value!==value ||
           !fresh.psipedia.present || fresh.psipedia.value!==observation.psipedia.value ||
           JSON.stringify(fresh.location)!==JSON.stringify(observation.location))
           throw Error("ORGANIZATION_V2_SOURCE_CHANGED");
         if(reservation)await assertUnifiedReservationCurrent(database,reservation);
         if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh,reservation??undefined);
-        else await pullScalar(input,field,value,observation.revision,reservation??undefined);
+        else await pullScalar(input,field,value,observation.revision,reservation??undefined,proof);
         pulled++;
       }else{
         const fresh=await observe(input,field,slug);

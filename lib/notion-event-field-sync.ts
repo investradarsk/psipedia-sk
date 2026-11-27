@@ -1,3 +1,4 @@
+import { verifyProfileOwnedMedia, requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { isAdminNotionSyncLocked, partnerReviewOwnerSql } from "./admin-notion-review-lock";
 import type { DogEvent } from "./events.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
@@ -18,6 +19,7 @@ import {
 } from "./notion-event-field-contract.ts";
 
 export type EventFieldSyncBindings = {
+  BUCKET?: R2Bucket;
   NOTION_PROFILE_AUTHORITY_MODE?: string;
   NOTION_API_TOKEN?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
@@ -208,13 +210,13 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(["startTime","endTime"].includes(path) &&
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw Error("TIME_INVALID");
 }
-async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean,expectedRevision?:string,reservation?:FieldReservation){
+async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean,expectedRevision?:string,reservation?:FieldReservation,proof?:VerifiedProfileMedia){
   const live=await getManagedEventById(id);
   if(!live)throw Error("EVENT_CANONICAL_MISSING");
   if(expectedRevision!==undefined && live.updatedAt!==expectedRevision)throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
   if(await isAdminNotionSyncLocked(db,"events",id))throw Error("EVENT_SYNC_LOCKED");
   validate(path,value,live);
-  if (path === "imageUrl") {
+  if (path === "imageUrl"&&!reservation?.profileAuthority) {
     // A blank Notion URL is not proof that the owner deleted an Admin-uploaded file.
     if (!value.trim()) return false;
     // Notion keeps an absolute URL, while Psipedia stores its own media paths.
@@ -243,16 +245,17 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
     if(!saved)throw Error("EVENT_LOCATION_WRITE_FAILED");
     return true;
   }
+  const owned=path==="imageUrl"&&reservation?.profileAuthority?requireProfileMediaProof("events",value,proof):undefined;
   const scalar=SCALARS[path],seo=SEO[path];
-  if(!scalar && !seo)throw Error("EVENT_FIELD_NOT_ALLOWED");
+  if(!scalar && !seo&&!owned)throw Error("EVENT_FIELD_NOT_ALLOWED");
   const current=eventGetPath(live as unknown as Record<string,unknown>,path);
   const comparable=(v:unknown)=>v==null?"":v;
   if(comparable(current)===value)return false;
   const now=nextManagedEventUpdatedAt(live.updatedAt);
   // SQL identifiers and JSON paths are from compile-time allowlists;
   // content is always parameter-bound. Revision guard prevents lost updates.
-  const assignment=scalar?scalar+"=?":"seo_json=json_set(COALESCE(seo_json,'{}'),?,?)";
-  const args=scalar?[value]:["$."+seo,value];
+  const assignment=owned?"image_url=?,image_key=?,image_display=NULL,thumbnail_display_json=NULL,detail_display_json=NULL":scalar?scalar+"=?":"seo_json=json_set(COALESCE(seo_json,'{}'),?,?)";
+  const args=owned?[owned.url,owned.key]:scalar?[value]:["$."+seo,value];
   const authority=reservation?.profileAuthority===true;
   const guard=authority
     ? " AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.event_id=managed_events.id AND m.notion_page_id=?)"+
@@ -335,8 +338,11 @@ export async function syncEventNotionFields(input:{
         if (!planned.reservation) continue;
         const chosen = planned.reservation.value;
         if (typeof chosen !== "string" && typeof chosen !== "boolean") throw Error("EVENT_FIELD_INVALID");
+        const proof=planned.reservation.profileAuthority&&path==="imageUrl"?await verifyProfileOwnedMedia("events",chosen,input.bindings.BUCKET):undefined;
+        if(planned.reservation.profileAuthority){const fresh=await observePilotField(input.database,input.bindings,id,input.page.id,path);
+          if(fresh.revision!==planned.revision||fresh.page.last_edited_time!==planned.page.last_edited_time||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion)||JSON.stringify(fresh.psipedia)!==JSON.stringify(planned.psipedia))throw Error("EVENT_NOTION_FIELD_CHANGED");}
         await assertUnifiedReservationCurrent(input.database,planned.reservation);
-        if (await saveField(input.database,id,path,chosen,planned.revision,planned.reservation)) saved++;
+        if (await saveField(input.database,id,path,chosen,planned.revision,planned.reservation,proof)) saved++;
         await confirmPilotField(input.database,input.bindings,id,input.page.id,path,planned.reservation);
       } else if (await saveField(input.database,id,path,value??"")) saved++;
     }catch(e){
@@ -446,7 +452,10 @@ export async function recoverEventV2Field(database:D1Database,bindings:EventFiel
     const value=planned.reservation.value;
     if(typeof value!=="string"&&typeof value!=="boolean")throw Error("EVENT_FIELD_INVALID");
     await assertUnifiedReservationCurrent(database,planned.reservation);
-    await saveField(database,id,path,value,planned.revision,planned.reservation);
+    const proof=planned.reservation.profileAuthority&&path==="imageUrl"?await verifyProfileOwnedMedia("events",value,bindings.BUCKET):undefined;
+    if(planned.reservation.profileAuthority){const current=await observePilotField(database,bindings,id,pageId,path);if(current.revision!==planned.revision||current.page.last_edited_time!==planned.page.last_edited_time||JSON.stringify(current.notion)!==JSON.stringify(planned.notion)||JSON.stringify(current.psipedia)!==JSON.stringify(planned.psipedia))throw Error("EVENT_NOTION_FIELD_CHANGED");}
+    await assertUnifiedReservationCurrent(database,planned.reservation);
+    await saveField(database,id,path,value,planned.revision,planned.reservation,proof);
     await confirmPilotField(database,bindings,id,pageId,path,planned.reservation);
   }
 }

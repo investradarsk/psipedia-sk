@@ -1,3 +1,4 @@
+import { requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -136,7 +137,7 @@ export async function updateAdoptionFromAdmin(
  * field, but the SQL write cannot change unrelated content, lifecycle,
  * gallery or freshness metadata. All identity/lock predicates are atomic. */
 export async function updateAdoptionV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;media?:VerifiedProfileMedia;
 }) {
   const {database,id,pageId,field,value,revision}=input;
   const authority=helpAuthorityWriteGuard(input.reservation,"adoptions",id,pageId,field);
@@ -161,7 +162,7 @@ export async function updateAdoptionV2NotionField(input:{
     else{patch.organizationId=target?.id??null;patch.organizationName=value;patch.organizationSlug=target?.slug??null;}
   }else if(field==="Hlavný obrázok URL"){
     if(typeof value!=="string")throw Error("ADOPTION_V2_IMAGE_INVALID");
-    patch.mainImage=value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
+    patch.mainImage=input.reservation?.profileAuthority?requireProfileMediaProof("adoptions",value,input.media).url:value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
   }else{
     // The canonical normalizer validates enums, URL, date and numeric ranges.
     Object.assign(patch,{[key]:value});

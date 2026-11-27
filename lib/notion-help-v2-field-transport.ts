@@ -1,3 +1,4 @@
+import { verifyProfileOwnedMedia, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
@@ -59,7 +60,7 @@ type Scope={database:D1Database;bindings:NotionSyncBindings;agenda:Agenda;entity
   load:(db:D1Database,id:number)=>Promise<CanonicalSourceRecord[]>};
 type Adapter=Scope & {fields:readonly string[];direction:"pull"|"push";
   kind:(field:string)=>FieldKind|undefined;protectedFields:ReadonlySet<string>;
-  pull:(field:string,value:unknown,revision:string,reservation?:FieldReservation)=>Promise<void>;
+  pull:(field:string,value:unknown,revision:string,reservation?:FieldReservation,media?:VerifiedProfileMedia)=>Promise<void>;
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>};
 
 async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolean){
@@ -116,13 +117,15 @@ export async function syncHelpV2Fields(input:Adapter){
       });
       if(!structural&&!reservation)continue;
       const value=reservation?reservation.value:observed.psipedia.value;
+      const mediaField=agenda==="adoptions"?"Hlavný obrázok URL":agenda==="lost-found"?"Hlavný obrázok":"Obrázok";
+      const media=reservation?.profileAuthority&&field===mediaField?await verifyProfileOwnedMedia(agenda,value,input.bindings.BUCKET):undefined;
       const fresh=await observe(input,field,kind,slug);
       if(fresh.revision!==observed.revision||!fresh.notion.present||!fresh.psipedia.present||
         fresh.notion.value!==observed.notion.value||fresh.psipedia.value!==observed.psipedia.value||
         fresh.page.last_edited_time!==observed.page.last_edited_time)
         throw Error("HELP_V2_SOURCE_CHANGED");
       if(reservation)await assertUnifiedReservationCurrent(database,reservation);
-      if(direction==="pull")await input.pull(field,value,observed.revision,reservation??undefined);
+      if(direction==="pull")await input.pull(field,value,observed.revision,reservation??undefined,media);
       else {
         const values:Record<string,ReconciliationValue>={[field]:value as ReconciliationValue};
         if(slug)values["URL Psipedia"]=fresh.source.url;

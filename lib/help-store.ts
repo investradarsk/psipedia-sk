@@ -1,3 +1,4 @@
+import { requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -872,7 +873,7 @@ export function isHelpCaseConflict(error: unknown) {
  * dedicated adoption/organization/Lost-Found domains. Public editorial
  * contact text is existing canonical content, not a private contact store. */
 export async function updateHelpCaseV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;media?:VerifiedProfileMedia;
 }) {
   const {database,id,pageId,field,value,revision}=input;
   const authority=helpAuthorityWriteGuard(input.reservation,"help-cases",id,pageId,field);
@@ -910,7 +911,9 @@ export async function updateHelpCaseV2NotionField(input:{
       if(image&&!image.startsWith("/media/")&&!image.startsWith("/images/")&&!/^https:\/\//i.test(image))
         throw Error("HELP_CASE_V2_IMAGE_INVALID");
       desired=image||null;
-      assignments.push("image_key=NULL","thumbnail_display_json=NULL","detail_display_json=NULL");
+      if(input.reservation?.profileAuthority){const media=requireProfileMediaProof("help-cases",value,input.media);desired=media.url;assignments.push("image_key=?");args.push(media.key);}
+      else assignments.push("image_key=NULL");
+      assignments.push("thumbnail_display_json=NULL","detail_display_json=NULL");
     }
     if(field==="Urgentné")desired=value?1:0;
     if(field==="CTA text"&&!value)desired=defaultHelpActionLabel(row.category as HelpCategorySlug);

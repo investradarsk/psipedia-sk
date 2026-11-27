@@ -22,11 +22,11 @@ const textFields:Record<UnifiedSyncAgenda,readonly string[]> = {
   breeds:[...BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="content"&&Boolean(breedWorkcopyPhysicalProperty(entry.notion))&&
     !["editorial.heroTraits","editorialComplete"].includes(entry.id)).map(entry=>entry.id),
     ...breedControlledKeys.map((key:string)=>"controlled."+key)],
-  events:["title","eventType","startDate","endDate","startTime","endTime","organizer","excerpt","description","practicalInfo","contactPhone","contactEmail","admissionFee","websiteUrl","registrationUrl","imageAlt","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
-  organizations:["Zdroj dát","Mesto","Okres","Kraj","Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram"],
-  adoptions:["Plemeno","Organizácia","Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
-  "lost-found":["Plemeno","Naposledy videný","Zdroj URL","Meno psa","Pohlavie","Farba","Vek","Veľkosť","Krátky popis","Popis","Rozlišovacie znaky","Obojok","Čip","Dátum udalosti","Kraj","Okres","Mesto"],
-  "help-cases":["Názov","Perex","Popis","Pes","Plemeno","Vek","Mesto","Kraj","Miesto","Dátum hlásenia","Deadline","CTA text","CTA URL","Cieľ","Vyzbierané","Urgentné"],
+  events:["imageUrl","title","eventType","startDate","endDate","startTime","endTime","organizer","excerpt","description","practicalInfo","contactPhone","contactEmail","admissionFee","websiteUrl","registrationUrl","imageAlt","seo.title","seo.description","seo.focusKeyword","seo.canonicalUrl","seo.ogTitle","seo.ogDescription"],
+  organizations:["Hlavný obrázok URL","Zdroj dát","Mesto","Okres","Kraj","Názov","Právny názov","Krátky popis","Popis","Verejný e-mail","Verejný telefón","Web","Facebook","Instagram"],
+  adoptions:["Hlavný obrázok URL","Plemeno","Organizácia","Meno","Dátum narodenia","Vek mesiace","Pohlavie","Veľkosť","Hmotnosť","Kríženec","Farba","Mesto","Okres","Kraj","Krátky popis","Popis","Povaha","Aktivita","Zdravotné poznámky","Špeciálne potreby","Vhodný k deťom","Vhodný k psom","Vhodný k mačkám","Vhodný k iným zvieratám","Očkovanie","Podmienky adopcie","Kontaktný e-mail","Kontaktný telefón","Kontaktný odkaz","Zdroj dát"],
+  "lost-found":["Hlavný obrázok","Plemeno","Naposledy videný","Zdroj URL","Meno psa","Pohlavie","Farba","Vek","Veľkosť","Krátky popis","Popis","Rozlišovacie znaky","Obojok","Čip","Dátum udalosti","Kraj","Okres","Mesto"],
+  "help-cases":["Obrázok","Názov","Perex","Popis","Pes","Plemeno","Vek","Mesto","Kraj","Miesto","Dátum hlásenia","Deadline","CTA text","CTA URL","Cieľ","Vyzbierané","Urgentné"],
   eshops:["name","websiteUrl","description","sourceUrl","focusTags","logoUrl"],
 };
 export function profileAuthorityTextFieldAllowed(identity:FieldIdentity):boolean {

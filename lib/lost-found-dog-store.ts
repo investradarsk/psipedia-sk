@@ -1,3 +1,4 @@
+import { requireProfileMediaProof, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -858,7 +859,7 @@ function cleanImageNullable(value: unknown) { const text = cleanText(value, 1000
  * dependent SQL fields. Never reads or decrypts lost_found_dog_private_details,
  * invokes moderation, changes publication, or modifies public contact approval. */
 export async function updateLostFoundV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;media?:VerifiedProfileMedia;
 }) {
   const {database,id,pageId,field,value,revision}=input;
   const authority=helpAuthorityWriteGuard(input.reservation,"lost-found",id,pageId,field);
@@ -883,7 +884,7 @@ export async function updateLostFoundV2NotionField(input:{
     if(matches.results.length>1||(!matches.results.length&&(input.reservation?.profileAuthority?Boolean(value.trim()):row.breed_id!==null)))throw Error("LOST_FOUND_V2_BREED_AMBIGUOUS");
     patch.breedId=matches.results[0]?.id??null;patch.breed=value;patch.breedUnknown=!value;
   }else if(field==="Hlavný obrázok"){
-    patch.mainImage=value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
+    patch.mainImage=input.reservation?.profileAuthority?requireProfileMediaProof("lost-found",value,input.media).url:value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
     if(patch.mainImage?.startsWith("/media/safe/"))throw Error("LOST_FOUND_V2_MODERATION_MEDIA_LOCKED");
   }else Object.assign(patch,{[key]:value});
   const clean=await cleanInput(database,patch);
@@ -891,7 +892,7 @@ export async function updateLostFoundV2NotionField(input:{
   if(lostFoundV2Value(field,desired)!==value)throw Error("LOST_FOUND_V2_NORMALIZATION_REVIEW");
   const columns:string[]=[column];const values:unknown[]=[desired];
   if(field==="Plemeno"){columns.push("breed_id","breed_unknown");values.push(clean.breedId,clean.breedUnknown?1:0);}
-  if(field==="Hlavný obrázok"){columns.push("main_image_key","thumbnail_display_json","detail_display_json");values.push(null,null,null);}
+  if(field==="Hlavný obrázok"){columns.push("main_image_key","thumbnail_display_json","detail_display_json");values.push(input.reservation?.profileAuthority?requireProfileMediaProof("lost-found",value,input.media).key:null,null,null);}
   const searchFields=["type","dog_name","breed","color","short_description","description","distinguishing_marks","region","district","city","location_description","source"] as const;
   if((searchFields as readonly string[]).includes(column)){
     columns.push("search_text");
