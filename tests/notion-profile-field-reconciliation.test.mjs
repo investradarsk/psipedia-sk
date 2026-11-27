@@ -2012,3 +2012,16 @@ test("V3 directory facets require exact registry scope and typed explicit select
   assert.equal(verify(emergency,select("Neznáme"),obs("unknown")),true);
   assert.equal(verify(emergency,select("Neznáme"),obs(null)),false);
 });
+
+test("V3 service relation proof requires complete one-to-one canonical mapping",async()=>{
+  const {isVerifiedDirectoryServiceRelation:verify}=await import("../lib/notion-unified-field-transfer.ts");
+  const pageId="12345678-1234-1234-1234-123456789abc";
+  const raw={property:{type:"relation",has_more:false,relation:[{id:pageId}]},mapping:[{pageId,serviceId:"svc.example"}]};
+  const obs=value=>({present:true,value});
+  assert.equal(verify(raw,obs(["svc.example"])),true);
+  assert.equal(verify(raw,obs(["svc.other"])),false);
+  assert.equal(verify({...raw,property:{...raw.property,has_more:true}},obs(["svc.example"])),false);
+  assert.equal(verify({...raw,mapping:[]},obs([])),false);
+  assert.equal(verify({property:{type:"relation",has_more:false,relation:[]},mapping:[]},obs([])),true);
+  assert.equal(verify({property:{type:"relation",relation:[]},mapping:[]},obs([])),false);
+});

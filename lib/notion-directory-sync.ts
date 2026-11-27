@@ -3719,7 +3719,7 @@ export async function runNotionDirectorySyncSweep(input: {
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
   async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false,
     adminChoiceSave = false) {
-    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return "skipped" as const;
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&adminChoiceSave)return "skipped" as const;
     if (await directoryProfileNotionSyncLocked(input.database, profileId))
       return "skipped" as const;
     relationSchemaReady ??= input.database.prepare(

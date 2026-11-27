@@ -40,7 +40,9 @@ export async function reserveUnifiedField(input: {
           ? isVerifiedDirectoryStructuredProperty(identity.field,input.authorityProperty,input.notion)
           : identity.agenda==="directory"&&identity.field.startsWith("facet:")
             ? isVerifiedDirectoryFacetProperty(identity.field,input.authorityProperty,input.notion)
-            : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
+            : identity.agenda==="directory"&&identity.field==="serviceIds"
+              ? isVerifiedDirectoryServiceRelation(input.authorityProperty,input.notion)
+              : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
     };
     const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
     if(old?.status==="PENDING"){
@@ -291,4 +293,27 @@ export function isVerifiedDirectoryFacetProperty(field:string,raw:unknown,observ
   const aliases:Record<string,string>={"Ambulancia":"ambulance","Klinika":"clinic","Nemocnica":"hospital","Neznáme":"unknown"};
   const normalized=normalizeDirectoryFilterValue(def,Object.hasOwn(aliases,label)?aliases[label]:label);
   return normalized.status==="known"&&normalized.value===observed.value;
+}
+
+/** A complete Notion relation and its one-to-one catalog mapping must prove
+ * the exact canonical ID set, including an explicitly empty relation. */
+export function isVerifiedDirectoryServiceRelation(raw:unknown,observed:FieldObservation):boolean{
+  if(!observed.present||!Array.isArray(observed.value)||!raw||typeof raw!=="object")return false;
+  const wrapper=raw as {property?:unknown;mapping?:unknown};
+  const cell=wrapper.property as {type?:unknown;has_more?:unknown;relation?:unknown}|undefined;
+  const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  const service=/^svc\.(?:admin\.[a-f0-9]{32}|[a-z0-9._-]+)$/;
+  if(cell?.type!=="relation"||cell.has_more!==false||!Array.isArray(cell.relation)||cell.relation.length>25||
+      !Array.isArray(wrapper.mapping)||wrapper.mapping.length!==cell.relation.length)return false;
+  const pages=cell.relation.map(item=>item?.id);
+  if(pages.some(id=>typeof id!=="string"||!uuid.test(id)))return false;
+  const normalized=pages.map(id=>id.toLowerCase());
+  const ids:string[]=[],mappedPages:string[]=[];
+  for(const item of wrapper.mapping){
+    if(!item||typeof item.pageId!=="string"||!uuid.test(item.pageId)||typeof item.serviceId!=="string"||!service.test(item.serviceId))return false;
+    mappedPages.push(item.pageId.toLowerCase());ids.push(item.serviceId);
+  }
+  return new Set(normalized).size===normalized.length&&new Set(mappedPages).size===mappedPages.length&&new Set(ids).size===ids.length&&
+    JSON.stringify([...normalized].sort())===JSON.stringify(mappedPages.sort())&&
+    JSON.stringify(ids.sort())===JSON.stringify([...observed.value].sort());
 }
