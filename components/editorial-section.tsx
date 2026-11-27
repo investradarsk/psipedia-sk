@@ -9,6 +9,7 @@ import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import { PuppyEquipmentLink } from "@/components/puppy-equipment-page";
 import { DogHealthCalendarLink } from "@/components/dog-health-calendar-page";
+import { DogCalculatorsLink } from "@/components/dog-calculators-page";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import {
@@ -559,7 +560,7 @@ export async function EditorialSectionHub({
     {
       title: "Zdravie a každodenná starostlivosť",
       description: "Prevencia, výživa a zdravé návyky.",
-      slugs: ["zdravie", "zdravotny-kalendar", "vyziva", "srst-a-hygiena"],
+      slugs: ["zdravie", "zdravotny-kalendar", "vyziva", "kalkulacky", "srst-a-hygiena"],
     },
     {
       title: "Život so psom",
@@ -644,7 +645,7 @@ export async function EditorialSectionHub({
           <HubCallout sectionSlug={sectionSlug} />
         </PageContainer>
         {sectionSlug === "steniatka" && <PageContainer><PuppyEquipmentLink section={section} /></PageContainer>}
-        {sectionSlug === "starostlivost" && <PageContainer><DogHealthCalendarLink section={section} /></PageContainer>}
+        {sectionSlug === "starostlivost" && <PageContainer><DogHealthCalendarLink section={section} /><DogCalculatorsLink section={section} /></PageContainer>}
 
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
@@ -806,7 +807,7 @@ export async function EditorialSectionTopic({
   const topicArticles = orderedArticles(section, articles, subpage);
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const isHealthLanding = sectionSlug === "starostlivost" && subpage.slug === "zdravie";
-  const healthCalendarSection = sectionSlug === "steniatka" && subpage.slug === "ockovanie-a-zdravie" ? await getManagedPortalSection("starostlivost") : null;
+  const relatedCareSection = sectionSlug === "steniatka" && ["ockovanie-a-zdravie", "krmenie", "pred-kupou-psa"].includes(subpage.slug) ? await getManagedPortalSection("starostlivost") : null;
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
     name: `${subpage.label} – ${section.label}`,
@@ -868,7 +869,9 @@ export async function EditorialSectionTopic({
           </div>
           {sectionSlug === "steniatka" && ["pred-kupou-psa", "prve-dni"].includes(subpage.slug) && <PuppyEquipmentLink section={section} />}
           {sectionSlug === "starostlivost" && ["zdravie", "vyziva"].includes(subpage.slug) && <DogHealthCalendarLink section={section} />}
-          {healthCalendarSection?.visible && <DogHealthCalendarLink section={healthCalendarSection} />}
+          {relatedCareSection?.visible && subpage.slug === "ockovanie-a-zdravie" && <DogHealthCalendarLink section={relatedCareSection} />}
+          {sectionSlug === "starostlivost" && subpage.slug === "vyziva" && <DogCalculatorsLink section={section} />}
+          {relatedCareSection?.visible && ["krmenie", "pred-kupou-psa"].includes(subpage.slug) && <DogCalculatorsLink section={relatedCareSection} />}
           <section
             className={styles.relatedSection}
             aria-labelledby="topic-related-heading"

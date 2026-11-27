@@ -12,6 +12,7 @@ import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
 import { PuppyEquipmentPage } from "@/components/puppy-equipment-page";
 import { DogHealthCalendarPage } from "@/components/dog-health-calendar-page";
+import { DogCalculatorsPage } from "@/components/dog-calculators-page";
 import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
@@ -71,7 +72,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     });
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
-  if (!portalTopic && ((section === "steniatka" && slug === "vybava") || (section === "starostlivost" && slug === "zdravotny-kalendar"))) return {};
+  if (!portalTopic && ((section === "steniatka" && slug === "vybava") || (section === "starostlivost" && ["zdravotny-kalendar", "kalkulacky"].includes(slug)))) return {};
   if (portalTopic) {
     const metadata = buildListingPageMetadata({
       title: portalTopic.subpage.seoTitle || `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
@@ -161,6 +162,10 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     return <PuppyEquipmentPage section={portalTopic.section} subpage={portalTopic.subpage} />;
   }
   if (section === "steniatka" && slug === "vybava") notFound();
+  if (section === "starostlivost" && slug === "kalkulacky") {
+    if (!portalTopic) notFound();
+    return <DogCalculatorsPage section={portalTopic.section} subpage={portalTopic.subpage} />;
+  }
   if (section === "starostlivost" && slug === "zdravotny-kalendar") {
     if (!portalTopic) notFound();
     return <DogHealthCalendarPage section={portalTopic.section} subpage={portalTopic.subpage} />;

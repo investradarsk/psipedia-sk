@@ -275,6 +275,12 @@ export const portalSections: PortalSection[] = [
         metaDescription: "Zaznamenaj očkovanie, odčervenie, ochranu proti parazitom a hmotnosť viacerých psov. Naplánuj termíny a exportuj ich do kalendára bez registrácie.",
       },
       {
+        slug: "kalkulacky", label: "Psie kalkulačky", icon: "🧮",
+        description: "Praktické výpočty energie, dávky a ceny krmiva, rozpočtu a veku psa.",
+        seoTitle: "Psie kalkulačky – dávka krmiva, kalórie, cena a vek",
+        metaDescription: "Vypočítaj orientačnú potrebu energie, dennú dávku krmiva, výdrž balenia, porovnaj cenu kŕmenia a naplánuj ročný rozpočet na psa.",
+      },
+      {
         slug: "vyziva", label: "Výživa", icon: "🥣", description: "Krmivá, dávky, kondícia a rozhodovanie bez marketingových mýtov.",
         intro: "Vyberaj krmivo podľa potrieb konkrétneho psa, jeho kondície a tolerancie — nie iba podľa reklamy na obale.",
         popularTopics: ["Výber granúl", "Denná dávka", "Zmena krmiva", "Zdravá kondícia"],

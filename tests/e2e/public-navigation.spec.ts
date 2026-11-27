@@ -31,6 +31,7 @@ const expectedSubmenus = {
   starostlivost: [
     ["Zdravie", "/starostlivost/zdravie"],
     ["Zdravotný kalendár psa", "/starostlivost/zdravotny-kalendar"],
+    ["Psie kalkulačky", "/starostlivost/kalkulacky"],
     ["Výživa", "/starostlivost/vyziva"],
     ["Každodenná výchova", "/starostlivost/vycvik"],
     ["Správanie", "/starostlivost/spravanie"],
@@ -450,4 +451,23 @@ test("dog health calendar stores separate dog profiles, completed weights and pl
     await page.setViewportSize({width,height:900});
     await expectNoHorizontalOverflow(page,"Zdravotný kalendár "+width);
   }
+});
+
+test("dog calculators recalculate, reject invalid inputs and fit small screens",async({page})=>{
+  await page.goto("/starostlivost/kalkulacky");
+  const tool=page.locator("[data-dog-calculators]");
+  await expect(tool).toBeVisible();
+  const cost=tool.locator("#spotreba");
+  await cost.getByLabel("Veľkosť balenia (kg)").fill("12");
+  await cost.getByLabel("Cena balenia (€)").fill("60");
+  await cost.getByLabel("Denná dávka (g)").fill("300");
+  await expect(cost.getByRole("status")).toContainText("40,0 dní");
+  await cost.getByLabel("Denná dávka (g)").fill("0");
+  await expect(cost.getByRole("status")).toContainText("Doplň platné");
+  const energy=tool.locator("#energia");
+  await energy.getByLabel("Hmotnosť psa (kg)").fill("16");
+  await expect(energy.getByRole("status").first()).toContainText("896 kcal/deň");
+  await energy.getByLabel("Energetická hodnota krmiva",{exact:true}).fill("4000");
+  await expect(energy.getByRole("status").last()).toContainText("224,0 g/deň");
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});await expectNoHorizontalOverflow(page,"Psie kalkulačky "+width);}
 });
