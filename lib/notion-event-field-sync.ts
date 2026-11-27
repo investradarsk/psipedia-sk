@@ -18,6 +18,7 @@ import {
 } from "./notion-event-field-contract.ts";
 
 export type EventFieldSyncBindings = {
+  NOTION_PROFILE_AUTHORITY_MODE?: string;
   NOTION_API_TOKEN?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
@@ -130,6 +131,7 @@ async function reservePilotField(db: D1Database, bindings: EventFieldSyncBinding
     ? { ...receipt, value: normalizedReceipt.value } : undefined;
   const reservation = await reserveUnifiedField({
     database: db, identity, psipediaEdit,
+    authorityBindings: bindings, authorityProperty: observation.page.properties?.[name],
     historicalBaseline: historical.present ? { value: historical.value, version: mapping.content_hash } : null,
     notion: observation.notion, psipedia: observation.psipedia, direction,
   });
@@ -321,6 +323,7 @@ export async function syncEventNotionFields(input:{
         if (!planned.reservation) continue;
         const chosen = planned.reservation.value;
         if (typeof chosen !== "string" && typeof chosen !== "boolean") throw Error("EVENT_FIELD_INVALID");
+        await assertUnifiedReservationCurrent(input.database,planned.reservation);
         if (await saveField(input.database,id,path,chosen,planned.revision)) saved++;
         await confirmPilotField(input.database,input.bindings,id,input.page.id,path,planned.reservation);
       } else if (await saveField(input.database,id,path,value??"")) saved++;
