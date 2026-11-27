@@ -524,8 +524,8 @@ test("DS-4 promotional, image and safety banners preserve distinct content with 
     /data-home-banner=\{testId\}/,
   );
   assert.match(
-    homeCss,
-    /\.magazine:global\(\.home-magazine-banner \.button\)[\s\S]*min-height: 48px/,
+    read("app/banner-visuals.css"),
+    /@media \(max-width: 720px\)[\s\S]*min-height: 48px/,
   );
   assert.match(help, /lostFoundSubmitPromo/);
   assert.match(helpCss, /\.overviewPromo_(care|rescue|volunteer)\s*\{/);
