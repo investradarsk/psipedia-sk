@@ -1760,25 +1760,32 @@ test("first-create uses a durable fence, verifies the exact copy, and never retr
   const js=ts.transpileModule(section,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const sourceId="76d9ccde-5816-422c-bcfe-863ab69db080";
   const pageId="11111111-1111-4111-8111-111111111111";
-  for(const mode of ["success","timeout-after-create","duplicate","bad-schema","wrong-echo"]){
+  for(const agenda of ["eshops","breeds"])for(const mode of ["success","timeout-after-create","duplicate","bad-schema","wrong-echo"]){
     const sqlite=new DatabaseSync(":memory:");
     try{
       sqlite.exec(await readFile(new URL("../drizzle/0178_notion_unified_field_state.sql",import.meta.url),"utf8"));
       sqlite.exec(`
         CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT);
         CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
+        CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY,status TEXT,updated_at TEXT,slug TEXT,fci_number INTEGER);
+        INSERT INTO managed_breeds VALUES(42,\'draft\',\'revision\',\'new-breed\',NULL);
+        CREATE TABLE breed_notion_sync(breed_id INTEGER);
+        CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER);
+        INSERT INTO admin_entity_reviews VALUES(\'BREED\',42);
+        CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER PRIMARY KEY,original_notion_page_id TEXT,original_data_source_id TEXT,original_sync_receipt TEXT,fci_number INTEGER,work_notion_page_id TEXT UNIQUE,work_data_source_id TEXT,canonical_slug TEXT,work_sync_receipt TEXT,work_last_synced_at TEXT,work_notion_last_edited_time TEXT,status TEXT,verified_at TEXT,activated_at TEXT,created_at TEXT,updated_at TEXT);
+        CREATE TABLE breed_notion_controlled_values(breed_id INTEGER PRIMARY KEY,values_json TEXT,notion_values_json TEXT,revision INTEGER,updated_at TEXT);
         CREATE TABLE managed_eshops(id INTEGER PRIMARY KEY,status TEXT,updated_at TEXT);
         INSERT INTO managed_eshops VALUES(42,'draft','revision');
         CREATE TABLE eshop_notion_sync(notion_page_id TEXT UNIQUE,eshop_id INTEGER UNIQUE,content_hash TEXT,
           notion_last_edited_time TEXT,psipedia_updated_at TEXT,last_synced_at TEXT,created_at TEXT,updated_at TEXT);
       `);
       const database={
-        prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return sqlite.prepare(sql).get(...args)??null},async run(){const x=sqlite.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}}}});return wrap([])},
+        prepare(sql){const wrap=args=>({sql,args,bind(...params){return wrap(params)},async first(){return sqlite.prepare(sql).get(...args)??null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){const x=sqlite.prepare(sql).run(...args);return {success:true,meta:{changes:Number(x.changes)}}}});return wrap([])},
         async batch(statements){sqlite.exec("BEGIN");try{const results=[];for(const statement of statements)results.push(await statement.run());sqlite.exec("COMMIT");return results;}catch(error){sqlite.exec("ROLLBACK");throw error}}
       };
       const source={properties:{"Psipedia ID":{type:"rich_text"},"Popis":{type:"rich_text"},"Odkontrolované":{type:mode==="bad-schema"?"number":"checkbox"}}};
       const rich=value=>({rich_text:[{text:{content:value}}]});
-      const snapshot=async()=>({revision:"revision",hash:"hash",reviewed:true,properties:{"Psipedia ID":rich("42"),Popis:rich("text")}});
+      const snapshot=async()=>({revision:"revision",hash:"hash",reviewed:true,...(agenda==="breeds"?{breedControlledValues:{originCountries:[]}}:{}),properties:{"Psipedia ID":rich("42"),Popis:rich("text")}});
       let posts=0,remote=null;
       const notionRequest=async(_bindings,path,init,options)=>{
         if(path.endsWith("/query"))return {results:mode==="duplicate"?[{id:pageId},{id:"other"}]:remote?[remote]:[],has_more:false};
@@ -1798,15 +1805,19 @@ test("first-create uses a durable fence, verifies the exact copy, and never retr
       const context={acquireUnifiedManualFence,releaseUnifiedManualFence,sameNotionProperty,notionPageBelongsToDataSource,notionRequest,
         notionRichTextProperty:(page,name)=>page.properties?.[name]?.rich_text?.map(part=>part.text.content).join("")??""};
       runInNewContext(js,context);
-      const run=()=>context.ensureFirstProfileNotionCopy({database,bindings:{NOTION_PROFILE_AUTHORITY_MODE:"validated-text"},agenda:"eshops",id:42,sourceId,snapshot});
+      const run=()=>context.ensureFirstProfileNotionCopy({database,bindings:{NOTION_PROFILE_AUTHORITY_MODE:"validated-text"},agenda,id:42,sourceId,snapshot});
       if(mode==="success"){
         assert.equal((await run()).created,true);assert.equal((await run()).created,false);
-        assert.equal(posts,1);assert.equal(sqlite.prepare("SELECT count(*) AS n FROM eshop_notion_sync").get().n,1);
+        assert.equal(posts,1);assert.equal(sqlite.prepare("SELECT count(*) AS n FROM "+(agenda==="breeds"?"breed_notion_workcopy_links":"eshop_notion_sync")).get().n,1);
         assert.equal(remote.properties.Odkontrolované.checkbox,true);
+        if(agenda==="breeds"){
+          assert.equal(sqlite.prepare("SELECT original_notion_page_id FROM breed_notion_workcopy_links").get().original_notion_page_id,null);
+          assert.deepEqual(JSON.parse(sqlite.prepare("SELECT values_json FROM breed_notion_controlled_values").get().values_json),{originCountries:[]});
+        }
         assert.equal(sqlite.prepare("SELECT count(*) AS n FROM notion_unified_manual_fence").get().n,0);
       }else{
         await assert.rejects(run());
-        assert.equal(sqlite.prepare("SELECT count(*) AS n FROM eshop_notion_sync").get().n,0);
+        assert.equal(sqlite.prepare("SELECT count(*) AS n FROM "+(agenda==="breeds"?"breed_notion_workcopy_links":"eshop_notion_sync")).get().n,0);
         assert.equal(posts,mode==="timeout-after-create"||mode==="wrong-echo"?1:0);
         if(mode!=="bad-schema"){assert.equal(sqlite.prepare("SELECT count(*) AS n FROM notion_unified_manual_fence").get().n,1);await assert.rejects(run(),/SCOPE_BUSY/);}
         assert.equal(posts,mode==="timeout-after-create"||mode==="wrong-echo"?1:0);
