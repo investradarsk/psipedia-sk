@@ -44,6 +44,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
 
   async function change(nextReviewed: boolean) {
     if (disabled || pending || lockedByPartner) return;
+    if (!nextReviewed && (entityType==="BREED"||entityType==="ESHOP") && !window.confirm("Odomknúť profil? Najprv sa overí úplný prenos mapovaných údajov z Adminu do Notionu.")) return;
     setPending(true);
     setError("");
     try {
