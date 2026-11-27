@@ -77,6 +77,7 @@ async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,iden
   return pushRecoveryField(database,bindings,identity);
 }
 async function pushRecoveryField(database:D1Database,bindings:Bindings,identity:FieldIdentity,initial=false){
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if(bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED!=="true")return false;
   const id=Number(identity.entityId);
   switch(identity.agenda){
@@ -104,6 +105,12 @@ async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   // A confirmed blank may be filled from SQL without a fabricated receipt;
   // its scoped marker must survive the adapter's fresh pre-write check.
   // Never fabricate a signed event, resolve a dual edit or erase with blanks.
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(observed?.status==="REVIEW"&&observed.reason==="NOTION_AUTHORITY_PULL_REQUIRED")
+      await observe(database,bindings,key,"pull");
+    const state=await readUnifiedFieldState(database,key);
+    return state?.status==="SYNCED"?"synced":"review";
+  }
   if(observed?.status==="REVIEW"&&observed.reason==="INITIAL_FILL_PULL"){
     await observe(database,bindings,key,"pull");
   }else if(observed?.status==="REVIEW"&&(observed.reason==="INITIAL_FILL_PUSH"||observed.reason==="CONFIRMED_BLANK_PUSH")){
