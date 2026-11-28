@@ -1,4 +1,6 @@
 "use client";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
@@ -10,7 +12,7 @@ import styles from "./admin-adoption-editor.module.css";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
-import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { useAdminUnsavedFormLinks } from "@/components/admin-unsaved-form-links";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
@@ -195,10 +197,10 @@ export function AdminAdoptionEditor({ item, breeds, organizations, initialReview
   return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-admin-form-system="v4" data-admin-content-module="adoptions-editor" className={`admin-event-editor ${styles.editor}`} onChangeCapture={navigation.captureChange} onSubmit={save}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeAdoptionSection, mode: "switch" }}>
-      <div className={styles.layout} data-admin-adoption-editor-workspace>
+      <div className={styles.layout} data-admin-profile-editor-layout data-admin-adoption-editor-workspace>
         <AdminSharedEditorNavigation sections={ADOPTION_SECTIONS} activeId={activeAdoptionSection}
           onNavigate={setActiveAdoptionSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora adopcií" />
-        <div className={styles.content}>
+        <div className={styles.content} data-admin-profile-editor-content>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
           {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaná adopcia: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
           <div className="admin-event-editor-grid"><div className="admin-event-fields">
@@ -214,20 +216,15 @@ export function AdminAdoptionEditor({ item, breeds, organizations, initialReview
       </AdminEditorSection>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing} onProgrammaticChange={navigation.markDirty}/>
       <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)} onContentChange={navigation.markDirty}/>
-      <nav data-admin-editor-pager className={styles.pager} aria-label="Prechod medzi sekciami adopcie">
-        <button type="button" disabled={activeAdoptionIndex <= 0}
-          onClick={() => navigateAdoptionPager(ADOPTION_SECTIONS[activeAdoptionIndex - 1]?.id ?? ADOPTION_SECTIONS[0].id)}>Predchádzajúca</button>
-        <span role="status">Sekcia {activeAdoptionIndex + 1} z {ADOPTION_SECTIONS.length}</span>
-        <button type="button" disabled={activeAdoptionIndex >= ADOPTION_SECTIONS.length - 1}
-          onClick={() => navigateAdoptionPager(ADOPTION_SECTIONS[activeAdoptionIndex + 1]?.id ?? ADOPTION_SECTIONS[ADOPTION_SECTIONS.length - 1].id)}>Ďalšia</button>
-      </nav>
+      <AdminEditorSectionPager sections={ADOPTION_SECTIONS} index={activeAdoptionIndex} onNavigate={navigateAdoptionPager}
+        ariaLabel="Prechod medzi sekciami adopcie" />
     </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný profil môže mať nevyplnené údaje." : "Koncept môže zostať neúplný."}</p><Link href={returnHref}>← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
         </div>
       </div>
     </AdminEditorSectionVisibility.Provider>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
-    {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
-<AdminHelpNotionStatus agenda="adoptions" recordId={item?.id} revision={syncRevision} />    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+<AdminEditorFooter dirty={navigation.dirty} pending={saving} uploading={uploading || galleryUploading}
+      sync={<AdminHelpNotionStatus agenda="adoptions" recordId={item?.id} revision={syncRevision} />}>
       {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
       <div className="admin-editor-actions"><Link href={returnHref}>Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>
