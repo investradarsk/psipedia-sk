@@ -326,7 +326,7 @@ test("hourly article sync survives unrelated Promise.all rejections and logs run
 test("article sync keeps the original no-publish, no-duplicate and status writeback protections", () => {
   assert.match(syncSource, /status: "draft"/);
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
-  assert.match(syncSource, /article_id = excluded\.article_id/);
+  assert.match(syncSource, /WHERE article_notion_sync\.article_id\s*=\s*excluded\.article_id/);
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
   assert.match(syncSource, /await updateNotionSyncState\(bindings, page\.id, \{/);
