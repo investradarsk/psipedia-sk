@@ -718,6 +718,7 @@ export async function createManagedHelpCase(payload: ManagedHelpCaseInput, edito
   const database = requireD1Binding();
   await ensureHelpStore(database);
   const input = normalizeInput(payload);
+  await assertProfilePublicationIdentity(database,"help-cases",null,input.status,input);
   const now = new Date().toISOString();
   const row = await database
     .prepare(
