@@ -1,3 +1,4 @@
+import { normalizeProfileIdentity, profileIdentityWebsite } from "./directory-duplicate-audit.ts";
 import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
 import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
@@ -577,12 +578,33 @@ function sourceDuplicateCandidate(
   page: NotionPage,
   definition: AgendaDefinition,
   sources: CanonicalSourceRecord[],
+  staged = false,
 ) {
   const slug = clean(pageProperty(page, "Slug"));
   const url = clean(pageProperty(page, "URL Psipedia"));
   const candidates = sources.filter((source) => {
     const sourceSlug = clean(source.properties["Slug"]);
-    return (slug && sourceSlug === slug) || (url && source.url === url);
+
+    if ((slug && sourceSlug === slug) || (url && source.url === url)) return true;
+    if(!staged)return false;
+    const n=(key:string)=>normalizeProfileIdentity(clean(pageProperty(page,key)));
+    const s=(key:string)=>normalizeProfileIdentity(clean(source.properties[key]));
+    const eq=(key:string)=>!!n(key)&&n(key)===s(key);
+    const compatible=(key:string)=>!n(key)||!s(key)||n(key)===s(key);
+    const web=(key:string)=>{const a=profileIdentityWebsite(clean(pageProperty(page,key))),b=profileIdentityWebsite(clean(source.properties[key]));return !!a&&a===b;};
+    switch(definition.key){
+      case "events":return eq("Názov")&&eq("Začiatok")&&compatible("Mesto")&&(eq("Mesto")||eq("Miesto")||eq("Organizátor"));
+      case "organizations":return eq("IČO / registračné číslo")||
+        (compatible("Mesto")&&(eq("Názov")||eq("Právny názov"))&&(eq("Mesto")||web("Web")));
+      // Shared shelter contact or dog name alone is never sufficient.
+      case "adoptions":return eq("Meno")&&compatible("Pohlavie")&&compatible("Plemeno")&&
+        (web("Zdroj dát")||(eq("Organizácia")&&eq("Dátum narodenia")));
+      case "lost-found":return eq("Typ")&&eq("Dátum udalosti")&&eq("Mesto")&&
+        compatible("Pohlavie")&&compatible("Plemeno")&&(eq("Meno psa")||web("Zdroj URL"));
+      case "help-cases":return eq("Kategória")&&eq("Názov")&&
+        (eq("Dátum hlásenia")&&(eq("Organizácia")||eq("Mesto"))||web("CTA URL"));
+      default:return false;
+    }
   });
   if (candidates.length === 0) return null;
   return candidates.map((source) => source.id).join(",");
@@ -2152,12 +2174,12 @@ await requireVerifiedMappedNotionWriteback({
       continue;
     }
 
-    const duplicate = sourceDuplicateCandidate(page, input.definition, sources);
+    const duplicate = sourceDuplicateCandidate(page, input.definition, sources,staged);
     if (duplicate) {
       summary.conflicts += 1;
       appendNotionReview(summary.reviewQueue, {
         entityId: null, notionPageId: page.id, reason: "DUPLICATE_CONFLICT",
-        fields: ["Slug", "URL Psipedia"], baselineAvailable: false,
+        fields: staged?["Identita záznamu"]:["Slug", "URL Psipedia"], baselineAvailable: false,
         notionChanged: null, psipediaChanged: null,
       });
       if (input.mode === "sync") {
@@ -2166,7 +2188,7 @@ await requireVerifiedMappedNotionWriteback({
           pageId: page.id,
           schema,
           page,
-          message: `Canonical záznam už existuje pre slug/URL (Psipedia ID: ${duplicate}).`,
+          message: `Možná duplicita existujúceho záznamu (Psipedia ID: ${duplicate}).`,
         }).catch(() => undefined);
       }
       continue;
@@ -2208,7 +2230,7 @@ await requireVerifiedMappedNotionWriteback({
         if (latest.last_edited_time !== page.last_edited_time)
           throw new Error("GEMINI_SAVED_REVISION_CHANGED");
         const liveSources = await input.definition.load(input.database);
-        if (sourceDuplicateCandidate(latest, input.definition, liveSources)) {
+        if (sourceDuplicateCandidate(latest, input.definition, liveSources,staged)) {
           summary.conflicts += 1;
           continue;
         }
