@@ -1710,7 +1710,7 @@ test("authority reservation across all eight mapped agendas rejects missing raw 
     for(const [agenda,table,field,type] of rows){
       db.exec("CREATE TABLE "+table+"(id INTEGER PRIMARY KEY,status TEXT); INSERT INTO "+table+" VALUES(1,'draft')");
       if(["organizations","adoptions","lost-found","help-cases"].includes(agenda))
-        db.prepare("INSERT INTO notion_agenda_sync VALUES(?,1,'p')").run(agenda);
+        db.prepare("INSERT INTO notion_agenda_sync(agenda,entity_id,notion_page_id) VALUES(?,1,'p')").run(agenda);
       const identity={agenda,entityId:"1",pageId:"p",field};
       const input={database,identity,historicalBaseline:null,notion:present("new"),psipedia:present("old"),
         authorityBindings:{NOTION_PROFILE_AUTHORITY_MODE:"validated-text"},authorityProperty:raw};
