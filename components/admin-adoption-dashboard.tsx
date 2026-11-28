@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
+import { AdminBulkStatusActions } from "@/components/admin-bulk-status-actions";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordId } from "./admin-record-id";
 import { AdminRecordTable } from "./admin-record-table";
@@ -55,7 +56,7 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
   "name-desc": "Meno Z–A",
 };
 
-export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] | null }) {
+export function AdminAdoptionDashboard({ result, filters, reviewedIds = [], bulkStatusEnabled = false }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] | null; bulkStatusEnabled?: boolean }) {
   const router = useRouter();
   const listReturnHref = adminHref({ ...filters, page: result.pagination.page });
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
@@ -123,7 +124,8 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
     {selected.size > 0 && <div className={styles.gridSelection}>
         <strong>Označené: {selected.size}</strong>
         <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
-        <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
+        {bulkStatusEnabled&&<AdminBulkStatusActions agenda="adoptions" items={result.items.filter(item=>selected.has(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}))} disabled={busy||Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>}
+      <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
           onFinished={ids => {
             setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
             router.refresh();
