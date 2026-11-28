@@ -1,4 +1,6 @@
 "use client";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorHydrated, useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
@@ -262,10 +264,10 @@ export function AdminHelpEditor({ item, initialReview=null, automationSuggestion
   const categoryOptions = HELP_ADMIN_CREATE_CATEGORIES.map((slug) => getHelpCategory(slug)).filter((entry): entry is NonNullable<ReturnType<typeof getHelpCategory>> => Boolean(entry));
   if (item?.category === "urgentne-pripady") { const legacy = getHelpCategory("urgentne-pripady"); if (legacy) categoryOptions.push(legacy); }
   return <form inert={saving} aria-busy={saving} noValidate data-admin-help-editor data-admin-content-module="help-editor" data-hydrated={hydrated ? "true" : "false"} data-admin-form-system="v4" className={`${styles.editor} admin-event-editor admin-help-editor`} onChangeCapture={navigation.captureChange} onSubmit={(event) => { event.preventDefault(); void save(status); }}><fieldset className="admin-profile-hydration-gate" disabled={!hydrated}><EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} /><div className={styles.editorBoundary} role="note"><strong>Ďalšie agendy Pomoci psom</strong><span>Samostatné editory nájdeš v odkazoch.</span><nav className={styles.moduleLinks} aria-label="Samostatné admin moduly"><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link><Link href="/admin/organizacie">Organizácie</Link></nav></div><AdminEditorSectionVisibility.Provider value={{ activeId: activeHelpSection, mode: "switch" }}>
-    <div className={styles.helpEditorLayout} data-admin-help-editor-workspace>
+    <div className={styles.helpEditorLayout} data-admin-profile-editor-layout data-admin-help-editor-workspace>
       <AdminSharedEditorNavigation sections={HELP_SECTIONS} activeId={activeHelpSection} onNavigate={setActiveHelpSection}
         layout="sidebar" mode="switch" ariaLabel="Sekcie editora Pomoc psom" />
-      <div className={styles.helpEditorBody}>
+      <div className={styles.helpEditorBody} data-admin-profile-editor-content>
         <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
         {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaný prípad: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
         <div className="admin-event-editor-grid"><div className="admin-event-fields">
@@ -318,13 +320,11 @@ export function AdminHelpEditor({ item, initialReview=null, automationSuggestion
       <div className="admin-card-heading"><div><span>06</span><div><h2>SEO</h2><p>Texty pre vyhľadávače a sociálne siete.</p></div></div></div>
     <AdminSeoFields value={seo} onChange={nextSeo => { navigation.markDirty(); setSeo(nextSeo); }} canonicalPath={`/pomoc-psom/${category}/${slug}`} fallbackTitle={helpSeoFallback(title||"Názov prípadu",categoryInfo?.singular??"Pomoc psom",city).title} fallbackDescription={helpSeoFallback(title||"Názov prípadu",categoryInfo?.singular??"Pomoc psom",city).description}/>
     </AdminEditorSection>
-    <nav data-admin-editor-pager className={styles.helpSectionPager} aria-label="Prechod medzi sekciami pomoci psom">
-      <button type="button" disabled={activeHelpIndex <= 0} onClick={() => navigateHelpPager(HELP_SECTIONS[activeHelpIndex - 1]?.id ?? HELP_SECTIONS[0].id)}>Predchádzajúca</button>
-      <span role="status">Sekcia {activeHelpIndex + 1} z {HELP_SECTIONS.length}</span>
-      <button type="button" disabled={activeHelpIndex >= HELP_SECTIONS.length - 1} onClick={() => navigateHelpPager(HELP_SECTIONS[activeHelpIndex + 1]?.id ?? HELP_SECTIONS[HELP_SECTIONS.length - 1].id)}>Ďalšia</button>
-    </nav>
+    <AdminEditorSectionPager sections={HELP_SECTIONS} index={activeHelpIndex} onNavigate={navigateHelpPager}
+        ariaLabel="Prechod medzi sekciami pomoci psom" ready={hydrated} />
   </div><aside className="admin-event-preview admin-help-preview"><span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overené" : ""}</span><h2>{title || "Názov prípadu"}</h2><p>{excerpt || "Krátky popis prípadu sa zobrazí tu."}</p><dl><div><dt>Lokalita</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Zodpovedá</dt><dd>{organization || "Organizácia"}</dd></div><div><dt>Publikovanie</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Vybavenie</dt><dd>{resolved ? "Vybavené" : urgent ? "Aktívne · urgentné" : "Aktívne"}</dd></div></dl></aside></div></div></div></AdminEditorSectionVisibility.Provider>{imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Pomoc psom"} title={title} excerpt={excerpt} entityLabel="prípadu pomoci" thumbnailAspectRatio="4 / 3"
     thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
-    onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}<AdminHelpNotionStatus agenda="help-cases" recordId={item?.id} revision={syncRevision} /><AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading}>
+    onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}<AdminEditorFooter dirty={navigation.dirty} pending={saving} uploading={uploading}
+      sync={<AdminHelpNotionStatus agenda="help-cases" recordId={item?.id} revision={syncRevision} />}>
       <div className="admin-editor-actions"><div><Link href={returnHref}>← Späť na prípady</Link></div><div>{item && <AdminRecordLifecycleActions kind="help" recordId={item.id} status={status} disabled={saving || uploading} returnHref={returnHref} onUnpublished={(next) => setStatus(next as HelpCaseStatus)} />}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div></AdminEditorFooter></fieldset></form>;
 }
