@@ -3,9 +3,11 @@
 -- Preserve all existing lifecycle rows and 24 triggers from migration 0164.
 -- Refuse to rebuild if any deployed table has an incoming foreign key.
 -- Do not disable foreign keys or rely on cascades during a schema migration.
+-- Fail closed on other table definitions mentioning a rebuilt table.
+-- D1 denies the table-valued PRAGMA foreign_key_list in production.
 SELECT CASE WHEN NOT EXISTS (
- SELECT 1 FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) fk
- WHERE m.type='table' AND fk."table" IN ('admin_record_tombstones','admin_record_publication_guards')
+ SELECT 1 FROM sqlite_master
+ WHERE type='table' AND ((lower(name)<>'admin_record_tombstones' AND instr(lower(coalesce(sql,'')),'admin_record_tombstones')>0) OR (lower(name)<>'admin_record_publication_guards' AND instr(lower(coalesce(sql,'')),'admin_record_publication_guards')>0))
 ) THEN 1 ELSE json_extract('V3_SCHEMA_INCOMING_FK','$') END;
 DROP TRIGGER admin_deleted_directory_insert;
 DROP TRIGGER admin_deleted_events_insert;
