@@ -15,11 +15,11 @@ const specs={
 export type RemainingBulkAgenda=keyof typeof specs;
 type Item={id:number;status:string;updatedAt:string};
 type Row={id:number;status:string;updated_at:string;slug:string;owned:number;category:string;source:string|null;duplicate_of_id:number|null;published_at:string|null;expires_at:string|null;resolved_at:string|null;archived_at:string|null};
-export function parseRemainingBulkRequest(raw:unknown){
+export function parseRemainingBulkRequest(raw:unknown):{agenda:RemainingBulkAgenda;target:string;items:Item[]}{
  if(!raw||typeof raw!=="object"||Array.isArray(raw))throw Error("Neplatná požiadavka.");
  const p=raw as Record<string,unknown>;
  if(p.agenda!=="adoptions"&&p.agenda!=="lost-found"&&p.agenda!=="eshops")throw Error("Nepodporovaná agenda.");
- const agenda=p.agenda;
+ const agenda:RemainingBulkAgenda=p.agenda;
  if(typeof p.target!=="string"||!(specs[agenda].statuses as readonly string[]).includes(p.target))throw Error("Nepodporovaný cieľový stav.");
  // Explicit frozen visible selection only. No caller-provided table or SQL.
  if(!Array.isArray(p.items)||p.items.length<1||p.items.length>50||p.confirmedCount!==p.items.length)throw Error("Potvrď výber 1 až 50 záznamov.");
