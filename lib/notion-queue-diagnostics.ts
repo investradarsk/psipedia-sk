@@ -4,7 +4,7 @@ type QueueState = "PENDING" | "PROCESSING" | "REVIEW";
 type Mapping = {agenda:string;entity_id:number};
 export type NotionQueueIssue = {
   source:"webhook"|"article"; agenda:string|null; entityId:number|null;
-  editorHref:string|null; state:QueueState; reason:string; attempts:number|null;
+  editorHref:string|null; mappingState:"UNIQUE"|"MISSING"|"AMBIGUOUS"|"UNKNOWN"; state:QueueState; reason:string; attempts:number|null;
   updatedAt:string|null; nextAttemptAt:string|null;
 };
 export type NotionQueueDiagnostics = {
@@ -76,11 +76,12 @@ export async function readNotionQueueDiagnostics(db:D1Database,now=Date.now()):P
     for(const row of visible){
       const mapped=byPage.get(row.page_id.replaceAll("-","").toLowerCase())??[];
       const m=result.mappingAvailable&&mapped.length===1&&safeId(mapped[0].entity_id)?mapped[0]:null;
+      const mappingState=!result.mappingAvailable?"UNKNOWN":mapped.length>1?"AMBIGUOUS":m?"UNIQUE":"MISSING";
       const deleted=row.status==="REVIEW"&&(row.outcome==="remote-deleted"||row.event_type==="page.deleted"&&row.outcome==="review-required");
       const reason=deleted?"NOTION_REMOTE_DELETED":row.status==="PROCESSING"&&row.lease_until!==null&&row.lease_until<=seconds?"LEASE_EXPIRED":
         row.status==="REVIEW"&&row.attempts>=12&&row.last_error_code==="DISPATCH_FAILED"?"RETRY_EXHAUSTED":
         row.last_error_code?safeCode(row.last_error_code):row.status==="PENDING"?"AWAITING_CONFIRMATION":row.status==="PROCESSING"?"PROCESSING":"NEEDS_REVIEW";
-      result.issues.push({source:"webhook",agenda:m?.agenda??null,entityId:m?.entity_id??null,editorHref:m?editors(m.agenda,m.entity_id):null,
+      result.issues.push({source:"webhook",agenda:m?.agenda??null,entityId:m?.entity_id??null,editorHref:m?editors(m.agenda,m.entity_id):null,mappingState,
         state:row.status,reason,attempts:safeId(row.attempts)||row.attempts===0?row.attempts:null,updatedAt:iso(row.updated_at),nextAttemptAt:row.status==="PENDING"?iso(row.next_attempt_at):null});
     }
     result.inbox=totals;
@@ -96,7 +97,7 @@ export async function readNotionQueueDiagnostics(db:D1Database,now=Date.now()):P
     for(const row of rows.results.slice(0,50)){
       if(!safeId(row.article_id))continue;
       const expired=row.lease_until!==null&&row.lease_until<=stamp;
-      result.issues.push({source:"article",agenda:"articles",entityId:row.article_id,editorHref:editors("articles",row.article_id),state:row.lease_until&&!expired?"PROCESSING":"PENDING",reason:expired?"LEASE_EXPIRED":row.lease_until?"PROCESSING":"AWAITING_CONFIRMATION",attempts:null,updatedAt:timestamp(row.updated_at),nextAttemptAt:null});
+      result.issues.push({source:"article",agenda:"articles",entityId:row.article_id,editorHref:editors("articles",row.article_id),mappingState:"UNKNOWN",state:row.lease_until&&!expired?"PROCESSING":"PENDING",reason:expired?"LEASE_EXPIRED":row.lease_until?"PROCESSING":"AWAITING_CONFIRMATION",attempts:null,updatedAt:timestamp(row.updated_at),nextAttemptAt:null});
     }
     result.articles=counts;
     result.truncated ||= rows.results.length>50;
