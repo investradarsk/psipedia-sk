@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { findProfileDuplicate, profileIdentityFromInput, readProfileDuplicateById, type ProfileDuplicateAgenda } from "./profile-duplicate-review.ts";
+import { findProfileDuplicate, profileIdentityFromInput, readProfileDuplicateById, readProfileDuplicateIdentities, profileDuplicateReason, type ProfileDuplicateAgenda } from "./profile-duplicate-review.ts";
 import { getPartnerLostFoundSubmitIssue } from "./partner-lost-found-intake.ts";
 
 export function publicationV3Enabled(){
@@ -48,4 +48,22 @@ export async function assertPartnerPublicationReady(db:D1Database,agenda:Partner
  }
  if(agenda==="help-cases"&&row.category==="zbierky"&&(!row.verified||(row.goal_amount!==null&&Number(row.goal_amount)<=0)))throw Error("Zbierka musí byť pred publikovaním overená a prípadná cieľová suma kladná.");
  await assertSavedProfilePublicationIdentity(db,agenda,id);
+}
+
+/** Also compare the requested records against each other, not only against
+ * already public records: a single bulk request may include two duplicates. */
+export async function assertBulkPublicationIdentities(db:D1Database,agenda:ProfileDuplicateAgenda,ids:readonly number[]){
+ if(!publicationV3Enabled()||!ids.length)return;
+ const {rows,incomplete}=await readProfileDuplicateIdentities(db,agenda);
+ if(incomplete)throw Error("Kontrola duplicít nie je úplná. Hromadné publikovanie zastavené.");
+ const targets=new Set(ids);
+ const selected=rows.filter(row=>targets.has(row.id));
+ if(selected.length!==targets.size)throw Error("Niektorý záznam na publikovanie chýba.");
+ for(const row of selected){
+  for(const candidate of rows){
+   if(!targets.has(candidate.id)&&!statuses[agenda].includes(String(candidate.status)))continue;
+   const reason=profileDuplicateReason(agenda,row,candidate);
+   if(reason)throw Error("Hromadné publikovanie zastavené – možná duplicita #"+row.id+" a #"+candidate.id+". "+reason+".");
+  }
+ }
 }
