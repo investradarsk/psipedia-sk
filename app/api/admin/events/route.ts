@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { createManagedEvent, isEventSlugConflict, listManagedEventPage, type ManagedEventInput } from "@/lib/event-store";
 import { parseAdminEventListQuery } from "@/lib/admin-event-pagination";
@@ -30,7 +31,9 @@ export async function POST(request: Request) {
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   try {
-    const event = await createManagedEvent(await request.json() as ManagedEventInput, user.email);
+    const payload=await request.json() as ManagedEventInput;
+    const duplicate=await adminProfileDuplicateResponse("events",payload);if(duplicate)return duplicate;
+    const event = await createManagedEvent(payload, user.email);
     return Response.json({ event }, { status: 201 });
   } catch (error) { return errorResponse(error); }
 }
