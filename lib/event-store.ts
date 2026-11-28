@@ -704,6 +704,7 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   const database = requireD1Binding(injectedDatabase);
   await ensureEventStore(database);
   const input = normalizeManagedEventInput(payload);
+  await assertProfilePublicationIdentity(database,"events",null,input.status,input);
   const hasContactColumns = await eventContactColumnsReady(database, input);
   const now = new Date().toISOString();
   const values = [
