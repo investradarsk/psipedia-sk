@@ -1,4 +1,6 @@
 "use client";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
@@ -284,10 +286,10 @@ export function AdminOrganizationEditor({
       onStay={navigation.stay} onDiscard={navigation.discard}
       allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeOrganizationSection, mode: "switch" }}>
-      <div className={styles.layout} data-admin-organization-editor-workspace="true">
+      <div className={styles.layout} data-admin-profile-editor-layout data-admin-organization-editor-workspace="true">
         <AdminSharedEditorNavigation sections={sections} activeId={activeOrganizationSection}
           onNavigate={setActiveOrganizationSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora organizácie" ready={hydrated} />
-        <div className={styles.content}>
+        <div className={styles.content} data-admin-profile-editor-content>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
           {review&&!review.reviewed&&<div role="status"><p>Neodkontrolovaná organizácia: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
           <div className="admin-event-fields">
@@ -361,13 +363,8 @@ export function AdminOrganizationEditor({
         <div className="admin-field"><label htmlFor="organization-source">Zdroj / referencia</label><input id="organization-source" type="url" inputMode="url" value={text(draft.sourceUrl)} disabled={editingDisabled} onChange={(event) => patch({ sourceUrl: event.target.value || null })} /></div>
       </AdminEditorSection>
           </div>
-          <nav data-admin-editor-pager className={styles.pager} aria-label="Prechod medzi sekciami organizácie">
-            <button type="button" disabled={activeOrganizationIndex <= 0}
-              onClick={() => navigateOrganizationPager(sections[activeOrganizationIndex - 1]?.id ?? sections[0].id)}>Predchádzajúca</button>
-            <span role="status">Sekcia {activeOrganizationIndex + 1} z {sections.length}</span>
-            <button type="button" disabled={activeOrganizationIndex >= sections.length - 1}
-              onClick={() => navigateOrganizationPager(sections[activeOrganizationIndex + 1]?.id ?? sections[sections.length - 1].id)}>Ďalšia</button>
-          </nav>
+          <AdminEditorSectionPager sections={sections} index={activeOrganizationIndex} onNavigate={navigateOrganizationPager}
+        ariaLabel="Prechod medzi sekciami organizácie" ready={hydrated} />
         </div>
       </div>
     </AdminEditorSectionVisibility.Provider>
@@ -375,7 +372,8 @@ export function AdminOrganizationEditor({
     {imageEditorOpen && draft.imageUrl && <ImageDisplayEditor src={draft.imageUrl} alt={draft.name || "Organizácia"} title={draft.name} excerpt={draft.shortDescription} entityLabel="organizácie" thumbnailAspectRatio="4 / 3"
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
-<AdminHelpNotionStatus agenda="organizations" recordId={organization?.id} revision={syncRevision} />    <AdminEditorFooter dirty={dirty} pending={saving}>
+<AdminEditorFooter dirty={dirty} pending={saving} uploading={uploading}
+      sync={<AdminHelpNotionStatus agenda="organizations" recordId={organization?.id} revision={syncRevision} />}>
       {organization && <AdminRecordLifecycleActions kind="organizations" recordId={organization.id} status={organization.status} disabled={!hydrated || saving || uploading} returnHref={returnHref} />}
       <div className="admin-editor-actions">
       <div><Link href={returnHref}>← Späť na organizácie</Link></div>
