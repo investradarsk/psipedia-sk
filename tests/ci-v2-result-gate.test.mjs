@@ -10,7 +10,6 @@ const central = {
   "admin-events-e2e": "admin_events",
   "search-e2e": "search",
   "directory-e2e": "directory",
-  "seo-recovery-e2e": "seo_recovery",
   "lost-found-public-e2e": "lost_found",
 };
 
@@ -18,10 +17,11 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 function centralNeeds(selected = [], full = false) {
   const outputs = Object.fromEntries(Object.values(central).map((flag) => [flag, String(selected.includes(flag))]));
   outputs.full_core = String(full);
+  outputs.seo_recovery = String(selected.includes("seo_recovery"));
   return {
     validate: { result: "success", outputs },
     ...Object.fromEntries(Object.entries(central).map(([job, flag]) => [
-      job, { result: selected.includes(flag) && (job !== "directory-e2e" || !full) ? "success" : "skipped" },
+      job, { result: (selected.includes(flag) || (job === "ds-0b-focused-regression" && selected.includes("seo_recovery"))) && (job !== "directory-e2e" || !full) ? "success" : "skipped" },
     ])),
   };
 }
@@ -51,7 +51,7 @@ test("missing scope, invalid booleans and failed validation fail closed", () => 
     n.validate.result = status;
     assert.equal(evaluateGate("central", n).pass, false);
   }
-  for (const flag of ["full_core", ...Object.values(central)]) {
+  for (const flag of ["full_core", "seo_recovery", ...Object.values(central)]) {
     for (const invalid of [undefined, "", "TRUE", true]) {
       const n = centralNeeds();
       n.validate.outputs[flag] = invalid;
@@ -70,7 +70,7 @@ test("central expected selection matches actual local YAML conditions", () => {
   assert.ok(gate.block.includes("needs: [validate, " + Object.keys(central).join(", ") + "]"));
   assert.match(gate.condition, /always\(\)/);
   assert.ok(gate.block.includes("toJSON(needs)"));
-  for (const flags of [[], ...Object.values(central).map((flag) => [flag]), Object.values(central)]) {
+  for (const flags of [[], ["seo_recovery"], ["public_ds0b", "seo_recovery"], ...Object.values(central).map((flag) => [flag]), [...Object.values(central), "seo_recovery"]]) {
     for (const full of [false, true]) {
       const needs = centralNeeds(flags, full);
       assert.equal(evaluateGate("central", needs).pass, true);
@@ -120,4 +120,15 @@ test("CI summary reports actual coverage without claiming full browser regressio
   assert.match(summary, /PASS/);
   assert.match(summary, /\| directory-e2e \| skipped \| skipped \|/);
   assert.match(summary, /Full breed manual\/scheduled/);
+});
+
+test("SEO-only PR requires the combined public job to succeed", () => {
+  const needs = centralNeeds(["seo_recovery"]);
+  assert.equal(needs["ds-0b-focused-regression"].result, "success");
+  assert.equal(evaluateGate("central", needs).pass, true);
+  for (const result of ["skipped","failure","cancelled"]) {
+    const failed = structuredClone(needs);
+    failed["ds-0b-focused-regression"].result = result;
+    assert.equal(evaluateGate("central", failed).pass, false);
+  }
 });

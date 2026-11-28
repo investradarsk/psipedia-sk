@@ -7,7 +7,7 @@ Tento krok **nemení** admin, produkčný web, databázu, Notion ani obsah; auto
 ## Spustenie
 - Lokálne po `npm ci`: `npm run audit:knip` (výpis do terminálu).
 - Lokálne po `npm ci`: `npm run audit:knip:report` (dva súbory pod `reports/knip/`).
-- V GitHub Actions: **PSIPEDIA — Knip unused-code audit**, automaticky na PR meniacom konfiguráciu a ručne na vetve `main`, keď bude workflow dostupný.
+- V GitHub Actions: **PSIPEDIA — Knip unused-code audit**, automaticky každý utorok o 03:37 UTC na predvolenej vetve a ručne cez workflow_dispatch. Od CI konsolidácie 9/10 nejde o PR kontrolu.
 - GitHub Actions poskytne artefakt `psipedia-knip-<run>-<attempt>` s `findings.json` a `findings.md`, ak scan uspeje.
 
 Príkazy používajú pevne určené `knip@6.45.1` cez `npm exec --package` namiesto pridania do `package-lock.json`.
@@ -39,7 +39,7 @@ Používaný, ale nepotrebný panel nezachytí ako dead code. Ten vyžaduje ruč
 - **Stav:** konfigurácia a CI runner pripravené na review. Skutočný výsledkový report sa musí overiť z GitHub Actions artefaktu.
 
 ## Akceptácia
-- [ ] PR workflow beží na presnom HEAD a nainštaluje existujúce závislosti cez `npm ci`.
+- [ ] Týždenný alebo manuálny workflow beží na zvolenej revízii a nainštaluje existujúce závislosti cez `npm ci --ignore-scripts`.
 - [ ] `reports/knip/findings.json` je parsovateľný JSON.
 - [ ] `reports/knip/findings.md` obsahuje nálezy alebo informáciu o prázdnom výsledku.
 - [ ] Nálezy pre admin sa ručne klasifikujú: kandidát / používa sa / nejasné.

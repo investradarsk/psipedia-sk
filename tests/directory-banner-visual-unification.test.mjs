@@ -13,9 +13,10 @@ test("directory map and provider use the same two-theme public banner component"
   for (const block of [map, provider]) {
     assert.match(block, /<PublicMagazineBanner/);
     assert.match(block, /\bcompact\b/);
-    assert.match(block, /size="small"/);
     assert.doesNotMatch(block, /ps-public-banner-frame/);
   }
+  assert.match(map, /size="medium"/);
+  assert.match(provider, /size="large"/);
   assert.match(map, /visual="light"/);
   assert.match(map, /href=\{mapHref\(filters, active\?\.slug\)\}/);
   assert.match(map, /anchorId=\{CTA_DIRECTORY_MAP_ANCHOR\}/);
@@ -33,10 +34,10 @@ test("the two existing placements are findable in Admin's banner library", () =>
   assert.match(catalog, /url: "https:\/\/psipedia\.sk\/adresar"/);
   const drafts = read("lib/visual-library-drafts.ts");
   assert.match(drafts, /banner\.id === "adresar:poskytovatelia" \? "dark" : "light"/);
-  assert.match(drafts, /banner\.id\.startsWith\("adresar:"\)/);
+  assert.match(drafts, /banner\.id === "adresar:mapa"/);
   const preview = read("components/admin-visual-library-banner-preview.tsx");
-  assert.match(preview, /banner\.id\.startsWith\("adresar:"\)/);
-  assert.match(preview, /compact=\{banner\.group === "clanky" \|\| directorySidebar\}/);
+  assert.match(preview, /defaultBannerDraft\(banner, 0\)\.size/);
+  assert.match(preview, /size=\{previewSize\}/);
   // New public placements are intentionally draft-only until individually approved.
   const releases = read("lib/visual-library-edit-store.ts");
   assert.doesNotMatch(releases.match(/const ALLOWED_PUBLICATIONS:[\s\S]*?\};/)?.[0] ?? "", /"adresar:(mapa|poskytovatelia)"/);

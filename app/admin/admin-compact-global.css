@@ -213,3 +213,18 @@
     min-width: 44px;
   }
 }
+
+/* 5/10: keep the article's independently acknowledged D1 and Notion steps
+   readable without styling Tiptap or changing retry/publish semantics. */
+[data-admin-workspace] [data-admin-editor-save-receipt] {
+  display: grid;
+  gap: var(--admin-ui-space-xs);
+  padding: var(--admin-ui-panel-padding);
+  font-size: var(--admin-ui-type-caption);
+  overflow-wrap: anywhere;
+}
+[data-admin-workspace] [data-admin-editor-save-receipt] > p { margin: 0; }
+[data-admin-workspace] [data-admin-editor-notion-receipt="synced"] { color: var(--admin-v3-green, #174b38); }
+[data-admin-workspace] [data-admin-editor-notion-receipt]:is([data-admin-editor-notion-receipt="failed"], [data-admin-editor-notion-receipt="partial"], [data-admin-editor-notion-receipt="deferred"]) { color: #795119; }
+[data-admin-workspace] [data-admin-editor-save-receipt] button { min-height: var(--admin-ui-control-height); margin-inline-start: var(--admin-ui-space-xs); }
+@media (pointer: coarse) { [data-admin-workspace] [data-admin-editor-save-receipt] button { min-height: 44px; } }

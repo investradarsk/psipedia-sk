@@ -299,7 +299,7 @@ export function EventListingResults({
                       {index < events.length - 1 && (
                         <PublicMagazineBanner
                           compact
-                          size="small"
+                          size="medium"
                           testId={`event-category-${event.eventType}`}
                           eyebrow={eventCategoryPhotoPromos[event.eventType].eyebrow}
                           title={eventCategoryPhotoPromos[event.eventType].title}

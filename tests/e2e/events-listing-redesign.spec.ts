@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 async function openFilters(page: import("@playwright/test").Page) {
   const summary = page.locator("summary").filter({ hasText: "Filtrovať" });
-  if ((await summary.isVisible()) && !(await page.locator("details").getAttribute("open")))
+  if ((await summary.isVisible()) && !(await page.locator('aside[aria-label="Filtre podujatí"] details').getAttribute("open")))
     await summary.click();
 }
 test("complete D1 pagination and calendar counts survive beyond 250 results", async ({ page }) => {

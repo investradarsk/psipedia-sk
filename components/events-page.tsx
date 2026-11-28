@@ -234,7 +234,7 @@ export async function EventsPage({
             </div>
             <PublicMagazineBanner
               compact
-              size="medium"
+              size="large"
               photoTone="volunteer"
               testId="events-organizer-cta"
               eyebrow="Pre organizátorov"

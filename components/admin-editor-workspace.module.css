@@ -417,7 +417,7 @@ dialog.workspaceModal[open] :is(h2, h3),
    opt-in attribute; existing long-form article/event editors are untouched. */
 .pageWorkspace[data-editor-section-mode="switch"] > .workspace {
   display: grid;
-  grid-template-columns: minmax(160px, 192px) minmax(0, 1fr);
+  grid-template-columns: var(--admin-profile-sidebar, minmax(160px, 192px)) minmax(0, 1fr);
   align-items: start;
   gap: var(--admin-ui-section-gap, 0.625rem);
   min-height: 0;
@@ -540,4 +540,39 @@ dialog.workspaceModal[open] :is(h2, h3),
     textarea, select) {
     scroll-margin-bottom: 16px;
   }
+}
+
+/* Profile preview toggle belongs below the sidebar, not alongside it. */
+.pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation {
+  display: grid;
+  align-items: start;
+}
+.pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation > :global([data-admin-shared-editor-navigation]) {
+  position: static;
+}
+.pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle {
+  width: 100%;
+}
+
+@media (min-width: 1181px) {
+  /* The desktop preview is already visible; smaller workspaces need the toggle. */
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle { display: none; }
+}
+
+/* 6/10: shared responsive preview behavior for profile page editors. The
+   article layout and modal workspaces retain their own behavior. */
+@media (min-width: 1181px) {
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .columns[data-editor-columns="with-preview"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 34%);
+    gap: var(--admin-ui-space-md, .55rem);
+  }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .preview { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 1180px) {
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .columns[data-editor-columns="with-preview"] { display: block; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .columns[data-editor-columns="with-preview"] .preview { display: none; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .workspace[data-mobile-panel="preview"] .content { display: none; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .workspace[data-mobile-panel="preview"] .preview { display: block; }
+  .pageWorkspace:not([data-editor-layout="article"])[data-editor-section-mode="switch"] .navigation .previewToggle { display: inline-flex; justify-content:center; min-height:44px; }
 }

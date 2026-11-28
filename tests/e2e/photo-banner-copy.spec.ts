@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 for (const path of ["/", "/pomoc-psom"]) {
-  test(`${path}: photographic help banner keeps readable desktop copy`, async ({
+  test(`${path}: help banner uses the canonical readable desktop palette`, async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop-only styling");
@@ -13,7 +13,9 @@ for (const path of ["/", "/pomoc-psom"]) {
     await expect(banner).toHaveCount(1);
     const description = banner.locator('[class*="bannerDescription"]');
     await expect(description).toBeVisible();
-    await expect(description).toHaveCSS("color", "rgb(255, 255, 255)");
-    await expect(banner.locator(".eyebrow")).toHaveCSS("color", "rgb(247, 207, 189)");
+    const theme = (await banner.getAttribute("data-banner-desktop-visual")) ?? (await banner.getAttribute("data-banner-visual"));
+    expect(["light", "dark"]).toContain(theme);
+    await expect(description).toHaveCSS("color", theme === "dark" ? "rgb(229, 238, 230)" : "rgb(75, 97, 86)");
+    await expect(banner.locator(".eyebrow")).toHaveCSS("color", theme === "dark" ? "rgb(247, 242, 233)" : "rgb(180, 73, 57)");
   });
 }

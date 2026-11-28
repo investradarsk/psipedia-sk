@@ -1,0 +1,44 @@
+.page { color: var(--ink); }
+.container,.tool { display:grid; gap:1rem; min-width:0; }
+.container { padding-block:1rem 2rem; }
+.intro { margin:0; max-width:85ch; line-height:1.6; }
+.panel { composes: panel from "./public-tool-layout.module.css";  }
+.heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.5rem; margin-block:.5rem; }
+.heading h2,.heading h3 { margin:0; }
+.inlineForm,.actions,.confirm { display:flex; flex-wrap:wrap; gap:.5rem; align-items:end; }
+.inlineForm label { flex:1 1 12rem; min-width:0; }
+.field { max-width:24rem; margin-block:.8rem; }
+.field,.form label,.inlineForm label { display:grid; gap:.3rem; font-weight:var(--ps-component-label-weight, 750); font-size:var(--ps-type-compact, .875rem); min-width:0; }
+.form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+.form :is(input,select,textarea),.inlineForm input,.field select { width:100%; min-width:0; max-width:100%; box-sizing:border-box; min-height:44px; font-size:16px; }
+.form .wide,.form .actions { grid-column:1/-1; }
+.form label.choice,.choice { display:flex; align-items:center; gap:.5rem; min-height:44px; }
+.choice input { flex:0 0 20px; width:20px; height:20px; min-height:0; accent-color:var(--forest); }
+.note { composes: note from "./public-tool-layout.module.css"; margin:.45rem 0; }
+.error { color:var(--brand-accent-strong); font-weight:650; }
+.confirm { padding:.65rem; border:1px solid var(--ps-border-strong, var(--line)); border-radius:var(--ps-radius-control); }
+.confirm p { flex:1 1 100%; margin:0; }
+.dogs { display:grid; gap:.4rem; margin:.65rem 0; }
+.dogs > div { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; padding:.4rem; border-bottom:1px solid var(--ps-border-soft, var(--line)); }
+.dogs strong { flex:1 1 6rem; }
+.stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin:.7rem 0; }
+.stats div { border:1px solid var(--ps-border-soft, var(--line)); border-radius:var(--ps-radius-control); padding:.5rem; display:grid; gap:.2rem; }
+.stats strong { color:var(--forest); font-size:1.4rem; font-variant-numeric:tabular-nums; }
+.stats span { font-size:.8rem; }
+.month { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; }
+.weekday { text-align:center; font-size:.8rem; color:var(--muted); }
+.day { min-width:0; min-height:44px; position:relative; border:1px solid var(--ps-border-soft, var(--line)); background:var(--white); color:var(--forest); border-radius:var(--ps-radius-control); padding:.2rem .1rem .65rem; font:inherit; cursor:pointer; }
+.day[data-today="true"] { border:2px solid var(--forest); }
+.day[aria-pressed="true"] { color:var(--white); background:var(--forest); }
+.dot { position:absolute; bottom:4px; left:calc(50% - 3px); width:6px; height:6px; background:currentColor; border-radius:50%; }
+.list { list-style:none; padding:0; margin:.5rem 0; display:grid; gap:.4rem; }
+.entry { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.5rem; border-top:1px solid var(--ps-border-soft, var(--line)); padding:.5rem 0; }
+.entry > div:first-child { flex:1 1 12rem; min-width:0; }
+.entry small { display:block; color:var(--muted); font-size:.82rem; margin:.2rem 0; }
+.entry p { margin:.25rem 0; white-space:pre-wrap; }
+.actions { align-items:center; }
+.toolLink { composes: toolLink from "./public-tool-layout.module.css"; }
+.page :is(a,button,input,select,textarea):focus-visible,.toolLink:focus-visible { outline:3px solid var(--brand-focus, var(--forest)); outline-offset:2px; }
+@media(max-width:720px) { .form { grid-template-columns:minmax(0,1fr); } .stats div { padding:.4rem; } }
+
+@media(max-width:720px) { .container,.tool { gap:.75rem; } .container { padding-block:.75rem 1.5rem; } .inlineForm > label { flex-basis:100%; } .entry > div:first-child { flex-basis:100%; } .stats { gap:.35rem; } .stats div { padding:.35rem; } .stats strong { font-size:1.15rem; } .stats span { overflow-wrap:anywhere; } .month { gap:2px; } .day { font-size:.875rem; } .actions { gap:.35rem; } }

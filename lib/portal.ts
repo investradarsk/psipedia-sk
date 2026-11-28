@@ -122,6 +122,11 @@ export const portalSections: PortalSection[] = [
         serviceLinks: [{ label: "Chovateľské stanice", href: "/adresar/chovatelske-stanice" }],
       },
       {
+        slug: "vybava", label: "Výbava pre šteniatko", icon: "📋", description: "Interaktívny zoznam vecí a príprav pred príchodom šteniatka.",
+        seoTitle: "Výbava pre šteniatko – interaktívny zoznam",
+        metaDescription: "Čo pripraviť pred príchodom šteniatka? Odškrtávaj výbavu, sleduj pripravenosť a ulož si zoznam bez registrácie.",
+      },
+      {
         slug: "vyber-plemena", label: "Výber plemena", icon: "🐕", description: "Povaha, veľkosť, aktivita a potreby plemena podľa tvojho života.",
         intro: "Dobrý výber stojí na zhode medzi potrebami psa a tvojím bežným životom. Porovnávaj energiu, povahu, zdravie a starostlivosť, nielen veľkosť alebo vzhľad.",
         popularTopics: ["Povaha", "Energia", "Veľkosť", "Srsť a údržba"],
@@ -262,6 +267,18 @@ export const portalSections: PortalSection[] = [
         expertAdvice: "Pri rýchlom zhoršovaní, bolesti alebo neistote zavolaj veterinárovi. Ľudské lieky psovi nepodávaj bez jeho pokynu.",
         serviceLinks: [{ label: "Nájsť veterinára", href: "/adresar/veterinari" }, { label: "Psia fyzioterapia", href: "/adresar/fyzioterapia" }],
         featuredArticleSlugs: ["kedy-ist-so-psom-k-veterinarovi", "horuce-dni-so-psom-bezpecne"],
+      },
+      {
+        slug: "zdravotny-kalendar", label: "Zdravotný kalendár psa", icon: "📅",
+        description: "Osobný prehľad očkovania, odčervenia, návštev veterinára a hmotnosti psa.",
+        seoTitle: "Zdravotný kalendár psa – termíny a evidencia",
+        metaDescription: "Zaznamenaj očkovanie, odčervenie, ochranu proti parazitom a hmotnosť viacerých psov. Naplánuj termíny a exportuj ich do kalendára bez registrácie.",
+      },
+      {
+        slug: "kalkulacky", label: "Psie kalkulačky", icon: "🧮",
+        description: "Praktické výpočty energie, dávky a ceny krmiva, rozpočtu a veku psa.",
+        seoTitle: "Psie kalkulačky – dávka krmiva, kalórie, cena a vek",
+        metaDescription: "Vypočítaj orientačnú potrebu energie, dennú dávku krmiva, výdrž balenia, porovnaj cenu kŕmenia a naplánuj ročný rozpočet na psa.",
       },
       {
         slug: "vyziva", label: "Výživa", icon: "🥣", description: "Krmivá, dávky, kondícia a rozhodovanie bez marketingových mýtov.",

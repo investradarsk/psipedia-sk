@@ -253,12 +253,12 @@ export function AdminDashboard({
           ))}
         </nav>
         <form ref={filterFormRef} className="admin-toolbar" method="get" action={routePath} role="search" data-admin-article-filters data-admin-list-filters>
-          <label className="admin-search">
+          <label className="admin-search" data-admin-list-search>
             <SearchIcon size={19} />
             <span className="sr-only">Hľadať článok</span>
             <input name="query" defaultValue={filters.query} maxLength={120} placeholder="Názov, slug, perex alebo téma" title="Vyhľadáva aj podľa presného Admin ID, napr. 2295" />
           </label>
-          <button type="button" className={styles.filterToggle} aria-controls="admin-article-advanced-filters"
+          <button type="button" className={styles.filterToggle} data-admin-list-toggle aria-controls="admin-article-advanced-filters"
             aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
             {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
           </button>

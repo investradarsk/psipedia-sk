@@ -268,7 +268,7 @@
 
 /* Breed Admin v6: dense but touch-safe editing for 9 public-order sections.
    Only this editor is affected; global Admin control sizes stay unchanged. */
-.editorForm { gap: 8px; }
+.editorForm { gap: var(--admin-ui-section-gap, .4rem); }
 .editorTopbar { padding: 7px 10px; margin-bottom: 0; }
 .editorForm .sectionCard > :global(.admin-form-card) {
   padding: clamp(10px, 1.2vw, 16px);
@@ -277,9 +277,9 @@
   gap: 7px;
   min-width: 0;
 }
-.heading { margin-bottom: 8px; gap: 8px; }
-.heading h2 { font-size: 1.02rem; line-height: 1.3; }
-.heading p { font-size: 0.78rem; line-height: 1.4; }
+.heading { margin-bottom: var(--admin-ui-space-sm); gap: var(--admin-ui-space-sm); }
+.heading h2 { font-size: var(--admin-ui-type-section); line-height: 1.3; }
+.heading p { font-size: var(--admin-ui-type-caption); line-height: 1.45; }
 .basicTop,.basicBottom {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;

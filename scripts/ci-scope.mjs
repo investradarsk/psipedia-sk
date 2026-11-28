@@ -1,7 +1,8 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { planDistinctPackageSuites } from "./ci-test-groups.mjs";
 
-export const CI_SCOPE_VERSION = 8;
+export const CI_SCOPE_VERSION = 9;
 
 const RULES = {
   ADMIN: [
@@ -241,7 +242,7 @@ function isDocsOnlyFile(file) {
   return DOC_RE.test(file) || /\.(?:md|mdx|txt)$/i.test(file);
 }
 
-const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope|ci-test-groups|ci-build-artifact|ci-result-gate|ci-v2-inventory)\.mjs$|tests\/ci-v2-[^/]+\.test\.mjs$)/;
+const CI_CONTROL_RE = /^(?:\.github\/workflows\/|\.github\/ci\/(?:offline-suites|notion-quality-suites)\.json$|scripts\/(?:ci-scope(?:-conditions)?|ci-offline-scope|check-ci-scope|ci-test-groups|ci-build-artifact|ci-result-gate|ci-v2-inventory)\.mjs$|tests\/(?:ci-v2-[^/]+|ci-two-stage-guards)\.test\.mjs$)/;
 
 // Deliberately a superset of DS-0B's internal selection so we may cheaply skip
 // the whole job for unrelated PRs without losing relevant visual regressions.
@@ -255,7 +256,7 @@ const PUBLIC_DS0B_RE = [
   /^scripts\/start-public-regression-ci\.sh$/,
   /^tests\/fixtures\/public-regression-ci\.sql$/,
   /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment|public-unification-completion|public-design-tokens)\.test\.mjs$/,
-  /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+  /^tests\/(?:e2e\/directory-unified-layout\.spec\.ts|public-details-v2-ui\.test\.mjs)$/,
 ];
 
 const AUTOMATION_BROAD_RE = /^(?:lib\/(?:data-automation(?:\.ts|-apply\.ts|-canonical-apply\.ts|-store\.ts|-runner\.ts|-governance\.ts|-identity\.ts|-dynamic-identity\.ts|-matching\.ts|-clustering\.ts|-capability-registry\.ts|-draft-mapper\.ts|-enrichment-normalize\.ts|-enrichment-template\.ts|-http-policy\.ts|-source-store\.ts|-source-provisioning\.ts|-source-scoped-extraction\.ts|-generic-source-extractor\.ts|-ingestion-receipts\.ts|-lifecycle(?:-apply|-store)?\.ts)|automation-record-suppressions\.ts|canonical-draft-delete\.ts)|drizzle\/(?:0050|0052|0055|0056|0057|0073|0075|0076|0078|0079|0080|0081|0082|0083|0084|0085|0086|0087|0088|0089|0091|0092|0093|0094|0095|0096|0097)_|tests\/fixtures\/data-automation\/|\.github\/workflows\/data-automation-(?:ci|v2-ci)\.yml$)/;
@@ -542,7 +543,7 @@ export function productionSmokeRequired(result, {
 
 // Focused legacy suites follow changed source files, never historical branch names.
 // Production sitemap diagnostics deliberately have narrower scope than preview checks.
-const SEO_RECOVERY_RE = /^(?:scripts\/start-public-regression-ci\.sh$|tests\/fixtures\/public-regression-ci\.sql$|app\/(?:sitemap|robots)\.ts$|lib\/(?:[a-z-]*sitemap[a-z-]*|seo[a-z-]*|article-seo|content-seo|directory-profile-metadata)\.ts$|tests\/(?:seo-|sitemap-|rendered-html)[^/]*\.test\.mjs$|tests\/e2e\/seo-recovery\.spec\.ts$)/;
+const SEO_RECOVERY_RE = /^(?:scripts\/start-public-regression-ci\.sh$|tests\/fixtures\/public-regression-ci\.sql$|app\/(?:sitemap|robots)\.ts$|lib\/(?:[a-z-]*sitemap[a-z-]*|seo[a-z-]*|article-seo|content-seo|directory-profile-metadata)\.ts$|tests\/(?:seo-|sitemap-|rendered-html)[^/]*\.test\.mjs$|tests\/e2e\/(?:seo-recovery|events-public-v2)\.spec\.ts$)/;
 const SITEMAP_DIAGNOSTIC_RE = /^(?:app\/(?:sitemap|robots)\.ts$|lib\/[a-z-]*sitemap[a-z-]*\.ts$|tests\/(?:sitemap-|seo-recovery)[^/]*\.test\.mjs$|tests\/e2e\/seo-recovery\.spec\.ts$)/;
 const LOST_FOUND_PR_RE = /^(?:app\/pomoc-psom\/(?:stratene-psy|najdene-psy)\/|app\/api\/(?:lost-found|public\/lost-found)\/|components\/lost-found|lib\/lost-found|tests\/(?:lost-found|e2e\/lost-found-dogs\.spec\.ts)|scripts\/(?:bootstrap|audit)-lost-found)/;
 
@@ -618,7 +619,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const after = execFileSync("git", ["show", `${headSha}:package.json`], { encoding: "utf8" });
     const changed = changedPackageTestScriptNames(before, after);
     if (!changed.length) throw new Error("No safe changed test scripts detected; refusing to skip full validation");
-    for (const name of changed) {
+    const plan = planDistinctPackageSuites(changed, JSON.parse(after).scripts);
+    for (const name of plan.skipped) {
+      process.stdout.write(`Skipping already covered pure npm test suite: ${name}\n`);
+    }
+    for (const name of plan.run) {
       process.stdout.write(`Running changed npm test command: ${name}\n`);
       execFileSync("npm", ["run", name], { stdio: "inherit" });
     }

@@ -134,8 +134,7 @@ for (const name of [
   "map-production-launch-ci.yml",
   "map-public-ui-ci.yml",
   "map-read-api-ci.yml",
-  "notion-article-sync-ci.yml",
-  "notion-events-help-sync-ci.yml",
+  "notion-quality-ci.yml",
   "organization-profile-e2e.yml",
   "section-hero-v2-ci.yml",
   "sitewide-ai-entity-surface-ci.yml",
@@ -185,10 +184,8 @@ assert.ok(pullRequestPaths(automationV2)?.includes(".github/workflows/data-autom
 // unrelated domain workflows. The two required checks still run on every PR.
 const workerDomainSuites = [
   "data-automation-ci.yml",
-  "notion-article-sync-ci.yml",
-  "notion-events-help-sync-ci.yml",
+  "notion-quality-ci.yml",
   "services-v3-hourly-auto-sync.yml",
-  "sitemap-edge-resilience.yml",
 ];
 for (const name of workerDomainSuites) {
   assert.equal(prWorkflowWouldRun(name, ["worker/index.ts"]), false,
@@ -196,8 +193,11 @@ for (const name of workerDomainSuites) {
   assert.equal(prWorkflowWouldRun(name, [`.github/workflows/${name}`]), true,
     `${name}: edits to its own workflow must still validate`);
 }
-assert.equal(prWorkflowWouldRun("public-html-cache-safety-guard.yml", ["worker/index.ts"]), true,
-  "cache safety guard must stay on shared worker changes");
+// Cache and sitemap routing now lives in the consolidated offline manifest.
+// The mandatory ci-v2-offline-scope.test.mjs checks both exact selectors.
+assert.ok(workflows.has("offline-contracts.yml"));
+assert.ok(!workflows.has("public-html-cache-safety-guard.yml"));
+assert.ok(!workflows.has("sitemap-edge-resilience.yml"));
 assert.equal(prWorkflowWouldRun("gemini-global-stop-ci.yml", ["worker/index.ts"]), true,
   "Gemini global stop guard must stay on shared worker changes");
 assert.equal(prWorkflowWouldRun("pr-visual-evidence.yml", ["lib/notion-article-sync.ts"]), false,
@@ -403,7 +403,7 @@ assert.ok(!packageScriptOnly.scopes.includes("DATABASE_MIGRATIONS"));
 
 const pr579 = classifyChangedFiles([
   ".env.example",
-  ".github/workflows/notion-events-help-sync-ci.yml",
+  ".github/workflows/notion-quality-ci.yml",
   ".github/workflows/production-d1-migrate.yml",
   "app/api/admin/notion-events-help-sync/route.ts",
   "config/runtime-env.ts",
@@ -709,7 +709,7 @@ const coverage4 = [
   ["homepage", ["app/page.tsx"], [], []],
   ["name-days", ["lib/dog-name-day-calendar.ts"], [], ["homepage-name-days-ci.yml"]],
   ["articles", ["components/article-detail.tsx"], ["ARTICLES"], ["article-ux-ci.yml"]],
-  ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-article-sync-ci.yml"]],
+  ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-quality-ci.yml"]],
   ["admin", ["components/admin-article-editor.tsx"], ["ADMIN", "ARTICLES"], ["article-admin-ci.yml"]],
   ["documentation", ["README.md", "docs/ci-usage.md"], [], []],
   ["production-migration", ["drizzle/0125_live_schema.sql"], ["DATABASE_MIGRATIONS"], ["clean-d1-migration-validation.yml"]],
@@ -724,7 +724,7 @@ for (const [label, files, expectedScopes, relevantWorkflows] of coverage4) {
 }
 for (const [name, file, jobName] of [
   ["sitemap", "app/sitemap.ts", "sitemap-production-diagnostic"],
-  ["seo", "lib/seo-metadata.ts", "seo-recovery-e2e"],
+  ["seo", "lib/seo-metadata.ts", "ds-0b-focused-regression"],
   ["lost-found", "lib/lost-found-store.ts", "lost-found-public-e2e"],
 ]) {
   const dependsOnPreview = jobName === "sitemap-production-diagnostic";
@@ -738,13 +738,13 @@ for (const [name, file, jobName] of [
   assert.equal(simulation(["docs/audit.md"]).runs(jobName), false, `${name} docs skip`);
 }
 assert.equal(simulation(["lib/seo-metadata.ts"]).runs("sitemap-production-diagnostic"), false);
-assert.doesNotMatch(job("seo-recovery-e2e").condition, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED/);
+assert.doesNotMatch(job("ds-0b-focused-regression").condition, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED/);
 assert.match(job("sitemap-production-diagnostic").condition, /vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
 for (const file of ["scripts/start-public-regression-ci.sh", "tests/fixtures/public-regression-ci.sql"]) {
-  assert.equal(simulation([file]).runs("seo-recovery-e2e"), true, `${file}: local runtime must exercise SEO coverage`);
+  assert.equal(simulation([file]).runs("ds-0b-focused-regression"), true, `${file}: local runtime must exercise SEO coverage`);
 }
 const ds0b = job("ds-0b-focused-regression").block;
-for (const block of [ds0b, job("seo-recovery-e2e").block]) {
+for (const block of [ds0b]) {
   assert.match(block, /bash scripts\/start-public-regression-ci\.sh/);
   assert.match(block, /E2E_BASE_URL: http:\/\/localhost:5173/);
   assert.match(block, /Verify test source revision/);
@@ -752,7 +752,9 @@ for (const block of [ds0b, job("seo-recovery-e2e").block]) {
   assert.doesNotMatch(block, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED|steps\.preview|check-runs/);
 }
 assert.match(ds0b, /directory-unified-layout\.spec\.ts/);
-assert.match(job("seo-recovery-e2e").block, /seo-recovery\.spec\.ts tests\/e2e\/events-public-v2\.spec\.ts/);
+assert.match(ds0b, /seo-recovery\.spec\.ts tests\/e2e\/events-public-v2\.spec\.ts/);
+assert.match(ds0b, /RUN_SEO: /);
+assert.doesNotMatch(required, /^  seo-recovery-e2e:/m);
 
 for (const file of ["components/directory-card.tsx", "app/hladat/page.tsx", "app/admin/events/page.tsx"]) {
   const push = simulation([file], "push");

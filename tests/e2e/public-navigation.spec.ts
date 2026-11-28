@@ -16,6 +16,7 @@ const expectedMainNavigation = [
 const expectedSubmenus = {
   steniatka: [
     ["Pred kúpou psa", "/steniatka/pred-kupou-psa"],
+    ["Výbava pre šteniatko", "/steniatka/vybava"],
     ["Výber plemena", "/steniatka/vyber-plemena"],
     ["Výber chovateľa", "/steniatka/vyber-chovatela"],
     ["Prvé dni doma", "/steniatka/prve-dni"],
@@ -29,6 +30,8 @@ const expectedSubmenus = {
   ],
   starostlivost: [
     ["Zdravie", "/starostlivost/zdravie"],
+    ["Zdravotný kalendár psa", "/starostlivost/zdravotny-kalendar"],
+    ["Psie kalkulačky", "/starostlivost/kalkulacky"],
     ["Výživa", "/starostlivost/vyziva"],
     ["Každodenná výchova", "/starostlivost/vycvik"],
     ["Správanie", "/starostlivost/spravanie"],
@@ -389,4 +392,99 @@ test("representative PortalHub and PortalTopic pages stay Axe-clean", async ({ p
     await page.goto(route.path);
     await expectAxeClean(page, route.path);
   }
+});
+
+test("puppy equipment stores progress, filters missing items and resets only after confirmation", async ({ page }) => {
+  await page.goto("/steniatka/vybava");
+  const checklist = page.locator("[data-puppy-equipment]");
+  await expect(checklist).toBeVisible();
+  const bed = checklist.getByRole("checkbox", { name: /Pelech alebo podložka/ });
+  await expect(bed).toBeEnabled();
+  await bed.check();
+  await expect(checklist.getByRole("status").first()).toContainText("1 z 21");
+  await page.reload();
+  await expect(bed).toBeChecked();
+  await checklist.getByRole("checkbox", { name: "Len nepripravené" }).check();
+  await expect(bed).toHaveCount(0);
+  await checklist.getByRole("button", { name: "Vynulovať zoznam" }).click();
+  await checklist.getByRole("button", { name: "Zrušiť" }).click();
+  await expect(checklist.getByRole("status").first()).toContainText("1 z 21");
+  await checklist.getByRole("button", { name: "Vynulovať zoznam" }).click();
+  await checklist.getByRole("button", { name: "Áno, vynulovať" }).click();
+  await expect(bed).not.toBeChecked();
+  await expect(checklist.getByRole("status").first()).toContainText("0 z 21");
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expectNoHorizontalOverflow(page, "Výbava pre šteniatko " + width);
+  }
+});
+
+test("dog health calendar stores separate dog profiles, completed weights and planned appointments", async ({page})=>{
+  await page.goto("/starostlivost/zdravotny-kalendar");
+  const tool=page.locator("[data-dog-health-calendar]");
+  await expect(tool).toBeVisible();
+  const name=tool.getByLabel("Meno psa",{exact:true});
+  await expect(name).toBeEnabled();
+  await name.fill("Neo");await tool.getByRole("button",{name:"Pridať psa",exact:true}).click();
+  await name.fill("Luna");await tool.getByRole("button",{name:"Pridať psa",exact:true}).click();
+  await tool.getByRole("button",{name:"Pridať záznam",exact:true}).click();
+  const editor=tool.getByRole("region",{name:"Úprava zdravotného záznamu"});
+  await editor.getByLabel("Druh záznamu").selectOption("weight");
+  await editor.getByLabel("Hmotnosť (kg)").fill("12,5");
+  await editor.getByRole("button",{name:"Uložiť záznam",exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  await expect(tool.getByText(/12,5 kg/).first()).toBeVisible();
+  await tool.getByRole("button",{name:"Pridať záznam",exact:true}).click();
+  await editor.getByLabel("Druh záznamu").selectOption("vet");
+  await editor.getByLabel("Názov (nepovinný)").fill("Kontrola Luna");
+  await editor.getByRole("button",{name:"Uložiť záznam",exact:true}).click();
+  await page.reload();
+  await expect(tool.getByText("Kontrola Luna",{exact:true}).first()).toBeVisible();
+  const filter=tool.getByLabel("Zobraziť psa");
+  const neo=await filter.locator("option").filter({hasText:"Neo"}).getAttribute("value");
+  await filter.selectOption(neo!);
+  await expect(tool.getByText("Kontrola Luna",{exact:true})).toHaveCount(0);
+  await filter.selectOption("all");
+  await expect(tool.getByText("Kontrola Luna",{exact:true}).first()).toBeVisible();
+  await expect(tool.getByRole("button",{name:"Export budúcich termínov (.ics)"})).toBeEnabled();
+  for(const width of [1440,390,320]){
+    await page.setViewportSize({width,height:900});
+    await expectNoHorizontalOverflow(page,"Zdravotný kalendár "+width);
+  }
+});
+
+test("dog calculators recalculate, reject invalid inputs and fit small screens",async({page})=>{
+  await page.goto("/starostlivost/kalkulacky");
+  const tool=page.locator("[data-dog-calculators]");
+  await expect(tool).toBeVisible();
+  const cost=tool.locator("#spotreba");
+  await cost.getByLabel("Veľkosť balenia (kg)").fill("12");
+  await cost.getByLabel("Cena balenia (€)").fill("60");
+  await cost.getByLabel("Denná dávka (g)").fill("300");
+  await expect(cost.getByRole("status")).toContainText("40,0 dní");
+  await cost.getByLabel("Denná dávka (g)").fill("0");
+  await expect(cost.getByRole("status")).toContainText("Doplň platné");
+  const energy=tool.locator("#energia");
+  await energy.getByLabel("Hmotnosť psa (kg)").fill("16");
+  await expect(energy.getByRole("status").first()).toContainText("896 kcal/deň");
+  await energy.getByLabel("Energetická hodnota krmiva",{exact:true}).fill("4000");
+  await expect(energy.getByRole("status").last()).toContainText("224,0 g/deň");
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});await expectNoHorizontalOverflow(page,"Psie kalkulačky "+width);}
+});
+
+test("event calendar exposes a filtered subscription URL and public ICS response",async({page,request})=>{
+  await page.goto("/podujatia");
+  const panel=page.locator("[data-event-subscription]");
+  await expect(panel).toBeVisible();
+  await panel.getByLabel("Kraj odberu",{exact:true}).selectOption("Nitriansky kraj");
+  await panel.getByLabel("Typ podujatia v odbere",{exact:true}).selectOption("Výstava");
+  const url=new URL(await panel.getByLabel("Adresa odberu").inputValue());
+  expect(url.searchParams.get("region")).toBe("Nitriansky kraj");
+  expect(url.searchParams.get("typ")).toBe("Výstava");
+  const response=await request.get(url.pathname+url.search);
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/calendar");
+  expect(await response.text()).toContain("BEGIN:VCALENDAR");
+  expect((await request.get(url.pathname+"?typ=unknown")).status()).toBe(400);
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});await expectNoHorizontalOverflow(page,"Odber podujatí "+width);}
 });

@@ -30,6 +30,7 @@ export function ArticlePromo({
     <PublicMagazineBanner
       anchorId={anchorId}
       compact={compact}
+      size={compact ? "small" : "medium"}
       testId={`article-${promoKey}`}
       eyebrow={copy.kicker}
       title={copy.headline}

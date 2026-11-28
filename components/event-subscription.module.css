@@ -1,0 +1,15 @@
+.panel { composes: panel from "./public-tool-layout.module.css"; display:grid; gap:.6rem; max-width:100%; margin-block:.75rem; }
+.panel h2 { display:flex; align-items:center; gap:.5rem; font-size:1.08rem; margin:0; }
+.panel h2 svg { flex-shrink:0; }
+.panel p { font-size:.87rem; line-height:1.5; margin:0; }
+.fields { display:grid; gap:.5rem; }
+.fields label,.address { display:grid; gap:.25rem; min-width:0; font-size:.85rem; font-weight:650; }
+.fields select,.address input { width:100%; min-width:0; max-width:100%; box-sizing:border-box; min-height:44px; font-size:16px; }
+.actions { display:flex; flex-wrap:wrap; align-items:center; gap:.45rem; }
+.actions a { min-height:44px; display:inline-flex; align-items:center; color:var(--forest); font-size:.85rem; font-weight:650; }
+.panel summary { cursor:pointer; font-weight:650; min-height:44px; display:flex; align-items:center; }
+.panel details p { margin-block:.4rem; }
+.panel .note { color:var(--muted); font-size:.79rem; }
+.panel :is(a,button,input,select,summary):focus-visible { outline:3px solid var(--brand-focus, var(--forest)); outline-offset:2px; }
+
+@media(max-width:720px) { .panel { gap:.5rem; } .actions { gap:.35rem; } .actions > :first-child { flex:1 1 100%; } }

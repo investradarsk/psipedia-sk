@@ -67,7 +67,7 @@ test("homepage banner retains native content, target, landmark and CSS variant",
     assert.ok(html.includes(text), text);
   const css = read("components/public-visual-system/public-magazine-banner.module.css");
   assert.match(css, /max-width: 620px/);
-  assert.match(css, /border-radius: var\(--ps-banner-radius, 18px\)/);
+  assert.match(read("app/banner-visuals.css"), /border-radius: var\(--ps-bnr-radius\)/);
   assert.match(css, /\.magazine:global\(\.home-magazine-banner \.button\)/);
   assert.doesNotMatch(read("app/home-v2.module.css"), /:global\(\.home-magazine-banner/);
 });
@@ -102,7 +102,7 @@ test("help banner variants retain destinations, photo tones, inherited colors an
   for (const image of ["zdravie-veterinar", "hero-labrador", "trening-pri-nohe"])
     assert.ok(media.includes("/images/" + image + ".webp"));
   assert.match(css, /max-width: 620px/);
-  assert.match(css, /min-height: 44px/);
+  assert.match(read("app/banner-visuals.css"), /min-height: 44px/);
   assert.doesNotMatch(
     read("components/help-public.module.css"),
     /\.(?:reportBanner|closingCta|overviewPromo)\b/,

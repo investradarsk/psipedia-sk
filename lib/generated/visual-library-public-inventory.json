@@ -208,6 +208,22 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/dog-calculators-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/dog-calculators.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/dog-health-calendar-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/dog-health-calendar.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/dog-name-day-calendar.tsx",
       "coverage": "needs-preview"
     },
@@ -254,6 +270,10 @@
     {
       "path": "components/event-markdown.tsx",
       "coverage": "live-preview"
+    },
+    {
+      "path": "components/event-subscription.tsx",
+      "coverage": "needs-preview"
     },
     {
       "path": "components/events-page.tsx",
@@ -716,6 +736,14 @@
       "coverage": "page-composite"
     },
     {
+      "path": "components/puppy-equipment-checklist.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/puppy-equipment-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
       "path": "components/related-entity-links.tsx",
       "coverage": "live-preview"
     },
@@ -740,6 +768,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/service-review-catalog.tsx",
+      "coverage": "page-composite"
+    },
+    {
       "path": "components/share-button.tsx",
       "coverage": "live-preview"
     },
@@ -750,10 +782,6 @@
     {
       "path": "components/site-footer.tsx",
       "coverage": "live-preview"
-    },
-    {
-      "path": "components/service-review-catalog.tsx",
-      "coverage": "page-composite"
     },
     {
       "path": "components/site-header.tsx",

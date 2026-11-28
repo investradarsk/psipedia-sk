@@ -9,11 +9,11 @@
   min-height: var(--admin-ui-control-height, 44px);
   padding: var(--admin-ui-control-padding-block, 0.3rem) var(--admin-ui-control-padding-inline, 0.65rem);
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: var(--admin-ui-field-radius, 9px);
   color: var(--admin-v3-neutral-text, #345447);
   background: transparent;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--admin-ui-type-body, .85rem);
   font-weight: 750;
   text-align: left;
   text-decoration: none;
@@ -116,4 +116,8 @@
 @media (min-width: 821px) {
   .sidebar .links { gap: 0.2rem; }
   .sidebar .links :is(button, a) { padding-inline: 0.65rem; }
+}
+
+@media (pointer: coarse) {
+  .links :is(button, a) { min-height: 44px; }
 }
