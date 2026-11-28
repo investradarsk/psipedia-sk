@@ -1,4 +1,4 @@
-import { normalizeProfileIdentity, profileIdentityWebsite } from "./directory-duplicate-audit.ts";
+import { profileDuplicateReason } from "./profile-duplicate-review.ts";
 import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
 import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
@@ -587,24 +587,16 @@ function sourceDuplicateCandidate(
 
     if ((slug && sourceSlug === slug) || (url && source.url === url)) return true;
     if(!staged)return false;
-    const n=(key:string)=>normalizeProfileIdentity(clean(pageProperty(page,key)));
-    const s=(key:string)=>normalizeProfileIdentity(clean(source.properties[key]));
-    const eq=(key:string)=>!!n(key)&&n(key)===s(key);
-    const compatible=(key:string)=>!n(key)||!s(key)||n(key)===s(key);
-    const web=(key:string)=>{const a=profileIdentityWebsite(clean(pageProperty(page,key))),b=profileIdentityWebsite(clean(source.properties[key]));return !!a&&a===b;};
-    switch(definition.key){
-      case "events":return eq("Názov")&&eq("Začiatok")&&compatible("Mesto")&&(eq("Mesto")||eq("Miesto")||eq("Organizátor"));
-      case "organizations":return eq("IČO / registračné číslo")||
-        (compatible("Mesto")&&(eq("Názov")||eq("Právny názov"))&&(eq("Mesto")||web("Web")));
-      // Shared shelter contact or dog name alone is never sufficient.
-      case "adoptions":return eq("Meno")&&compatible("Pohlavie")&&compatible("Plemeno")&&
-        (web("Zdroj dát")||(eq("Organizácia")&&eq("Dátum narodenia")));
-      case "lost-found":return eq("Typ")&&eq("Dátum udalosti")&&eq("Mesto")&&
-        compatible("Pohlavie")&&compatible("Plemeno")&&(eq("Meno psa")||web("Zdroj URL"));
-      case "help-cases":return eq("Kategória")&&eq("Názov")&&
-        (eq("Dátum hlásenia")&&(eq("Organizácia")||eq("Mesto"))||web("CTA URL"));
-      default:return false;
-    }
+    // Same identity policy as Admin, partners and the existing-record audit.
+    const project=(read:(key:string)=>unknown)=>({
+      name:read(definition.key==="adoptions"?"Meno":definition.key==="lost-found"?"Meno psa":"Názov"),
+      city:read("Mesto"),kind:read(definition.key==="help-cases"?"Kategória":"Typ"),
+      date:read(definition.key==="events"?"Začiatok":definition.key==="adoptions"?"Dátum narodenia":definition.key==="lost-found"?"Dátum udalosti":"Dátum hlásenia"),
+      organization:read(definition.key==="events"?"Organizátor":"Organizácia"),venue:read("Miesto"),
+      website:read("Web"),source:read(definition.key==="lost-found"?"Zdroj URL":definition.key==="help-cases"?"CTA URL":"Zdroj dát"),
+      registration:read("IČO / registračné číslo"),sex:read("Pohlavie"),breed:read("Plemeno"),
+    });
+    return profileDuplicateReason(definition.key,project(key=>pageProperty(page,key)),project(key=>source.properties[key]))!==null;
   });
   if (candidates.length === 0) return null;
   return candidates.map((source) => source.id).join(",");
