@@ -56,7 +56,7 @@ test("past-due scheduled articles import editorial changes only through verified
   assert.equal(verified(null, remote), false);
 
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"[\s\S]*?!dueScheduledPublishedMapping/);
-  assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\)/);
+  assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\|\|stagedScheduled\)/);
   assert.match(syncSource, /status: existing\.status,[\s\S]*?publishedAt: existing\.publishedAt/);
   assert.match(syncSource, /status: dueScheduledPublishedMapping \? "scheduled" : undefined/);
   assert.match(syncSource, /allowPastDueScheduledContentEdit: dueScheduledPublishedMapping/);
@@ -421,7 +421,8 @@ test("Notion body supports native external images, video embeds and tables", () 
 test("Notion Psipedia block manifest can create any normalized Admin article block with placement", () => {
   assert.match(syncSource, /isAdminManifestHeading/);
   assert.match(syncSource, /"psipedia bloky"/);
-  assert.match(syncSource, /JSON\.parse\(blockText\(manifest\)\)/);
+  assert.match(syncSource, /JSON\.parse\(raw\.map\(node=>node\.plain_text\)\.join\(""\)\)/);
+  assert.match(syncSource, /NOTION_ARTICLE_MANIFEST_INCOMPLETE/);
   assert.match(syncSource, /normalizeArticleBlocks/);
   assert.match(syncSource, /afterSection/);
   assert.match(syncSource, /beforeHeading/);
