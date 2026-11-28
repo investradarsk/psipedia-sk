@@ -1,3 +1,4 @@
+import { assertBulkPublicationIdentities } from "./publication-readiness-v3.ts";
 import { bulkHelpStatusSql, resolveHelpBulkSelection, validateHelpBulkApply } from "@/lib/admin-help-bulk";
 import { getD1Binding } from "@/lib/help-store";
 
@@ -8,11 +9,15 @@ function database() {
 }
 
 export async function preflightManagedHelpBulk(input: unknown) {
-  return resolveHelpBulkSelection(database(), input);
+  const db=database();
+  const preview=await resolveHelpBulkSelection(db,input);
+  if(preview.targetStatus==="published")await assertBulkPublicationIdentities(db,"help-cases",preview.items.map(item=>item.id));
+  return preview;
 }
 
 export async function applyManagedHelpBulk(input: unknown, editorEmail: string) {
   const { items, status } = validateHelpBulkApply(input);
+  if(status==="published")await assertBulkPublicationIdentities(database(),"help-cases",items.map(item=>item.id));
   const now = new Date().toISOString();
   const result = await database().prepare(bulkHelpStatusSql)
     .bind(JSON.stringify(items), status, now, editorEmail, status, now, status, items.length)
