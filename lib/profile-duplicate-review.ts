@@ -17,6 +17,8 @@ const specs:Record<ProfileDuplicateAgenda,string>={
 const norm=(v:unknown)=>normalizeProfileIdentity(typeof v==="string"?v:typeof v==="number"?String(v):"");
 const site=(v:unknown)=>profileIdentityWebsite(typeof v==="string"?v:null);
 const equal=(a:unknown,b:unknown)=>!!norm(a)&&norm(a)===norm(b);
+const registrationKey=(v:unknown)=>norm(v).replace(/ /g,"");
+const sameRegistration=(a:unknown,b:unknown)=>!!registrationKey(a)&&!/^0+$/.test(registrationKey(a))&&registrationKey(a)===registrationKey(b);
 const compatible=(a:unknown,b:unknown)=>!norm(a)||!norm(b)||equal(a,b);
 // Source URLs retain query identifiers: two distinct records may share a path.
 function sourceKey(v:unknown){
@@ -29,12 +31,12 @@ export function profileDuplicateReason(agenda:ProfileDuplicateAgenda,a:Identity,
  if(a.id!==undefined&&a.id===b.id)return null;
  const sameName=equal(a.name,b.name),sameCity=equal(a.city,b.city),sameDate=equal(a.date,b.date);
  const sameWeb=!!site(a.website)&&site(a.website)===site(b.website);
- if(equal(a.slug,b.slug)&&(!["directory","lost-found","help-cases"].includes(agenda)||equal(a.kind,b.kind)))return "Rovnaká adresa profilu";
+ if(typeof a.slug==="string"&&a.slug.trim()&&a.slug.trim()===b.slug&&(!["directory","lost-found","help-cases"].includes(agenda)||equal(a.kind,b.kind)))return "Rovnaká adresa profilu";
  switch(agenda){
  case "directory":return sameName&&compatible(a.city,b.city)&&(sameCity||sameWeb)?"Rovnaký názov a lokalita alebo web":null;
- case "breeds":return equal(a.registration,b.registration)||sameName?"Rovnaký názov alebo FCI číslo":null;
+ case "breeds":return sameRegistration(a.registration,b.registration)||sameName?"Rovnaký názov alebo FCI číslo":null;
  case "eshops":return sameName||sameWeb?"Rovnaký názov alebo web":null;
- case "organizations":return equal(a.registration,b.registration)||sameName&&compatible(a.city,b.city)&&(sameCity||sameWeb)?"Rovnaká registrácia alebo identita organizácie":null;
+ case "organizations":return sameRegistration(a.registration,b.registration)||sameName&&compatible(a.city,b.city)&&(sameCity||sameWeb)?"Rovnaká registrácia alebo identita organizácie":null;
  case "events":return sameName&&sameDate&&compatible(a.city,b.city)&&(sameCity||equal(a.venue,b.venue)||equal(a.organization,b.organization))?"Rovnaké podujatie a dátum":null;
  case "adoptions":return sameName&&compatible(a.sex,b.sex)&&compatible(a.breed,b.breed)&&(sameSource(a.source,b.source)||sameDate&&equal(a.organization,b.organization))?"Zhodná identita adopcie":null;
  case "lost-found":return equal(a.kind,b.kind)&&sameDate&&sameCity&&compatible(a.sex,b.sex)&&compatible(a.breed,b.breed)&&(sameName||sameSource(a.source,b.source))?"Zhodné hlásenie a dátum":null;
@@ -71,7 +73,7 @@ export async function auditProfileDuplicates(db:D1Database,agenda:ProfileDuplica
  const seen=new Set<string>();let truncated=false;
  for(const row of rows){
   if(["archived","rejected"].includes(String(row.status).toLowerCase()))continue;
-  const keys=[["name",norm(row.name)],["slug",norm(row.slug)],["registration",norm(row.registration)],["web",site(row.website)],["source",sourceKey(row.source)]];
+  const keys=[["name",norm(row.name)],["slug",norm(row.slug)],["registration",registrationKey(row.registration)],["web",site(row.website)],["source",sourceKey(row.source)]];
   for(const [type,key] of keys){
    if(!key)continue;const k=type+":"+key,list=groups.get(k)??[];
    for(const other of list){const reason=profileDuplicateReason(agenda,row,other);if(!reason)continue;
