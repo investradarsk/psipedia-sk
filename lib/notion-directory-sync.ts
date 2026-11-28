@@ -1,3 +1,4 @@
+import { findDirectoryInboundDuplicate, type DirectoryAuditRow } from "./directory-duplicate-audit.ts";
 import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { directoryAuthorityWriteGuard, profileAuthorityTextFieldAllowed } from "./notion-profile-authority.ts";
 import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
@@ -4203,8 +4204,11 @@ export async function runNotionDirectorySyncSweep(input: {
           const fresh=await fetchNotionPage(input.bindings,page.id);
           if(fresh.last_edited_time!==page.last_edited_time||fresh.archived||fresh.in_trash||!notionDirectoryPageBelongsToSource(fresh,dataSourceId)||propertyText(fresh,"Psipedia ID")||propertyCheckbox(fresh,"Odkontrolované"))throw Error("DIRECTORY_INBOUND_IDENTITY_CHANGED");
           const desired=notionSnapshot(fresh);
-          const duplicate=await input.database.prepare("SELECT id FROM directory_profiles WHERE category=? AND (slug=? OR (lower(trim(name))=lower(trim(?)) AND lower(trim(city))=lower(trim(?)))) LIMIT 1").bind(desired.category,desired.slug,desired.name,desired.city).first<{id:number}>();
-          if(duplicate)throw Error("DIRECTORY_INBOUND_DUPLICATE_REVIEW");
+          const slugDuplicate=desired.slug?await input.database.prepare("SELECT id FROM directory_profiles WHERE slug=? LIMIT 1").bind(desired.slug).first<{id:number}>():null;
+          const identityRows=await input.database.prepare("SELECT id,name,category,status,city,website_url,public_phone AS phone,public_email AS email,NULL AS additional_categories_json FROM directory_profiles ORDER BY id LIMIT 5001").all<DirectoryAuditRow>();
+          if(!identityRows.success||identityRows.results.length>5000)throw Error("DIRECTORY_DUPLICATE_SCAN_INCOMPLETE");
+          const duplicate=findDirectoryInboundDuplicate({name:desired.name,category:desired.category,status:"draft",city:desired.city,website_url:desired.websiteUrl,phone:desired.publicPhone,email:desired.publicEmail,additional_categories_json:null},identityRows.results);
+          if(slugDuplicate||duplicate)throw Error("DIRECTORY_INBOUND_DUPLICATE_REVIEW");
           page=fresh;
         }
         const creation = await createProfileFromNotion({
