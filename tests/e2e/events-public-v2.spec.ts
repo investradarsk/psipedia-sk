@@ -63,10 +63,10 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event filters preserve URL state and safe fallbac
   await page.goto("/podujatia?q=pes&region=Nitriansky%20kraj&mesiac=2026-10&termin=vsetky");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
-  const toggle = page.locator("summary").filter({ hasText: "Filtrovať" });
+  const toggle = page.locator('summary[aria-controls="events-filter-panel"]');
   if (await toggle.isVisible()) { await expect(toggle).toContainText("3"); await toggle.click(); }
-  await expect(page.getByRole("combobox", { name: "Kraj", exact: true })).toHaveValue("Nitriansky kraj");
-  await expect(page.getByLabel("Mesiac", { exact: true })).toHaveValue("2026-10");
+  await expect(page.locator("[data-event-filters]").getByLabel("Kraj", { exact: true })).toHaveValue("Nitriansky kraj");
+  await expect(page.locator("[data-event-filters]").getByLabel("Mesiac", { exact: true })).toHaveValue("2026-10");
 
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL((url) =>
@@ -79,10 +79,10 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event filters preserve URL state and safe fallbac
 
   await page.goto("/podujatia?region=neplatny&mesiac=2026-99&termin=neplatny&q=test");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
-  const invalidToggle = page.locator("summary").filter({ hasText: "Filtrovať" });
+  const invalidToggle = page.locator('summary[aria-controls="events-filter-panel"]');
   if (await invalidToggle.isVisible()) await invalidToggle.click();
-  await expect(page.getByLabel("Kraj")).toHaveValue("");
-  await expect(page.getByLabel("Mesiac", { exact: true })).toHaveValue("");
+  await expect(page.locator("[data-event-filters]").getByLabel("Kraj", { exact: true })).toHaveValue("");
+  await expect(page.locator("[data-event-filters]").getByLabel("Mesiac", { exact: true })).toHaveValue("");
   await expect(page.getByRole("link", { name: "Najbližšie", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveValue("test");
 });
@@ -128,15 +128,17 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event disclosure is compact without horizontal ov
     expect(searchBox, `search should have a measurable box at ${width}px`).not.toBeNull();
     expect(searchBox!.height).toBeGreaterThanOrEqual(44);
 
-    const toggle = page.locator("summary").filter({ hasText: "Filtrovať" });
+    const toggle = page.locator('summary[aria-controls="events-filter-panel"]');
     if (width < 761) {
       await expect(toggle).toBeVisible();
-      await expect(page.getByLabel("Kraj")).not.toBeVisible();
+      const region = page.locator("[data-event-filters]").getByLabel("Kraj", { exact: true });
+      await expect(region).toHaveCount(1);
+      await expect(region).not.toBeVisible();
       await toggle.focus(); await page.keyboard.press("Enter");
-      await expect(page.locator("details")).toHaveAttribute("open", "");
+      await expect(page.locator('details:has(> summary[aria-controls="events-filter-panel"])')).toHaveAttribute("open", "");
     }
-    await expect(page.getByLabel("Kraj")).toBeVisible();
-    await expect(page.getByLabel("Mesiac", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-event-filters]").getByLabel("Kraj", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-event-filters]").getByLabel("Mesiac", { exact: true })).toBeVisible();
 
     const dimensions = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -150,7 +152,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events stay Axe-clean at 390px", async ({ page })
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/podujatia");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
-  await page.locator("summary").filter({ hasText: "Filtrovať" }).click();
+  await page.locator('summary[aria-controls="events-filter-panel"]').click();
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
