@@ -21,6 +21,7 @@ import {
   writeBackPublishedArticleToNotion,
   writeBackArticleBreedCategoryToNotion,
   writeBackDraftArticleContentToNotion,
+  articleEditorialWritebackEligible,
   writeBackArticleSeoToNotion,
   type NotionSyncBindings,
 } from "@/lib/notion-article-sync";
@@ -177,6 +178,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
     }
     const notionSteps: Partial<Record<NotionArticleStep, ArticleFollowupReceipt>> = {};
     const bindings = env as unknown as ArticleRouteBindings;
+    const contentFollowup=before.status === "draft" && article.status === "draft" || bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&articleEditorialWritebackEligible(bindings,article.status);
     if (!bindings.DB) {
       if (before.status !== "published" && article.status === "published") {
         notionSteps.publication = { status: "skipped", code: "NOTION_BINDING_MISSING" };
@@ -187,7 +189,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       if (articleSeoChangedFields(before, article).length > 0) {
         notionSteps.seo = { status: "skipped", code: "NOTION_BINDING_MISSING" };
       }
-      if (before.status === "draft" && article.status === "draft") {
+      if (contentFollowup) {
         notionSteps.draft = { status: "skipped", code: "NOTION_BINDING_MISSING" };
       }
     }
@@ -267,12 +269,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
           reportError("seo", error, "notion_article_seo_writeback_failed");
         }
       }
-      if (before.status === "draft" && article.status === "draft" &&
+      if (contentFollowup &&
           notionEditorialWriteback?.status !== "partial" &&
           notionEditorialWriteback?.status !== "blocked") {
         try {
           report("draft", await writeBackDraftArticleContentToNotion({
-            database: bindings.DB, bindings, article, previousExcerpt: before.excerpt,
+            database: bindings.DB, bindings, article, before, previousExcerpt: before.excerpt,
           }));
         } catch (error) {
           reportError("draft", error, "notion_article_editorial_writeback_failed");
@@ -294,12 +296,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
       if (!notionSteps.seo && articleSeoChangedFields(before, article).length > 0) {
         notionSteps.seo = { status: "deferred", code: "WAITING_FOR_PLACEMENT" };
       }
-      if (!notionSteps.draft && before.status === "draft" && article.status === "draft") {
+      if (!notionSteps.draft && contentFollowup) {
         notionSteps.draft = { status: "deferred", code: "WAITING_FOR_PLACEMENT" };
       }
     }
     if (notionSteps.seo?.status === "failed" || notionSteps.seo?.status === "partial") {
-      if (!notionSteps.draft && before.status === "draft" && article.status === "draft") {
+      if (!notionSteps.draft && contentFollowup) {
         notionSteps.draft = { status: "deferred", code: "WAITING_FOR_SEO" };
       }
     }
@@ -382,11 +384,12 @@ export async function PATCH(request: Request, { params }: RouteProps) {
               database: bindings.DB, bindings, before: before! as typeof article, article,
             }));
           } else {
-            if (article.status !== "draft") {
-              return Response.json({ error: "Obsah Notion je možné zopakovať iba pre koncept." }, { status: 409 });
+            if (!articleEditorialWritebackEligible(bindings,article.status)) {
+              return Response.json({ error: "Článok nie je v stave umožňujúcom prenos obsahu." }, { status: 409 });
             }
             receipt = notionStepReceipt(await writeBackDraftArticleContentToNotion({
               database: bindings.DB, bindings, article,
+              before:before as typeof article|undefined,
               previousExcerpt: before?.id === article.id && before.slug === article.slug &&
                 typeof before.updatedAt === "string" && before.updatedAt !== article.updatedAt &&
                 typeof before.excerpt === "string" ? before.excerpt : undefined,
@@ -421,12 +424,12 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       );
       if (!article) return Response.json({ error: "Článok neexistuje." }, { status: 404 });
       let notionEditorialWriteback: { status: string; code?: string } | undefined;
-      if (before.status === "draft" && article.status === "draft") {
+      if (before.status === "draft" && article.status === "draft" || (env as unknown as ArticleRouteBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&articleEditorialWritebackEligible(env as unknown as ArticleRouteBindings,article.status)) {
         try {
           const bindings = env as unknown as ArticleRouteBindings;
           if (bindings.DB) {
             const result = await writeBackDraftArticleContentToNotion({
-              database: bindings.DB, bindings, article, previousExcerpt: before.excerpt,
+              database: bindings.DB, bindings, article, before, previousExcerpt: before.excerpt,
             });
             notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
           }

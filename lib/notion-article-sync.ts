@@ -53,6 +53,7 @@ import { SITE_URL } from "@/config/public-site";
 export type NotionSyncBindings = {
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED?: string;
+  NOTION_PROFILE_AUTHORITY_MODE?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
@@ -122,6 +123,34 @@ function flagEnabled(value: unknown) {
   return typeof value === "string" && (value === "1" || value.toLowerCase() === "true");
 }
 
+/** Rollout gate only: articles do not consult profile ownership or review locks. */
+export function articleEditorialWritebackEligible(bindings:NotionSyncBindings,status:string){
+  return status==="draft"||bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&(status==="scheduled"||status==="published");
+}
+function articleEditorialPageApproved(bindings:NotionSyncBindings,status:string,page:NotionPage){
+  const state=selectProperty(page,"Stav"),ready=state==="Ready"&&checkboxProperty(page,"Odoslať na Psipedia");
+  return status==="draft"?ready:articleEditorialWritebackEligible(bindings,status)&&
+    (ready||state==="Publikované"||status==="published"&&state==="Na kontrolu");
+}
+function stagedArticlePageOwned(bindings:NotionSyncBindings,page:NotionPage){
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")return true;
+  const norm=(id:string)=>id.replaceAll("-","").toLowerCase();
+  return Boolean(bindings.NOTION_ARTICLES_DATA_SOURCE_ID&&page.parent?.type==="data_source_id"&&
+    page.parent.data_source_id&&norm(page.parent.data_source_id)===norm(bindings.NOTION_ARTICLES_DATA_SOURCE_ID));
+}
+function articleEditorialScope(before:ManagedArticle,after:ManagedArticle){
+  const fields:[string,unknown,unknown][]=[
+    ["Názov",before.title,after.title],["Perex",before.excerpt,after.excerpt],
+    ["Popis na sociálne siete",before.socialCaption??"",after.socialCaption??""],
+    ["Hlavný obrázok URL",before.image??"",after.image??""],
+    ["Alt text obrázka",before.imageAlt??"",after.imageAlt??""],
+    ["Kredit fotografie",before.imageCredit??"",after.imageCredit??""],
+    ["Zdroj obrázka",before.imageCreditUrl??"",after.imageCreditUrl??""],
+  ];
+  const changed=(a:unknown,b:unknown)=>JSON.stringify(a)!==JSON.stringify(b);
+  return {properties:fields.filter(([,a,b])=>changed(a,b)).map(([name])=>name),
+    body:changed([before.intro,before.introRichText,before.blocks],[after.intro,after.introRichText,after.blocks])};
+}
 function normalizeText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -1239,10 +1268,12 @@ async function getBlockChildren(bindings: NotionSyncBindings, blockId: string) {
       bindings,
       `/blocks/${encodeURIComponent(blockId)}/children?${query.toString()}`,
     );
-    results.push(...(response.results ?? []));
+    if(!Array.isArray(response.results)||response.has_more&&!response.next_cursor)throw Error("NOTION_ARTICLE_BLOCK_READ_INCOMPLETE");
+    results.push(...response.results);
     cursor = response.has_more && response.next_cursor ? response.next_cursor : null;
   } while (cursor && results.length < 500);
-  return results.slice(0, 500);
+  if(cursor||results.length>500)throw Error("NOTION_ARTICLE_BLOCK_READ_INCOMPLETE");
+  return results;
 }
 
 async function getPageBlocks(bindings: NotionSyncBindings, pageId: string) {
@@ -1718,7 +1749,7 @@ export async function writeBackArticleSeoToNotion(args: {
   if (before.id !== article.id || before.slug !== article.slug) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   }
-  if (article.status !== "draft" && article.status !== "published") {
+  if (article.status !== "draft" && article.status !== "published" && !articleEditorialWritebackEligible(args.bindings,article.status)) {
     return { linked: false, updated: false, reason: "not-editable" };
   }
   const changed = articleSeoChangedFields(before, article);
@@ -1759,7 +1790,8 @@ export async function writeBackArticleSeoToNotion(args: {
     (!page.parent?.data_source_id ||
       page.parent.data_source_id === args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID);
   const assertApproved = (page: NotionPage) => {
-    if (!sameArticle(page)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+    if (!sameArticle(page)||!stagedArticlePageOwned(args.bindings,page)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+    if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!articleEditorialPageApproved(args.bindings,article.status,page))throw Error("NOTION_EDITORIAL_STATUS_CONFLICT");
     if (article.status === "draft" &&
         (selectProperty(page, "Stav") !== "Ready" ||
          !checkboxProperty(page, "Odoslať na Psipedia"))) {
@@ -1920,12 +1952,16 @@ export async function writeBackDraftArticleContentToNotion(args: {
   bindings: NotionSyncBindings;
   article: ManagedArticle;
   previousExcerpt?: string;
+  before?: ManagedArticle;
 }): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" };
   }
   const article = args.article;
-  if (article.status !== "draft") return { linked: false, updated: false, reason: "not-draft" };
+  const staged=args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  if (article.status !== "draft") {
+    if(!articleEditorialWritebackEligible(args.bindings,article.status))return {linked:false,updated:false,reason:"not-editable"};
+  }
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED)) {
     return { linked: false, updated: false, reason: "import-disabled" };
   }
@@ -1942,7 +1978,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     const current = await args.database.prepare(
       "SELECT status, updated_at FROM managed_articles WHERE id = ? LIMIT 1",
     ).bind(article.id).first<{ status: string; updated_at: string }>();
-    if (!current || current.status !== "draft" || current.updated_at !== article.updatedAt) {
+    if (!current || current.status !== article.status || current.updated_at !== article.updatedAt) {
       throw new Error("ADMIN_ARTICLE_REVISION_CONFLICT");
     }
   }
@@ -1953,8 +1989,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const page = await notionRequest<NotionPage>(
     args.bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
   );
-  if (page.id !== mapping.notion_page_id || selectProperty(page, "Stav") !== "Ready" ||
-    !checkboxProperty(page, "Odoslať na Psipedia")) {
+  if (page.id !== mapping.notion_page_id || !articleEditorialPageApproved(args.bindings,article.status,page)) {
     throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
   }
   // Keep file-backed heroes in Notion Files during text-only writeback.
@@ -1991,6 +2026,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const matchesEditorialIdentity = (value: NotionPage) =>
     value.archived !== true && value.in_trash !== true &&
     value.id === mapping.notion_page_id &&
+    (!staged||(stagedArticlePageOwned(args.bindings,value)&&richTextProperty(value,"Slug")===article.slug))&&
     richTextProperty(value, "Psipedia ID") === String(article.id);
   if (!matchesEditorialIdentity(page)) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
@@ -2004,6 +2040,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const pageGuard = (value: NotionPage) => JSON.stringify(
     protectedPropertyNames.map((name) => [name, value.properties?.[name] ?? null]),
   );
+  const untouchedProperties=(value:NotionPage,names:readonly string[])=>JSON.stringify(Object.entries(value.properties??{}).filter(([name])=>!names.includes(name)&&!["Sync stav","Sync chyba","Posledný sync"].includes(name)).sort(([a],[b])=>a.localeCompare(b)));
   let plan: NotionEditorialPlan;
   if (journal) {
     if (journal.article_id !== article.id || journal.article_updated_at !== article.updatedAt) {
@@ -2013,10 +2050,11 @@ export async function writeBackDraftArticleContentToNotion(args: {
     plan = JSON.parse(journal.operations_json) as NotionEditorialPlan;
   } else {
     const remoteBlocks = await getPageBlocks(args.bindings, page.id);
-    const current = notionPageToManagedArticleInput(page, remoteBlocks, article,
+    if(staged&&(!args.before||args.before.id!==article.id||args.before.slug!==article.slug||args.before.updatedAt===article.updatedAt))throw Error("NOTION_ARTICLE_EDITOR_PREIMAGE_REQUIRED");
+    const current = notionPageToManagedArticleInput(page, remoteBlocks, staged?args.before:article,
       decodeArticleSeoReceipt(mapping.content_hash).seo);
     const currentContentHash = await sha256(JSON.stringify({
-      payload: current,
+      payload: { ...current, relatedBreedIds: [] },
       ...notionArticleBreedFingerprint(page),
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
       // Keep the previous hash shape for pages without a Files hero.
@@ -2039,13 +2077,17 @@ export async function writeBackDraftArticleContentToNotion(args: {
         throw new Error("NOTION_EDITORIAL_PEREX_CONFLICT");
       }
     }
+    const scope=staged?articleEditorialScope(args.before!,article):undefined;
+    if(scope?.properties.includes("Perex")&&!writeExcerpt)throw Error("NOTION_ARTICLE_PEREX_REVIEW_REQUIRED");
     plan = buildNotionEditorialPlan({
-      article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
+      article: editorProjection,
+      ...(scope?{scope,allowNonDraft:true}:{}), remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
       perex: writeExcerpt ? article.excerpt : undefined,
       seoFields: [], // SEO-only changed-field writer handles all eight properties.
     });
     plan.pageGuard = pageGuard(page);
+    if(scope){plan.scope=scope;plan.untouchedProperties=untouchedProperties(page,scope.properties);if(!scope.body)plan.untouchedBlocks=JSON.stringify(remoteBlocks);}
     plan.fullBlockOrder = remoteBlocks.map((block) => block.id + ":" + block.type);
     const changed = plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
     if (!changed) return { linked: true, updated: false, reason: "unchanged" };
@@ -2092,13 +2134,14 @@ export async function writeBackDraftArticleContentToNotion(args: {
   }
   function verifySnapshot(blocks: NotionBlock[]) {
     if (!plan.pageGuard || !Array.isArray(plan.fullBlockOrder) ||
-      !Array.isArray(plan.blockSnapshots) || plan.blockSnapshots.length === 0) {
+      !Array.isArray(plan.blockSnapshots) || (plan.scope?.body!==false&&plan.blockSnapshots.length === 0)) {
       throw new Error("NOTION_EDITORIAL_JOURNAL_INCOMPATIBLE");
     }
     const identities = blocks.map((block) => block.id + ":" + block.type);
     if (JSON.stringify(identities) !== JSON.stringify(plan.fullBlockOrder)) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
+    if(plan.scope?.body===false){if(plan.untouchedBlocks!==JSON.stringify(blocks))throw Error("NOTION_EDITORIAL_BLOCK_CONFLICT");return;}
     const selected = selectNotionArticleBodyBlocks(blocks,
       hasCompletePublicPhotoCredit(editorProjection.imageCredit, editorProjection.imageCreditUrl));
     if (selected.length !== plan.blockSnapshots.length) {
@@ -2126,8 +2169,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
   );
   if (!matchesEditorialIdentity(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (pageGuard(latest) !== plan.pageGuard) throw new Error("NOTION_EDITORIAL_METADATA_CONFLICT");
-  if (selectProperty(latest, "Stav") !== "Ready" ||
-    !checkboxProperty(latest, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if (!articleEditorialPageApproved(args.bindings,article.status,latest)) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if(plan.scope&&plan.untouchedProperties!==untouchedProperties(latest,plan.scope.properties))throw Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
   // Inspect every planned block before the FIRST mutating request. A
   // conflict discovered in a later block must not first modify SEO fields
   // or earlier blocks. The per-block GET below still checks the latest
@@ -2202,12 +2245,12 @@ export async function writeBackDraftArticleContentToNotion(args: {
   );
   if (!matchesEditorialIdentity(verifiedPage)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (pageGuard(verifiedPage) !== plan.pageGuard) throw new Error("NOTION_EDITORIAL_METADATA_CONFLICT");
-  if (selectProperty(verifiedPage, "Stav") !== "Ready" ||
-    !checkboxProperty(verifiedPage, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if (!articleEditorialPageApproved(args.bindings,article.status,verifiedPage)) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if(plan.scope&&plan.untouchedProperties!==untouchedProperties(verifiedPage,plan.scope.properties))throw Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
   verifySnapshot(verifiedBlocks);
   const verified = buildNotionEditorialPlan({
-    article: editorProjection, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
+    article: editorProjection, ...(plan.scope?{scope:plan.scope,allowNonDraft:staged}:{}), remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks,hasCompletePublicPhotoCredit(editorProjection.imageCredit,editorProjection.imageCreditUrl)) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
     seoFields: [],
     perex: plan.propertyAfter.Perex,
@@ -2218,7 +2261,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const newPayload = notionPageToManagedArticleInput(verifiedPage, verifiedBlocks, article,
     decodeArticleSeoReceipt(mapping.content_hash).seo);
   const finalHash = await sha256(JSON.stringify({
-    payload: newPayload,
+    payload: { ...newPayload, relatedBreedIds: [] },
     ...notionArticleBreedFingerprint(verifiedPage),
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
     ...(notionArticleMainImageSource(verifiedPage).fileIdentity
@@ -2246,6 +2289,9 @@ export async function writeBackDraftArticleContentToNotion(args: {
   ).bind(page.id, article.id, article.updatedAt, leaseOwner).run();
   if (deleted.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
   return { linked: true, updated: true };
+  } catch(error){
+    if(staged&&error instanceof Error){const http=/^Notion API (\d{3}):/.exec(error.message);if(http)throw Error("NOTION_ARTICLE_HTTP_"+http[1]);}
+    throw error;
   } finally {
     // Failure retains immutable operations and preimages, but releases the
     // claim for safe immediate retry. A crash is recovered by lease expiry.
@@ -2511,6 +2557,8 @@ async function syncOneNotionPage(
     ).bind(page.id).first<{ article_id: number }>();
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
+  const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  if(staged&&!stagedArticlePageOwned(bindings,page))throw Error("NOTION_ARTICLE_TARGET_UNSAFE");
   const mapping = await loadMapping(database, page.id);
   const signedFields = articleSignedNotionFields(page, changedPropertyIds, eventType);
   const legacyUnapprovedReady = selectProperty(page, "Stav") === "Ready"
@@ -2518,6 +2566,7 @@ async function syncOneNotionPage(
     && richTextProperty(page, "Sync chyba").includes("Prepojený článok už nie je Draft");
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  if(staged&&mapping&&mappedExisting&&richTextProperty(page,"Psipedia ID")!==String(mappedExisting.id))throw Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
   // A past-due scheduled article is public but intentionally remains "scheduled"
   // in D1. Permit inbound editorial edits only for its verified published Notion
@@ -2548,6 +2597,10 @@ async function syncOneNotionPage(
   // correct fallback; do not parse a mapped page without that context.
   const explicitSeo = signedFields
     ? articleSeoSignedChangedFields(page, changedPropertyIds ?? []) : undefined;
+  if(staged&&signedFields){
+    const fields:Record<string,[string,"title"|"rich_text"]>={title:["Názov","title"],excerpt:["Perex","rich_text"],socialCaption:["Popis na sociálne siete","rich_text"],imageCredit:["Kredit fotografie","rich_text"]};
+    for(const key of signedFields){const field=fields[key];if(field){const raw=propertyRecord(page,field[0]);if(!raw||raw.type!==field[1]||raw.has_more===true||!Array.isArray(raw[field[1]])||(raw[field[1]] as unknown[]).length>=25)throw Error("NOTION_ARTICLE_PROPERTY_INCOMPLETE");notionEditorialPropertyText(raw,field[1]);}}
+  }
   const proposed = notionPageToManagedArticleInput(
     page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
@@ -2571,12 +2624,13 @@ async function syncOneNotionPage(
       (existing.portalSection !== proposed.portalSection && !explicitBreedPlacementChange))) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
   }
+  const stagedScheduled=Boolean(staged&&mapping&&existing?.status==="scheduled"&&articleEditorialPageApproved(bindings,existing.status,page));
   if (existing && existing.status !== "draft" && existing.status !== "published"
-    && !dueScheduledPublishedMapping) {
+    && !dueScheduledPublishedMapping&&!stagedScheduled) {
     throw new Error("ARTICLE_STATUS_REVIEW_REQUIRED");
   }
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
-  validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping);
+  validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping||stagedScheduled);
 
   const sourcePayload = notionPageToManagedArticleInput(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
@@ -2688,7 +2742,7 @@ async function syncOneNotionPage(
 
     // A locally edited draft belongs to the editor, not to the next Notion sweep.
     // Hash-only checks cannot detect admin edits after the previous import.
-    if (existing.status === "published" || dueScheduledPublishedMapping) {
+    if (existing.status === "published" || dueScheduledPublishedMapping||stagedScheduled) {
       // The article remains public with its original URL, assets, topic
       // relations, author and moderation state. Only Notion editorial fields
       // (body, intro, title, excerpt, SEO and social caption) flow inbound.
@@ -2731,8 +2785,8 @@ async function syncOneNotionPage(
         updatedAt: existing.updatedAt,
         // Guard the stored lifecycle as well as updated_at. Past-due scheduled
         // content edits must not turn into a reschedule or an accidental publish.
-        status: dueScheduledPublishedMapping ? "scheduled" : undefined,
-        allowPastDueScheduledContentEdit: dueScheduledPublishedMapping,
+        status: existing.status==="scheduled" ? "scheduled" : undefined,
+        allowPastDueScheduledContentEdit: existing.status==="scheduled"&&effectiveArticleStatus(existing.status,existing.publishedAt)==="published",
       });
       if (!updated) throw new Error("ARTICLE_PUBLISHED_UPDATE_FAILED");
       await upsertMapping(database, page, updated.id, contentHash, now);

@@ -290,3 +290,15 @@ test("production activates editorial draft writeback globally, without per-artic
   assert.match(sync, /SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = \?/);
   assert.doesNotMatch(config, /NOTION_ARTICLE_WRITEBACK_CANARY|NOTION_ARTICLE_WRITEBACK_ALLOWLIST/);
 });
+
+test("staged scheduled and published editorial planning touches only selected cells",()=>{
+  for(const status of ["published","scheduled"]){
+    const a=article();a.status=status;a.title="Nový titul";
+    const p={...page(),Perex:{rich_text:rich("Pôvodný perex článku.")}};
+    const plan=buildNotionEditorialPlan({article:a,remoteBlocks:[{id:"unsupported",type:"unsupported"}],pageProperties:p,siteUrl:"https://psipedia.sk",allowNonDraft:true,scope:{properties:["Názov"],body:false},seoFields:[]});
+    assert.deepEqual(Object.keys(plan.properties),["Názov"]);
+    assert.equal(plan.blocks.length,0);
+    assert.equal(plan.blockSnapshots.length,0);
+    assert.throws(()=>buildNotionEditorialPlan({article:a,remoteBlocks:originalBlocks(),pageProperties:p,siteUrl:"https://psipedia.sk",allowNonDraft:true,scope:{properties:["Kredit fotografie"],body:false},seoFields:[]}),/NOTION_ARTICLE_PROPERTY_MISSING/);
+  }
+});

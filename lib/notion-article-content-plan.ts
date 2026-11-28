@@ -28,6 +28,9 @@ export type NotionEditorialPlan = {
   // Immutable page and selected-block baseline. Missing or malformed recovery
   // evidence is a conflict, never permission to force a historic journal.
   pageGuard: string;
+  scope?:{properties:string[];body:boolean};
+  untouchedProperties?:string;
+  untouchedBlocks?:string;
   fullBlockOrder: string[];
   blockSnapshots: Array<{ id: string; type: string; before: string }>;
   properties: RecordValue;
@@ -173,6 +176,7 @@ export function notionEditorialPropertyText(rawValue: unknown, type: "title" | "
   const raw = object(rawValue);
   // A Notion schema change must never be misread as an empty editor field.
   // Validate the returned property shape on both initial planning and retries.
+  if (raw.has_more===true||(Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25))fail("NOTION_ARTICLE_PROPERTY_INCOMPLETE");
   if (typeof raw.type === "string" && raw.type !== type) {
     fail("NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT");
   }
@@ -194,11 +198,13 @@ export function buildNotionEditorialPlan(args: {
   perex?: string;
   /** The article SEO field-delta writer owns these properties on normal saves. */
   seoFields?: readonly ArticleNotionSeoKey[];
+  allowNonDraft?:boolean;
+  scope?:{properties:string[];body:boolean};
 }): NotionEditorialPlan {
   const { article, remoteBlocks, pageProperties } = args;
-  if (article.status !== "draft") fail("NOT_A_DRAFT");
-  const desired = targetBlocks(article, args.siteUrl);
-  if (desired.length !== remoteBlocks.length) fail("UNSUPPORTED_BLOCK_INSERT_DELETE");
+  if (article.status !== "draft" && !(args.allowNonDraft&&(article.status==="published"||article.status==="scheduled"))) fail("NOT_A_DRAFT");
+  const desired = args.scope?.body===false?[]:targetBlocks(article, args.siteUrl);
+  if (args.scope?.body!==false&&desired.length !== remoteBlocks.length) fail("UNSUPPORTED_BLOCK_INSERT_DELETE");
   const operations: NotionEditorialOperation[] = [];
   const blockSnapshots: NotionEditorialPlan["blockSnapshots"] = [];
   for (let i = 0; i < desired.length; i++) {
@@ -260,7 +266,9 @@ export function buildNotionEditorialPlan(args: {
   if (permitSeo("ogDescription") && SEO.ogDescription.name in pageProperties)
     fields.push([SEO.ogDescription.name, SEO.ogDescription.type, article.ogDescription ?? ""]);
   for (const [name, type, value] of fields) {
+    if(args.scope&&!args.scope.properties.includes(name))continue;
     if (!(name in pageProperties)) {
+      if(args.scope)fail("NOTION_ARTICLE_PROPERTY_MISSING");
       if (value && name !== "Hlavný obrázok URL") fail("MISSING_NOTION_PROPERTY_" + name);
       continue;
     }
@@ -273,6 +281,7 @@ export function buildNotionEditorialPlan(args: {
       [type]: notionText(value),
     };
   }
+  if(args.scope&&args.scope.properties.some(name=>!Object.hasOwn(propertyAfter,name)))fail("NOTION_ARTICLE_PROPERTY_MISSING");
   // The caller binds pageGuard/fullBlockOrder after it has read the entire
   // page. The planner itself has only the selected editorial child blocks.
   return { pageGuard: "", fullBlockOrder: [], blockSnapshots,
