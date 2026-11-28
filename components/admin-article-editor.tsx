@@ -794,6 +794,7 @@ export function AdminArticleEditor({
           </div>
         }
         actions={<EditorActionBar
+          dirty={dirty} pending={saving} uploading={uploading}
           message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : pendingFacebookSave ? "Článok uložený · Facebook čaká" : (article || saveReceipt?.d1.status === "saved") ? "Článok uložený v D1" : "Nový článok zatiaľ nie je uložený"}</span>}
           destructive={article ? <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus} disabled={saving || uploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} /> : undefined}
           primary={<>
@@ -815,7 +816,7 @@ export function AdminArticleEditor({
         {(message || error || saving) && <div ref={resultRef} tabIndex={-1}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
         </div>}
-        {saveReceipt && <div role="status" aria-live="polite" className="admin-editor-message">
+        {saveReceipt && <div role="status" aria-live="polite" className="admin-editor-message" data-admin-editor-save-receipt>
           <p><strong>D1:</strong> Článok, jeho stav publikovania a uložené údaje sú potvrdené (verzia {saveReceipt.d1.updatedAt}).</p>
           {saveReceipt.assignments?.status === "synced" && <p><strong>Priradenia:</strong> témy a prepojené plemená sú uložené v D1.</p>}
           {Object.entries(saveReceipt.notion).map(([key, receipt]) => {
@@ -828,7 +829,7 @@ export function AdminArticleEditor({
               ["failed", "partial", "deferred"].includes(saveReceipt.notion.seo?.status ?? "");
             const canRetry = ["failed", "partial", "deferred"].includes(receipt.status) &&
               !blockedByPrevious && !blockedBySeo && ((step !== "seo" && step !== "placement") || !!followupBefore);
-            return <p key={key}>
+            return <p key={key} data-admin-editor-notion-receipt={receipt.status}>
               <strong>{notionStepNames[step]}:</strong> {followupLabel(receipt)}
               {receipt.code ? ` (${receipt.code})` : ""}{receipt.fields?.length ? ` · polia: ${receipt.fields.join(", ")}` : ""}
               {canRetry && <button type="button" disabled={!!retryBusy || saving || dirty}
