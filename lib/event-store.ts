@@ -1,4 +1,4 @@
-import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
+import { assertProfilePublicationIdentity, assertBulkPublicationIdentities } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
@@ -797,6 +797,7 @@ export function isEventSlugConflict(error: unknown) {
 
 export async function bulkUpdateEventStatus(input: unknown, editorEmail: string) {
   const { events, field, value } = validateBulkEvents(input);
+  if(field==="status"&&value==="published")await assertBulkPublicationIdentities(requireD1Binding(),"events",events.map(event=>event.id));
   const now = new Date().toISOString();
   const statusValue = field === "status" ? String(value) : "";
   const eventTypeValue = field === "eventType" ? String(value) : "";
