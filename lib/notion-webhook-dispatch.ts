@@ -59,14 +59,14 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   // Remote trash is only a diagnostic, never a canonical delete. A deleted
   // page may be inaccessible to GET; existing D1 mapping proves scope.
   if (event.type === "page.deleted")
-    return await notionRemoteDeletionNeedsReview(bindings.DB,id) ? "review-required" : "ignored";
+    return await notionRemoteDeletionNeedsReview(bindings.DB,id) ? "remote-deleted" : "ignored";
 
   // A single GET also proves source ownership. Never trust an ID or category
   // just because it appeared in a signed event from this connection.
   const page = await notionRequest<OwnedPage>(bindings, "/pages/" + encodeURIComponent(id));
   if (page.id !== id) return "ignored";
   if (page.archived || page.in_trash)
-    return await notionRemoteDeletionNeedsReview(bindings.DB,id) ? "review-required" : "ignored";
+    return await notionRemoteDeletionNeedsReview(bindings.DB,id) ? "remote-deleted" : "ignored";
   if (metadataOnlyChange(event, page)) return "metadata-only";
   // A field edit without field IDs does not identify which value is newest.
   // Never guess by replaying the entire page; only signed explicit fields may
