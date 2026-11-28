@@ -32,11 +32,11 @@ export type DirectoryDuplicateAudit = {
   candidates: DirectoryDuplicateCandidate[];
 };
 
-const normalize = (value: string | null | undefined) => (value ?? "")
+export const normalizeProfileIdentity = (value: string | null | undefined) => (value ?? "")
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
 
-function site(value: string | null): string {
+export function profileIdentityWebsite(value: string | null): string {
   if (!value?.trim()) return "";
   try {
     const url = new URL(/^https?:\/\//i.test(value) ? value : "https://" + value);
@@ -70,7 +70,7 @@ export function auditExistingDirectoryDuplicates(
   const groups = new Map<string, DirectoryAuditRow[]>();
   for (const row of rows) {
     if (!Number.isSafeInteger(row.id) || row.id <= 0 || row.status === "archived") continue;
-    const name = normalize(row.name);
+    const name = normalizeProfileIdentity(row.name);
     if (!name || name.length < 3) continue;
     const group = groups.get(name) ?? [];
     group.push(row);
@@ -83,13 +83,13 @@ export function auditExistingDirectoryDuplicates(
     for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
       const a = group[i], b = group[j];
       if (a.id === b.id) continue;
-      const cityA = normalize(a.city), cityB = normalize(b.city);
+      const cityA = normalizeProfileIdentity(a.city), cityB = normalizeProfileIdentity(b.city);
       // Separate cities may be distinct premises/franchise branches, even
       // when they share a phone, website, or organization name.
       if (cityA && cityB && cityA !== cityB) continue;
       const signals: string[] = [];
       if (cityA && cityA === cityB) signals.push("rovnaké mesto");
-      const webA = site(a.website_url), webB = site(b.website_url);
+      const webA = profileIdentityWebsite(a.website_url), webB = profileIdentityWebsite(b.website_url);
       if (webA && webA === webB) signals.push("rovnaký web");
       const phoneA = phone(a.phone), phoneB = phone(b.phone);
       if (phoneA && phoneA === phoneB) signals.push("rovnaký telefón");
@@ -118,4 +118,20 @@ export function auditExistingDirectoryDuplicates(
     totalCandidates: candidates.length,
     candidates: candidates.slice(0, maxResults),
   };
+}
+
+/** Use the existing directory audit for admission too. A shared operator's
+ * contact alone is not identity; separate cities remain independent branches.
+ * Exact slug collision is handled separately by the canonical store. */
+export function findDirectoryInboundDuplicate(incoming:Omit<DirectoryAuditRow,"id">,rows:DirectoryAuditRow[]):DirectoryDuplicateCandidate|null {
+  // A synthetic ID cannot collide with a canonical D1 record.
+  const candidate={...incoming,id:Number.MAX_SAFE_INTEGER};
+  const name=normalizeProfileIdentity(candidate.name);
+  for(const row of rows){
+    if(!name||normalizeProfileIdentity(row.name)!==name)continue;
+    // Archived records also reserve identity during creation; not in live audit.
+    const result=auditExistingDirectoryDuplicates([{...row,status:"draft"},candidate],{limit:1});
+    if(result.candidates.length)return result.candidates[0];
+  }
+  return null;
 }
