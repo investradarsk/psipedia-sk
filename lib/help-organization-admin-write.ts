@@ -202,7 +202,7 @@ export async function updateOrganizationFromAdmin(
     const location=addressPlan.locationId===null?locations[0]:locations.find(row=>row.id===addressPlan.locationId);
     let addressGeoPending=false;
     if(location){
-      try{await reconcileGeoAfterSourceMutation({targetType:"ORGANIZATION_LOCATION",targetId:location.id,actorRef:editorEmail,actorType:"ADMIN",expectedGeoRevision:addressPlan.geoRevision},db);}
+      try{await reconcileGeoAfterSourceMutation({targetType:"ORGANIZATION_LOCATION",targetId:location.id,actorRef:editorEmail,actorType:"ADMIN",expectedGeoRevision:addressPlan.geoRevision},atomicDb);}
       catch(error){addressGeoPending=true;console.warn("ORGANIZATION_ADDRESS_GEO_PENDING",{id,locationId:location.id,code:error instanceof Error?error.message:"UNKNOWN"});}
     }else addressGeoPending=true;
     return {...item,combinedLocation:location??null,addressGeoPending};
