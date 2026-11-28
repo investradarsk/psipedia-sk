@@ -1,5 +1,9 @@
+import { findDirectoryInboundDuplicate, type DirectoryAuditRow } from "./directory-duplicate-audit.ts";
+import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
+import { directoryAuthorityWriteGuard, profileAuthorityTextFieldAllowed } from "./notion-profile-authority.ts";
+import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
-import { reserveUnifiedField, confirmUnifiedField } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, isVerifiedAuthorityProperty, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
@@ -21,8 +25,8 @@ import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
 import { directoryFilterRegistry, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
-import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
-import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
+import { selectiveNotionProperties, sameNotionProperty } from "@/lib/notion-selective-property-patch";
+import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,projectCanonicalServiceRelation,type CatalogRelationLookup}
   from "./service-catalog-notion-relations";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { resolveGeminiPublicSlug } from "./gemini-public-slug";
@@ -59,6 +63,7 @@ import {
   notionPropertyRecord,
   notionRequest,
   prepareNotionMainImage,
+  safeRemoteImageUrl,
   sha256Text,
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
@@ -191,6 +196,8 @@ export type NotionDirectorySyncSummary = {
   pushedToNotion: number;
   unchanged: number;
   failed: number;
+  reviewRequired?: number;
+  duplicateCandidates?: number;
   /** Only present when an explicit Admin choice save requests Services V3 sync. */
   serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled" | "merged";
 };
@@ -612,7 +619,7 @@ async function saveMapping(input: {
   psipediaUpdatedAt?: string | null;
   syncedAt: string;
 }) {
-  await input.database.prepare(`
+  const receipt=await input.database.prepare(`
     INSERT INTO directory_notion_sync (
       notion_page_id, directory_profile_id, content_hash, notion_last_edited_time,
       psipedia_updated_at, last_synced_at, created_at, updated_at
@@ -624,6 +631,8 @@ async function saveMapping(input: {
       psipedia_updated_at=excluded.psipedia_updated_at,
       last_synced_at=excluded.last_synced_at,
       updated_at=excluded.updated_at
+    WHERE directory_notion_sync.notion_page_id=excluded.notion_page_id
+      AND (directory_notion_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')
   `).bind(
     input.pageId,
     input.profileId,
@@ -634,6 +643,7 @@ async function saveMapping(input: {
     input.syncedAt,
     input.syncedAt,
   ).run();
+  if(!receipt.success||receipt.meta.changes!==1)throw Error("DIRECTORY_MAPPING_REASSIGNMENT_BLOCKED");
 }
 
 async function fetchNotionPage(bindings: NotionDirectorySyncBindings, pageId: string) {
@@ -743,6 +753,7 @@ async function writeProfileToNotion(input: {
   ownerUnlock?: boolean;
 }) {
   async function assertWritePermitted() {
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!input.ownerUnlock)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
     if (input.ownerUnlock) {
       if (!input.pageId ||
           !await directoryProfileOwnerUnlockPending(input.database, input.profile.id)) {
@@ -770,17 +781,37 @@ async function writeProfileToNotion(input: {
     // Never overwrite a Notion review edit as a side effect of saving prose.
     delete (properties as Partial<typeof properties>)["Odkontrolované"];
   }
+  const stagedUnlock=input.ownerUnlock&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  let verifiedStructured:Record<string,unknown>|undefined;
   let page: NotionPage;
   if (input.pageId) {
     const current = await fetchNotionPage(input.bindings, input.pageId);
     if (current.id !== input.pageId || !notionDirectoryPageBelongsToSource(current, input.dataSourceId) ||
         (input.ownerUnlock && (propertyText(current, "Psipedia ID") !== String(input.profile.id) ||
-         propertyCheckbox(current, "Odkontrolované"))))
+         propertyCheckbox(current, "Odkontrolované")!==Boolean(stagedUnlock))))
       throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
-    const adapted = adaptDirectoryNotionTextProperties(properties, current.properties ?? {});
+    const structured=stagedUnlock?await stagedDirectoryStructuredProperties(input.database,input.bindings,input.profile,current.properties??{}):{};
+    const adapted = adaptDirectoryNotionTextProperties({...properties,...structured,...(stagedUnlock?{"Odkontrolované":checkbox(true)}:{})}, current.properties ?? {});
+    if(stagedUnlock){
+      // Missing/truncated property is not a verified target.
+      for(const [name,wanted] of Object.entries(adapted)){
+        const raw=current.properties?.[name] as Record<string,unknown>|undefined,type=Object.keys(wanted as Record<string,unknown>)[0];
+        if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||raw.has_more===true||
+          (Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25))throw Error("DIRECTORY_STRUCTURED_EXPORT_INCOMPLETE: "+name);
+      }
+      verifiedStructured=structured;
+    }
     const patch = selectiveNotionProperties(current.properties ?? {}, adapted);
     await assertWritePermitted();
     page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
+    if(stagedUnlock){
+      page=await fetchNotionPage(input.bindings,input.pageId);
+      if(page.id!==input.pageId||!notionDirectoryPageBelongsToSource(page,input.dataSourceId))throw Error("DIRECTORY_STRUCTURED_EXPORT_IDENTITY");
+      assertStagedDirectoryEcho(page,adapted);
+      const latest=await getManagedDirectoryProfileById(input.profile.id,input.database);
+      if(!latest||latest.updatedAt!==input.profile.updatedAt||JSON.stringify(await stagedDirectoryStructuredProperties(input.database,input.bindings,latest,page.properties??{}))!==JSON.stringify(verifiedStructured))throw Error("DIRECTORY_STRUCTURED_EXPORT_CONCURRENT_CHANGE");
+      await assertWritePermitted();
+    }
   } else {
     page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
   }
@@ -898,6 +929,10 @@ export async function completeDirectoryReviewedOwnerUnlock(input: {
     state.profile_updated_at, mapping.notion_page_id).first<{profile_id: number}>();
   if (released?.profile_id !== input.profileId)
     throw new Error("DIRECTORY_OWNER_UNLOCK_CONCURRENT_CHANGE");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const flag=await syncDirectoryReviewedWithNotion({database:input.database,bindings:input.bindings,profileId:input.profileId});
+    if(flag!=="pushed"&&flag!=="unchanged")throw Error("DIRECTORY_OWNER_UNLOCK_CHECKBOX_PENDING");
+  }
   return "unlocked";
 }
 
@@ -1016,7 +1051,7 @@ function newProfileInput(
   };
 }
 
-function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
+function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false, staged=false) {
   if (propertyText(page, "Psipedia ID")) return false;
   const editorialState = propertyText(page, "Stav");
   // Textual creator marker is never sufficient to grant automatic import.
@@ -1024,6 +1059,7 @@ function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
     return ["", "Nápad", "Na kontrolu", "Ready", "Koncept"].includes(editorialState) &&
       propertyText(page, "Psipedia stav") === "Koncept";
   if (propertyText(page, "Vytvoril") === "Gemini automatizácia") return false;
+  if(staged){const raw=property(page,"Psipedia ID");return raw?.type==="rich_text"&&Array.isArray(raw.rich_text)&&raw.rich_text.length===0&&["Nápad","Na kontrolu","Ready","Koncept","Publikované"].includes(editorialState)&&!!propertyText(page,"Názov");}
   return editorialState === "Ready" || editorialState === "Publikované";
 }
 
@@ -1085,7 +1121,7 @@ async function createProfileFromNotion(input: {
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
   let payload = newProfileInput(desired);
-  if (input.trustedGemini) {
+  if (input.trustedGemini || input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") {
     // Fail closed, regardless of unexpected Notion status/defaults.
     payload = { ...payload, status: "draft" };
   }
@@ -1165,6 +1201,7 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
   desiredOverride?: EditableDirectorySnapshot;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
@@ -1332,13 +1369,88 @@ async function recentNotionPages(
   return response.results ?? [];
 }
 
-async function bootstrapProfileIds(database: D1Database) {
+/** Exact SQL-backed structured projection, not a second data model.
+ * Only provisioned metadata fields are eligible; required registered facet,
+ * relation and catalog schemas fail closed rather than exporting a partial copy. */
+async function stagedDirectoryStructuredProperties(database:D1Database,bindings:NotionDirectorySyncBindings,
+  profile:ManagedDirectoryProfile,schema:Record<string,unknown>):Promise<Record<string,unknown>>{
+  const properties:Record<string,unknown>={};
+  const type=(name:string)=>(schema[name] as {type?:unknown}|undefined)?.type;
+  const required=(name:string,expected:string)=>{if(type(name)!==expected)throw Error("DIRECTORY_STRUCTURED_SCHEMA_MISSING: "+name);};
+  const categories=new Set([profile.category,...(profile.additionalCategories??[])]);
+  const rows=await database.prepare("SELECT category,filter_id,value_text FROM directory_profile_filter_values WHERE profile_id=? ORDER BY filter_id").bind(profile.id).all<{category:string;filter_id:string;value_text:string}>();
+  if(!rows.success||!Array.isArray(rows.results))throw Error("DIRECTORY_STRUCTURED_FILTER_READ_FAILED");
+  for(const def of directoryFilterRegistry.filter(def=>categories.has(def.category))){
+    const name=breederFacetNotionProperties[def.id];required(name,"select");
+    const matching=rows.results.filter(row=>row.filter_id===def.id&&row.category===def.category);
+    if(matching.length>1)throw Error("DIRECTORY_STRUCTURED_FILTER_DUPLICATE");
+    const raw=matching[0]?.value_text;
+    const normalized=normalizeDirectoryFilterValue(def,raw);
+    if(raw!==undefined&&normalized.status!=="known")throw Error("DIRECTORY_STRUCTURED_FILTER_INVALID");
+    properties[name]=select(normalized.status==="known"?notionFacetLabel(normalized.value):"");
+  }
+  for(const name of PILOT_DIRECTORY_METADATA_FIELDS){
+    if(!profileAuthorityTextFieldAllowed({agenda:"directory",entityId:String(profile.id),pageId:"projection",field:"meta:"+name})||Object.hasOwn(properties,name))continue;
+    const kind=type(name);
+    if(kind!=="rich_text"&&kind!=="url"&&kind!=="email"&&kind!=="phone_number")continue;
+    if(DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(name)&&name!=="Ordinačné hodiny"&&kind!=="rich_text")continue;
+    const value=readDirectoryPublicMetadataValue(profile.importData,name);
+    properties[name]=kind==="rich_text"?richText(value):{[kind]:value||null};
+  }
+  if(["chovatelske-stanice","chovatelske-kluby"].includes(profile.category)){
+    const chosen=await getBreederRelationSelection(database,profile.id);
+    const candidates=await listBreederRelationOptions(database);
+    if(!chosen)throw Error("DIRECTORY_STRUCTURED_RELATION_MISSING");
+    const fields:BreederRelationField[]=profile.category==="chovatelske-stanice"?["breedIds","clubIds"]:["breedIds"];
+    for(const field of fields){
+      const name=BREEDER_NOTION_RELATION_FIELDS[field],options=field==="breedIds"?candidates.breeds:candidates.clubs;
+      required(name,"rich_text");
+      if(options.length>=(field==="breedIds"?500:1000))throw Error("DIRECTORY_STRUCTURED_RELATION_OPTIONS_INCOMPLETE");
+      const value=formatBreederRelationText(chosen[field],options);
+      if(value===null)throw Error("DIRECTORY_STRUCTURED_RELATION_UNKNOWN_ID");
+      const decoded=resolveBreederRelationText(value,options);
+      if(decoded.status==="unmatched"||!sameBreederRelationIds(decoded.ids,chosen[field]))throw Error("DIRECTORY_STRUCTURED_RELATION_AMBIGUOUS");
+      properties[name]=richText(value);
+    }
+  }
+  required("Služby z katalógu","relation");
+  Object.assign(properties,await projectCanonicalServiceRelation(database,bindings,profile.id,profile.category));
+  return properties;
+}
+function assertStagedDirectoryEcho(page:NotionPage,expected:Record<string,unknown>){
+  for(const [name,wanted] of Object.entries(expected)){
+    const type=Object.keys(wanted as Record<string,unknown>)[0],raw=page.properties?.[name] as Record<string,unknown>|undefined;
+    if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||raw.has_more===true||
+      (Array.isArray(raw[type])&&(raw[type] as unknown[]).length>=25)||!sameNotionProperty(raw,wanted))
+      throw Error("DIRECTORY_STRUCTURED_EXPORT_UNVERIFIED: "+name);
+  }
+}
+async function acknowledgeStagedDirectoryDraft(database:D1Database,bindings:NotionDirectorySyncBindings,sourceId:string,profile:ManagedDirectoryProfile,pageId:string){
+  const all=notionProfileProperties(profile,null,"",profile.updatedAt) as Record<string,unknown>;
+  await acknowledgeInboundProfileIdentity({database,bindings,agenda:"directory",id:profile.id,pageId,sourceId,revision:profile.updatedAt,
+    desired:Object.fromEntries(["Psipedia ID","Slug","URL Psipedia"].map(name=>[name,all[name]]))});
+}
+async function createStagedDirectoryCopy(database:D1Database,bindings:NotionDirectorySyncBindings,dataSourceId:string,profileId:number,allowCreate=true){
+  return ensureFirstProfileNotionCopy({database,bindings,agenda:"directory",id:profileId,sourceId:dataSourceId,allowCreate,
+    async snapshot(schema){
+      const profile=await getManagedDirectoryProfileById(profileId,database);
+      if(!profile||profile.status==="archived")throw Error("DIRECTORY_FIRST_CREATE_MISSING");
+      const monitor=await getMediaSourceMonitorForEntity(database,"DIRECTORY_PROFILE",profileId);
+      const sourceImageUrl=monitor?.sourceImageUrl||externalSourceImageUrl(profile.imageUrl);
+      const hash=await snapshotHash(profileSnapshot(profile,sourceImageUrl));
+      const geo=await loadGeoMirror(database,profileId);
+      const properties=adaptDirectoryNotionTextProperties({...notionProfileProperties(profile,geo??null,hash,profile.updatedAt,sourceImageUrl),...await stagedDirectoryStructuredProperties(database,bindings,profile,schema)},schema);
+      return {revision:profile.updatedAt,hash,properties,reviewed:await directoryProfileNotionSyncLocked(database,profileId)};
+    }});
+}
+
+async function bootstrapProfileIds(database: D1Database,staged=false) {
   const result = await database.prepare(`
     SELECT dp.id
     FROM directory_profiles dp
     LEFT JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
-    WHERE dns.directory_profile_id IS NULL AND dp.category <> 'chovatelske-stanice'
-      AND dp.category NOT IN ('veterinari', 'kynologicke-kluby', 'fyzioterapia', 'dalsie-sluzby')
+    WHERE dns.directory_profile_id IS NULL
+      AND (${staged ? "dp.status<>'archived' AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda='directory' AND f.entity_id=CAST(dp.id AS TEXT)) AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind='directory' AND t.record_id=dp.id)" : "dp.category <> 'chovatelske-stanice' AND dp.category NOT IN ('veterinari','kynologicke-kluby','fyzioterapia','dalsie-sluzby')"})
     ORDER BY dp.id ASC
     LIMIT ?
   `).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
@@ -1469,6 +1581,7 @@ async function saveBreederEditorialValue(
   current: ManagedDirectoryProfile,
   desired: Record<string, unknown>,
   path: BreederEditorialField,
+  reservation?: FieldReservation,
 ): Promise<ManagedDirectoryProfile> {
   if (!isDirectoryFieldEventCategory(current.category) || current.status === "archived" || current.reviewed)
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
@@ -1548,6 +1661,7 @@ async function saveBreederEditorialValue(
     throw Error("DIRECTORY_FIELD_SYNC_LOCKED");
   const previous = Date.parse(current.updatedAt);
   const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
+  const guard=reservation?.profileAuthority?directoryAuthorityWriteGuard(reservation,current.id,path):{sql:"",params:[]};
   const guardedCategory = current.category === "chovatelske-stanice"
     ? "category = 'chovatelske-stanice'" : "category = ?";
   const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
@@ -1556,8 +1670,8 @@ async function saveBreederEditorialValue(
     (assignments.length ? assignments.join(", ") + ", " : "") +
     "updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND " + guardedCategory + " AND status <> 'archived' " +
-    "AND updated_at = ? RETURNING id",
-  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt);
+    "AND updated_at = ?" + guard.sql + " RETURNING id",
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt,...guard.params);
   // Notion field-events must update the EXACT 0173 SQL owner inside the same
   // D1 transaction as the guarded profile revision. Otherwise a fresh Notion SEO
   // / qualification edit would be hidden by the now SQL-first public/Admin
@@ -1649,6 +1763,7 @@ export async function savePilotDirectoryMetadataField(input: {
   adminReceiptActor?: string;
   expectedRevision?: string;
   fromNotion?: boolean;
+  reservation?:FieldReservation;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !isDirectoryPublicMetadataField(input.field))
@@ -1690,12 +1805,13 @@ export async function savePilotDirectoryMetadataField(input: {
   const actor = input.adminReceiptActor ?? SYSTEM_ACTOR;
   // Explicit field-level D1 SQL write: the compatibility JSON must not be
   // recreated by an Admin or Notion metadata edit after legacy retirement.
+  const authority=input.reservation?.profileAuthority?directoryAuthorityWriteGuard(input.reservation,input.profileId,"meta:"+input.field):{sql:"",params:[]};
   const canonical = input.database.prepare(
     "UPDATE directory_profiles SET updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
-    "AND updated_at = ? RETURNING id"
+    "AND updated_at = ?"+authority.sql+" RETURNING id"
   ).bind(now, actor,
-    input.profileId, input.category, current.updatedAt);
+    input.profileId, input.category, current.updatedAt,...authority.params);
   const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
   const isHours = input.field === "Ordinačné hodiny";
   const mirrorIdentity = {kind:"id" as const,profileId:input.profileId,
@@ -1738,6 +1854,7 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
   profileId: number;
   changed: Partial<Record<PilotDirectoryMetadataField, string>>;
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || !(serviceFilterCategories as readonly string[]).includes(profile.category))
@@ -1795,6 +1912,7 @@ export async function mirrorDirectoryMainImageToNotion(input: {
   bindings: NotionDirectorySyncBindings;
   profileId: number;
 }): Promise<void> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || profile.status === "archived")
@@ -1957,7 +2075,7 @@ async function syncUnifiedDirectoryEditorialFields(input: {
         ? { ...rawReceipt, value: rawReceipt.value.split(/\r?\n/).map(clean).filter(Boolean) }
         : rawReceipt;
       const reservation = await reserveUnifiedField({
-        database, identity, historicalBaseline: base.present
+        database, identity, authorityBindings: bindings, authorityProperty: observed.page.properties?.[BREEDER_NOTION_EDITORIAL_FIELDS[path]], historicalBaseline: base.present
           ? { value: base.value, version: observed.mapping.content_hash } : null,
         notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction,
       });
@@ -1968,9 +2086,17 @@ async function syncUnifiedDirectoryEditorialFields(input: {
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
       const mapping = await loadMappingByProfile(database, id);
       if (mapping?.notion_page_id !== pageId) throw Error("DIRECTORY_UNIFIED_MAPPING_CHANGED");
+      await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
+        if(reservation.profileAuthority){
+          const fresh=await observe(path);
+          if(fresh.current.updatedAt!==live.updatedAt||fresh.page.last_edited_time!==observed.page.last_edited_time||
+            JSON.stringify(fresh.notion)!==JSON.stringify(observed.notion)||
+            JSON.stringify(property(fresh.page,BREEDER_NOTION_EDITORIAL_FIELDS[path]))!==JSON.stringify(property(observed.page,BREEDER_NOTION_EDITORIAL_FIELDS[path])))throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+          await assertUnifiedReservationCurrent(database,reservation);
+        }
         const desired = breederApplyNotionChanges(observed.canonical, observed.remote, [path]);
-        await saveBreederEditorialValue(database, live, desired, path);
+        await saveBreederEditorialValue(database, live, desired, path, reservation);
       } else {
         const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
         const properties = notionProfileProperties(live, observed.geo, "", new Date().toISOString(), observed.sourceImageUrl);
@@ -2036,25 +2162,25 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       local = readDirectoryPublicMetadataValue(profile.importData, key);
     } else {
       const def = getDirectoryFilterDefinition(item.field);
-      if (!def || def.category !== profile.category) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+      if (!def || (def.category !== profile.category && !(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text" && profile.additionalCategories?.some(category=>category===def.category)))) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
       key = breederFacetNotionProperties[item.field];
       if (!key || !directoryUnifiedRawPropertyPresent(page, key) || !Object.hasOwn(property(page, key) ?? {}, "select"))
         throw Error("DIRECTORY_UNIFIED_FILTER_SCHEMA");
-      fieldKey = "facet:" + profile.category + ":" + item.field;
+      fieldKey = "facet:" + def.category + ":" + item.field;
       const selected = propertyText(page, key);
       const normalized = selected ? normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected)) : null;
       if (normalized && normalized.status !== "known") throw Error("DIRECTORY_UNIFIED_FILTER_VALUE");
       remote = normalized?.status === "known" ? normalized.value : null;
       const row = await database.prepare(
         "SELECT value_text FROM directory_profile_filter_values WHERE profile_id=? AND category=? AND filter_id=?",
-      ).bind(profileId, profile.category, item.field).first<{value_text:string}>();
+      ).bind(profileId, def.category, item.field).first<{value_text:string}>();
       local = row?.value_text ?? null;
     }
     const fresh = await getManagedDirectoryProfileById(profileId, database);
     if (!fresh || fresh.updatedAt !== profile.updatedAt ||
         await directoryProfileNotionSyncLocked(database, profileId)) throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
     const identity: FieldIdentity = { agenda: "directory", entityId: String(profileId), pageId, field: fieldKey };
-    return { profile, page, key, identity,
+    return { profile, page, key, identity, authorityProperty:property(page,key),
       notion: { present: true as const, value: remote },
       psipedia: { present: true as const, value: local } };
   }
@@ -2066,28 +2192,36 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       const observed = await observe(field);
       const receipt = await readUnifiedAdminEdit(database, observed.identity, observed.profile.updatedAt);
       const reservation = await reserveUnifiedField({
-        database, identity: observed.identity, historicalBaseline: null,
+        database, identity: observed.identity, authorityBindings: bindings, authorityProperty:observed.authorityProperty, historicalBaseline: null,
         notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction,
       });
       if (!reservation) continue;
       const live = await observe(field);
       if (live.profile.updatedAt !== observed.profile.updatedAt ||
+          (reservation.profileAuthority&&(live.page.last_edited_time!==observed.page.last_edited_time||JSON.stringify(live.authorityProperty)!==JSON.stringify(observed.authorityProperty))) ||
           live.notion.value !== observed.notion.value || live.psipedia.value !== observed.psipedia.value)
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+      await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
         if (field.kind === "meta") {
           if (typeof live.notion.value !== "string") throw Error("DIRECTORY_UNIFIED_METADATA_VALUE");
           await savePilotDirectoryMetadataField({ database, profileId, category: live.profile.category,
             field: field.field, value: live.notion.value, expectedValue: live.psipedia.value ?? "",
-            expectedRevision: live.profile.updatedAt, fromNotion: true });
+            expectedRevision: live.profile.updatedAt, fromNotion: true, reservation });
         } else {
           const previous = Date.parse(live.profile.updatedAt);
           const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
+          const guard=reservation.profileAuthority?directoryAuthorityWriteGuard(reservation,profileId,live.identity.field):{sql:"",params:[]};
+          const facetCategory=getDirectoryFilterDefinition(field.field)?.category;
+          if(!facetCategory)throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+          const secondary=facetCategory!==live.profile.category;
+          if(secondary&&!reservation.profileAuthority)throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+          const membership=secondary?" AND EXISTS(SELECT 1 FROM directory_profile_additional_categories s WHERE s.profile_id=directory_profiles.id AND s.category=?)":"";
           const canonical = database.prepare(
-            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id",
-          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt);
+            "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+membership+" RETURNING id",
+          ).bind(now, SYSTEM_ACTOR, profileId, live.profile.category, live.profile.updatedAt,...guard.params,...(secondary?[facetCategory]:[]));
           const mirror = planDirectory0170FilterSqlMirror({ profileId,
-            category: live.profile.category as ServiceFilterCategory,
+            category: facetCategory,allowSecondary:secondary,
             values: { [field.field]: live.notion.value }, updatedAt: now, actor: SYSTEM_ACTOR });
           if (await directoryProfileNotionSyncLocked(database, profileId)) throw Error("DIRECTORY_UNIFIED_LOCKED");
           const result = await database.batch([canonical, ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings))]);
@@ -2147,6 +2281,7 @@ async function syncUnifiedDirectoryBreederRelations(input: {
     if (!fresh || fresh.updatedAt !== profile.updatedAt || await directoryProfileNotionSyncLocked(database, profileId))
       throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
     return {profile, page, key, selected, candidates,
+      authorityProperty:{property:property(page,key),candidates},
       notion: {present:true as const, value:[...remote.ids].sort((a,b)=>a-b)},
       psipedia: {present:true as const, value:[...selected[field]].sort((a,b)=>a-b)}};
   }
@@ -2157,17 +2292,20 @@ async function syncUnifiedDirectoryBreederRelations(input: {
       const observed = await observe(field);
       const identity: FieldIdentity = {agenda:"directory",entityId:String(profileId),pageId,field:"relation:"+field};
       const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
-      const reservation = await reserveUnifiedField({database, identity, historicalBaseline:null,
+      const reservation = await reserveUnifiedField({database, identity, authorityBindings: bindings, authorityProperty:observed.authorityProperty, historicalBaseline:null,
         notion:observed.notion, psipedia:observed.psipedia, psipediaEdit:receipt,direction});
       if (!reservation) continue;
       const live = await observe(field);
       if (live.profile.updatedAt !== observed.profile.updatedAt ||
+          (reservation.profileAuthority&&(live.page.last_edited_time!==observed.page.last_edited_time||JSON.stringify(live.authorityProperty)!==JSON.stringify(observed.authorityProperty))) ||
           !sameBreederRelationIds(live.notion.value, observed.notion.value) ||
           !sameBreederRelationIds(live.psipedia.value, observed.psipedia.value))
         throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+      await assertUnifiedReservationCurrent(database,reservation);
       if (direction === "pull") {
         await saveBreederRelationSelection(database, profileId, {...live.selected,[field]:live.notion.value},
-          SYSTEM_ACTOR,{expectedRevision:live.profile.updatedAt,fromNotion:true});
+          SYSTEM_ACTOR,{expectedRevision:live.profile.updatedAt,fromNotion:true,
+            ...(reservation.profileAuthority?{authority:{reservation,field}}:{})});
       } else {
         const text = formatBreederRelationText(live.psipedia.value, live.candidates);
         if (text === null) throw Error("DIRECTORY_UNIFIED_RELATION_UNKNOWN_ID");
@@ -2186,6 +2324,88 @@ async function syncUnifiedDirectoryBreederRelations(input: {
   return changed;
 }
 
+/** Notion's editable source URL is not the technical public asset URL.
+ * Reuse the existing R2 importer and monitor alias. One guarded D1 transaction
+ * changes the image pair and source alias; a blank does not erase an unrelated
+ * Admin-uploaded asset. Candidate-review ownership is never overridden. */
+async function syncStagedDirectoryImageSource(input:{
+  database:D1Database;bindings:NotionDirectorySyncBindings;profileId:number;pageId:string;
+  direction:"observe"|"pull";
+}):Promise<boolean>{
+  const {database:db,bindings,profileId:id,pageId,direction}=input;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")
+    throw Error("DIRECTORY_IMAGE_AUTHORITY_DISABLED");
+  const sourceId=bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  const field="imageSourceUrl",name="Hlavný obrázok URL";
+  const identity:FieldIdentity={agenda:"directory",entityId:String(id),pageId,field};
+  async function observe(){
+    if(!sourceId||await directoryProfileNotionSyncLocked(db,id)||await notionPageMustSkipInboundSync(db,pageId))
+      throw Error("DIRECTORY_IMAGE_AUTHORITY_LOCKED");
+    const mapping=await loadMappingByProfile(db,id);
+    const profile=await getManagedDirectoryProfileById(id,db);
+    if(!profile||profile.status==="archived"||mapping?.notion_page_id!==pageId)throw Error("DIRECTORY_IMAGE_AUTHORITY_MAPPING");
+    const page=await fetchNotionPage(bindings,pageId);
+    if(page.id!==pageId||!notionDirectoryPageBelongsToSource(page,sourceId)||
+      propertyText(page,"Psipedia ID")!==String(id)||propertyText(page,"Kategória")!==profile.category)
+      throw Error("DIRECTORY_IMAGE_AUTHORITY_IDENTITY");
+    const raw=page.properties?.[name];
+    const notion={present:Object.hasOwn(page.properties??{},name),value:propertyText(page,name)};
+    if(!isVerifiedAuthorityProperty(raw,notion))throw Error("DIRECTORY_IMAGE_SOURCE_PROPERTY_INVALID");
+    if(notion.value){
+      const parsed=safeRemoteImageUrl(notion.value);
+      if(parsed.hostname==="psipedia.sk"||parsed.hostname.endsWith(".psipedia.sk"))
+        throw Error("DIRECTORY_IMAGE_SOURCE_EXPECTS_EXTERNAL_URL");
+    }
+    const monitor=await db.prepare("SELECT id,updated_at,source_image_url,source_content_hash,active_image_key,candidate_image_key,review_claim_token FROM media_source_monitors WHERE entity_type='DIRECTORY_PROFILE' AND entity_id=?")
+      .bind(id).first<{id:number;updated_at:string;source_image_url:string|null;source_content_hash:string|null;active_image_key:string|null;candidate_image_key:string|null;review_claim_token:string|null}>();
+    const latest=await getManagedDirectoryProfileById(id,db);
+    if(!latest||latest.updatedAt!==profile.updatedAt||await directoryProfileNotionSyncLocked(db,id))throw Error("DIRECTORY_IMAGE_AUTHORITY_REVISION");
+    const psipedia={present:true as const,value:monitor?.source_image_url??externalSourceImageUrl(profile.imageUrl)};
+    return {profile,page,raw,notion,psipedia,monitor};
+  }
+  const before=await observe();
+  const reservation=await reserveUnifiedField({database:db,identity,authorityBindings:bindings,authorityProperty:before.raw,historicalBaseline:null,notion:before.notion,psipedia:before.psipedia,direction});
+  if(!reservation)return false;
+  if(!reservation.profileAuthority||typeof reservation.value!=="string")throw Error("DIRECTORY_IMAGE_AUTHORITY_RESERVATION");
+  if(before.monitor?.review_claim_token||before.monitor?.candidate_image_key)throw Error("DIRECTORY_IMAGE_CANDIDATE_REVIEW_PENDING");
+  const value=reservation.value;
+  const prepared=value?await prepareNotionMainImage({bindings,sourceUrl:value,sourcePageUrl:before.profile.websiteUrl??"",folder:"directory",
+    existingImageUrl:before.profile.imageUrl,existingImageKey:before.profile.imageKey}):null;
+  if(prepared&&(!prepared.imageKey||prepared.imageUrl!=="/media/"+prepared.imageKey||!prepared.imageKey.startsWith("directory/")))
+    throw Error("DIRECTORY_IMAGE_PREPARATION_INVALID");
+  // Do not delete an independent image when only the old source is cleared.
+  const associated=before.monitor?.active_image_key===before.profile.imageKey&&Boolean(before.monitor?.source_image_url)||
+    Boolean(externalSourceImageUrl(before.profile.imageUrl)&&externalSourceImageUrl(before.profile.imageUrl)===before.psipedia.value);
+  const imageUrl=prepared?prepared.imageUrl:associated?null:before.profile.imageUrl;
+  const imageKey=prepared?prepared.imageKey:associated?null:before.profile.imageKey;
+  const live=await observe();
+  if(live.profile.updatedAt!==before.profile.updatedAt||live.page.last_edited_time!==before.page.last_edited_time||
+    JSON.stringify(live.raw)!==JSON.stringify(before.raw)||JSON.stringify(live.monitor)!==JSON.stringify(before.monitor)||
+    JSON.stringify(live.psipedia)!==JSON.stringify(before.psipedia))throw Error("DIRECTORY_IMAGE_SOURCE_CHANGED");
+  await assertUnifiedReservationCurrent(db,reservation);
+  const guard=directoryAuthorityWriteGuard(reservation,id,field);
+  const now=new Date(Math.max(Date.now(),(Date.parse(live.profile.updatedAt)||0)+1)).toISOString();
+  const old=live.monitor;
+  const monitorGuard=old?" AND EXISTS(SELECT 1 FROM media_source_monitors WHERE id=? AND updated_at=? AND review_claim_token IS NULL AND candidate_image_key IS NULL AND source_image_url IS ? AND active_image_key IS ?)":" AND NOT EXISTS(SELECT 1 FROM media_source_monitors WHERE entity_type='DIRECTORY_PROFILE' AND entity_id=directory_profiles.id)";
+  const requireOne=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('DIRECTORY_IMAGE_CAS_CONFLICT','$') END");
+  const statements=[
+    db.prepare("UPDATE directory_profiles SET image_url=?,image_key=?,updated_at=?,updated_by=? WHERE id=? AND category=? AND updated_at=? AND status<>'archived'"+guard.sql+monitorGuard+" RETURNING id")
+      .bind(imageUrl,imageKey,now,SYSTEM_ACTOR,id,live.profile.category,live.profile.updatedAt,...guard.params,...(old?[old.id,old.updated_at,old.source_image_url,old.active_image_key]:[])),
+    requireOne(),
+    db.prepare("INSERT INTO media_source_monitors(entity_type,entity_id,source_page_url,source_image_url,source_content_hash,active_image_key,status,created_at,updated_at) VALUES('DIRECTORY_PROFILE',?,?,?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET source_page_url=excluded.source_page_url,source_image_url=excluded.source_image_url,source_content_hash=excluded.source_content_hash,active_image_key=excluded.active_image_key,status=excluded.status,last_http_status=NULL,last_checked_at=NULL,issue_started_at=NULL,last_error=NULL,updated_at=excluded.updated_at WHERE review_claim_token IS NULL AND candidate_image_key IS NULL")
+      .bind(id,value?live.profile.websiteUrl??null:null,value||null,prepared?.sourceContentHash??null,imageKey,value?"OK":"UNTRACKED",now,now),
+    requireOne(),
+  ];
+  if(imageUrl!==live.profile.imageUrl||imageKey!==live.profile.imageKey)
+    statements.push(db.prepare("DELETE FROM directory_profile_image_display_settings WHERE profile_id=?").bind(id));
+  const result=await db.batch(statements);
+  if(!result[0]?.results?.length||result.some(item=>item.success!==true))throw Error("DIRECTORY_IMAGE_ATOMIC_WRITE_FAILED");
+  const verified=await observe();
+  await confirmUnifiedField(db,reservation,verified.notion,verified.psipedia);
+  // Keep old/staged objects for the existing safe GC path; no eager R2 deletes.
+  return true;
+}
+
 async function syncBreederEvent(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -2202,14 +2422,18 @@ async function syncBreederEvent(input: {
     const relationFields = ["chovatelske-stanice", "chovatelske-kluby"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds)
           .filter(field => input.profile.category !== "chovatelske-kluby" || field === "breedIds") : [];
-    const facetFields = isDirectoryFieldEventCategory(input.profile.category)
+    const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const facetFields = isDirectoryFieldEventCategory(input.profile.category) || staged
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
-          .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
+          .filter(id => {const category=getDirectoryFilterDefinition(id)?.category;
+            return category===input.profile.category||(staged&&!!category&&input.profile.additionalCategories?.some(value=>value===category));})
       : [];
     const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
-    const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category)
+    const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category) || staged
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
-    if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
+    const imageProperty=page.properties?.["Hlavný obrázok URL"] as {id?:string}|undefined;
+    const imageChanged=staged&&input.changedPropertyIds.some(id=>id==="Hlavný obrázok URL"||id===imageProperty?.id);
+    if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length&&!imageChanged)
       return "unchanged";
     if (bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true") {
       const failures: string[] = [];
@@ -2235,6 +2459,7 @@ async function syncBreederEvent(input: {
           fields: relationFields, direction: "pull",
         }) || updated;
       } catch { failures.push("relations"); }
+      if(imageChanged)try{updated=await syncStagedDirectoryImageSource({database,bindings,profileId:input.profile.id,pageId:page.id,direction:"pull"})||updated;}catch(error){console.warn("DIRECTORY_IMAGE_SOURCE_PENDING",input.profile.id,error instanceof Error?error.message:"UNKNOWN");failures.push("imageSourceUrl");}
       // Moderation flags remain under the canonical Admin-owned workflow.
       if (trustFields.length) {
         const latest = await getManagedDirectoryProfileById(input.profile.id, database);
@@ -2551,6 +2776,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   profileId: number;
   fields: readonly string[];
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (!input.fields.length ||
       await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
@@ -2644,6 +2870,7 @@ export async function mirrorTrainerTrustFieldsToNotion(input: {
   profileId: number;
   fields: readonly TrainerTrustField[];
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (!input.fields.length ||
       await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
@@ -2683,6 +2910,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   profileId: number;
   fields: readonly BreederRelationField[];
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!input.fields.length || !notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
@@ -2779,17 +3007,24 @@ async function observeUnifiedDirectoryCategories(
       propertyText(page, "Psipedia ID") !== String(profileId) ||
       propertyText(page, "Kategória") !== profile.category)
     throw Error("DIRECTORY_UNIFIED_IDENTITY_MISMATCH");
-  const raw = property(page, "Ďalšie kategórie")?.multi_select;
+  const cell = property(page, "Ďalšie kategórie");
+  const raw = cell?.multi_select;
   if (!Array.isArray(raw) || raw.some(option => !option || typeof option !== "object" ||
       !directoryCategories.some(c => c.slug === (option as {name?: unknown}).name ||
         c.label === (option as {name?: unknown}).name)))
+    throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
+  const slugs=raw.map(option=>directoryCategories.find(c=>c.slug===(option as {name?:unknown}).name||c.label===(option as {name?:unknown}).name)!.slug);
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&
+    (cell?.type!=="multi_select"||cell.has_more===true||raw.length>=25||new Set(slugs).size!==slugs.length||slugs.some(slug=>slug===profile.category)))
     throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
   const current = await getManagedDirectoryProfileById(profileId, database);
   if (!current || current.updatedAt !== profile.updatedAt ||
       await directoryProfileNotionSyncLocked(database, profileId))
     throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
   return { mapping, profile, page,
-    notion: { present: true as const, value: normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category) },
+    // Strictly validated registry mapping above converts display labels to canonical slugs.
+    authorityProperty:{type:"multi_select",multi_select:slugs.map(name=>({name}))},
+    notion: { present: true as const, value: bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?normalizeAdditionalDirectoryCategories(slugs,profile.category):normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category) },
     psipedia: { present: true as const, value: normalizeAdditionalDirectoryCategories(profile.additionalCategories ?? [], profile.category) },
   };
 }
@@ -2805,7 +3040,7 @@ async function reserveUnifiedDirectoryCategories(
   });
   const receipt = await readUnifiedAdminEdit(database, identity, observed.profile.updatedAt);
   const reservation = await reserveUnifiedField({
-    database, identity, direction,
+    database, identity, direction, authorityBindings: bindings,authorityProperty:observed.authorityProperty,
     historicalBaseline: baseline ? {
       value: normalizeAdditionalDirectoryCategories(baseline.additionalCategories ?? [], observed.profile.category),
       version: observed.mapping.content_hash,
@@ -2852,14 +3087,26 @@ async function applyNotionAdditionalCategories(input: {
   const now = new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0)).toISOString();
   // The current D1 SQL category relation is authoritative. Notion only
   // triggers an explicit SQL edit; no JSON copy or confirmation flag.
+  const authority=planned?.reservation?.profileAuthority===true;
+  if(authority){
+    const fresh=await observeUnifiedDirectoryCategories(input.database,input.bindings,profile.id,page.id);
+    if(fresh.profile.updatedAt!==planned!.profile.updatedAt||fresh.page.last_edited_time!==planned!.page.last_edited_time||JSON.stringify(fresh.notion)!==JSON.stringify(planned!.notion))throw Error("DIRECTORY_UNIFIED_REVISION_CHANGED");
+    await assertUnifiedReservationCurrent(input.database,planned!.reservation!);
+  }
   const canonical = input.database.prepare(`
     UPDATE directory_profiles
     SET updated_at = ?, updated_by = ?
     WHERE id = ? AND category = ? AND status <> 'archived'
       AND updated_at = ?
+      ${authority?`AND NOT EXISTS(SELECT 1 FROM directory_profile_review_state s WHERE s.profile_id=directory_profiles.id AND (length(trim(COALESCE(s.reviewed_at,\'\')))>0 OR s.unlock_pending=1))
+      AND NOT EXISTS(SELECT 1 FROM partner_resources r JOIN partner_memberships m ON m.resource_id=r.id WHERE r.entity_type=\'DIRECTORY_PROFILE\' AND r.directory_profile_id=directory_profiles.id AND m.revoked_at IS NULL)
+      AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=\'directory\' AND t.record_id=directory_profiles.id)
+      AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=\'directory\' AND f.entity_id=CAST(directory_profiles.id AS TEXT))
+      AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id AND m.notion_page_id=?)
+      AND EXISTS(SELECT 1 FROM notion_unified_field_state s WHERE s.agenda=\'directory\' AND s.entity_id=CAST(directory_profiles.id AS TEXT) AND s.notion_page_id=? AND s.field_key=\'additionalCategories\' AND s.version=? AND s.status=\'PENDING\')`:``}
     RETURNING id
   `).bind(now, SYSTEM_ACTOR,
-    profile.id, profile.category, profile.updatedAt);
+    profile.id, profile.category, profile.updatedAt,...(authority?[page.id,page.id,planned!.reservation!.version]:[]));
   const mirror = planDirectorySecondaryCategorySqlMirror({
     profileId:profile.id,primaryCategory:profile.category,submitted:desired,
     updatedAt:now,actor:SYSTEM_ACTOR,
@@ -2882,6 +3129,7 @@ async function applyNotionAdditionalCategories(input: {
 export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
 }): Promise<boolean> {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
@@ -2937,6 +3185,11 @@ async function syncMappedPage(input: {
   breederWebhookPropertyIds?: readonly string[];
   breederAdminFields?: readonly BreederEditorialField[];
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
+    if(input.manualDirection||input.forcePsipediaPush)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
+    if(input.breederAdminFields!==undefined)return "unchanged" as const;
+  }
   if (await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
   if (await directoryProfileNotionSyncLocked(input.database, input.mapping.directory_profile_id))
     return "unchanged" as const;
@@ -2951,6 +3204,14 @@ async function syncMappedPage(input: {
   // canonical Directory data source. Never PATCH an unrelated Notion page.
   if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
+  }
+
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(propertyText(page,"Psipedia ID")!==String(profile.id)||page.archived||page.in_trash)
+      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_AUTHORITY_IDENTITY_MISMATCH");
+    if(input.breederWebhookPropertyIds===undefined)return "unchanged" as const;
+    return syncBreederEvent({database:input.database,bindings:input.bindings,page,profile,
+      changedPropertyIds:input.breederWebhookPropertyIds});
   }
 
   // A historical missing-baseline marker is obsolete if and only if both
@@ -3502,6 +3763,10 @@ export async function ensureDirectoryProfileInNotion(input: {
   if (!dataSourceId || !input.bindings.NOTION_API_TOKEN?.trim())
     throw new Error("GEMINI_NOTION_CONFIG_MISSING");
   if (!(await schemaReady(input.database))) throw new Error("GEMINI_NOTION_MAPPING_SCHEMA_MISSING");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const result=await createStagedDirectoryCopy(input.database,input.bindings,dataSourceId,input.profileId,input.allowCreate);
+    return {notionPageId:result.pageId,created:result.created};
+  }
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || profile.status !== "draft" || profile.reviewed ||
       await directoryProfileNotionSyncLocked(input.database, input.profileId))
@@ -3558,13 +3823,18 @@ export async function runNotionDirectoryBootstrapSweep(input: {
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
 
-  const bootstrapIds = await bootstrapProfileIds(input.database);
+  const bootstrapIds = await bootstrapProfileIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text");
   summary.selected = bootstrapIds.length;
 
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.category === "chovatelske-stanice" || profile.reviewed) continue;
+      if(!profile)continue;
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await createStagedDirectoryCopy(input.database,input.bindings,dataSourceId,profileId);
+        summary.bootstrapped++;await recordNotionTransfer(input.database,"directory:"+profile.category,"ADMIN_TO_NOTION",1);continue;
+      }
+      if (profile.category === "chovatelske-stanice" || profile.reviewed) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
@@ -3578,7 +3848,7 @@ export async function runNotionDirectoryBootstrapSweep(input: {
     }
   }
 
-  summary.hasMore = (await bootstrapProfileIds(input.database)).length > 0;
+  summary.hasMore = (await bootstrapProfileIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")).length > 0;
   return summary;
 }
 
@@ -3650,6 +3920,7 @@ export async function runNotionDirectorySyncSweep(input: {
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
   async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false,
     adminChoiceSave = false) {
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&adminChoiceSave)return "skipped" as const;
     if (await directoryProfileNotionSyncLocked(input.database, profileId))
       return "skipped" as const;
     relationSchemaReady ??= input.database.prepare(
@@ -3804,6 +4075,18 @@ export async function runNotionDirectorySyncSweep(input: {
     pages = [targetPage];
   } else {
     pages = await recentNotionPages(input.bindings, dataSourceId);
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const older=await rotateNotionDiscovery<NotionPage>({
+          database:input.database,bindings:input.bindings,agenda:"directory",sourceId:dataSourceId,limit:20,
+        });
+        pages=mergeNotionDiscovery(older,pages);
+      }catch{
+        // Preserve the recent safety net; surface incomplete rotation.
+        summary.failed++;
+        console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"directory"});
+      }
+    }
     // The normal recent-page window alone can starve older Gemini drafts.
     // Drain the immutable provenance queue in bounded oldest-first batches,
     // reusing the SAME mapping/duplicate/conflict path as ordinary sync.
@@ -3846,7 +4129,7 @@ export async function runNotionDirectorySyncSweep(input: {
     // missing/failed Notion relation events must not strand canonical choices.
     if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(candidate, "Kategória"))) {
       const mapped = await loadMappingByPage(input.database, candidate.id);
-      if (mapped && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
+      if (mapped && mapped.content_hash!==PROFILE_INBOUND_ID_PENDING && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
         try {
           try {
             const reviewed = await syncDirectoryReviewedWithNotion({
@@ -3878,7 +4161,7 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error), "NOTION_TO_ADMIN");
         }
       }
-      continue;
+      if(mapped||input.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")continue;
     }
     let page = candidate;
     let release: (() => Promise<void>) | null = null;
@@ -3894,27 +4177,46 @@ export async function runNotionDirectorySyncSweep(input: {
         !trustedGemini && propertyText(page, "Vytvoril") === "Gemini automatizácia" &&
         !propertyText(page, "Psipedia ID"));
       const privateImport = trustedGemini || operatorLegacy;
+      const staged=input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
       if (privateImport || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
         // Rejected/not-yet-approved Notion-only records cannot recover a mapping
         // or create/modify a canonical profile.
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini, staged) && !operatorLegacy) continue;
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
         if (input.targetPageId && input.expectedNotionRevision && page.last_edited_time !== input.expectedNotionRevision)
           throw new Error("GEMINI_SAVED_REVISION_CHANGED");
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini, staged) && !operatorLegacy) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
       // Pilot covers existing linked IDs only: never create duplicate canonical profiles.
-      if (!mapping && isDirectoryEventPilotCategory(propertyText(page, "Kategória"))) continue;
-      if (!mapping && (notionProfileReadyForCreate(page, trustedGemini) || operatorLegacy)) {
-        if (privateImport) {
+      if (!mapping && !staged && isDirectoryEventPilotCategory(propertyText(page, "Kategória"))) continue;
+      if (!mapping && (notionProfileReadyForCreate(page, trustedGemini, staged) || operatorLegacy)) {
+        if (privateImport||staged) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
           releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
           if (!releaseImport) continue;
+        }
+        if(staged){
+          if(!release){release=await acquireGeminiNotionLock(input.database,page.id);if(!release)continue;}
+          if(await loadMappingByPage(input.database,page.id))continue;
+          const fresh=await fetchNotionPage(input.bindings,page.id);
+          if(fresh.last_edited_time!==page.last_edited_time||fresh.archived||fresh.in_trash||!notionDirectoryPageBelongsToSource(fresh,dataSourceId)||propertyText(fresh,"Psipedia ID")||propertyCheckbox(fresh,"Odkontrolované"))throw Error("DIRECTORY_INBOUND_IDENTITY_CHANGED");
+          const desired=notionSnapshot(fresh);
+          const slugDuplicate=desired.slug?await input.database.prepare("SELECT id FROM directory_profiles WHERE slug=? LIMIT 1").bind(desired.slug).first<{id:number}>():null;
+          const identityRows=await input.database.prepare("SELECT id,name,category,status,city,website_url,public_phone AS phone,public_email AS email,NULL AS additional_categories_json FROM directory_profiles ORDER BY id LIMIT 5001").all<DirectoryAuditRow>();
+          if(!identityRows.success||identityRows.results.length>5000)throw Error("DIRECTORY_DUPLICATE_SCAN_INCOMPLETE");
+          const duplicate=findDirectoryInboundDuplicate({name:desired.name,category:desired.category,status:"draft",city:desired.city,website_url:desired.websiteUrl,phone:desired.publicPhone,email:desired.publicEmail,additional_categories_json:null},identityRows.results);
+          if(slugDuplicate||duplicate){
+            summary.reviewRequired=(summary.reviewRequired??0)+1;
+            summary.duplicateCandidates=(summary.duplicateCandidates??0)+1;
+            await markPageError(input.bindings,fresh.id,Error("DIRECTORY_INBOUND_DUPLICATE_REVIEW"),fresh);
+            continue;
+          }
+          page=fresh;
         }
         const creation = await createProfileFromNotion({
           database: input.database,
@@ -3934,7 +4236,7 @@ export async function runNotionDirectorySyncSweep(input: {
           database: input.database,
           pageId: page.id,
           profileId: created.id,
-          contentHash,
+          contentHash:staged?PROFILE_INBOUND_ID_PENDING:contentHash,
           notionLastEditedTime: page.last_edited_time ?? null,
           psipediaUpdatedAt: created.updatedAt,
           syncedAt,
@@ -4000,6 +4302,21 @@ export async function runNotionDirectorySyncSweep(input: {
           await recordDirectoryTransfer(input.database, created.id, "NOTION_TO_ADMIN");
           continue;
         }
+        if(staged){
+          await acknowledgeStagedDirectoryDraft(input.database,input.bindings,dataSourceId,created,page.id);
+          // Initial structured fields use the SAME guarded existing adapters as ordinary edits.
+          const current=await fetchNotionPage(input.bindings,page.id);
+          if(additionalCategoriesEvent(current,["Ďalšie kategórie"])){
+            const linked=await loadMappingByProfile(input.database,created.id);
+            if(linked)await applyNotionAdditionalCategories({database:input.database,bindings:input.bindings,mapping:linked,page:current,dataSourceId});
+          }
+          const live=await getManagedDirectoryProfileById(created.id,input.database);
+          if(!live)throw Error("DIRECTORY_INBOUND_DRAFT_MISSING");
+          await syncBreederEvent({database:input.database,bindings:input.bindings,page:current,profile:live,
+            changedPropertyIds:[...Object.values(breederFacetNotionProperties),...Object.values(BREEDER_NOTION_RELATION_FIELDS),...PILOT_DIRECTORY_METADATA_FIELDS]});
+          await syncRelation(page.id,created.id);
+          summary.createdFromNotion++;await recordDirectoryTransfer(input.database,created.id,"NOTION_TO_ADMIN");continue;
+        }
         // Optional Notion write-back/catalog mirroring cannot revoke the private editor.
         try {
           await writeProfileToNotion({
@@ -4034,6 +4351,13 @@ export async function runNotionDirectorySyncSweep(input: {
       }
 
       if (!mapping) continue;
+      if(staged&&mapping.content_hash===PROFILE_INBOUND_ID_PENDING){
+        const local=await getManagedDirectoryProfileById(mapping.directory_profile_id,input.database);
+        if(!local)throw Error("DIRECTORY_INBOUND_DRAFT_MISSING");
+        await acknowledgeStagedDirectoryDraft(input.database,input.bindings,dataSourceId,local,page.id);
+        page=await fetchNotionPage(input.bindings,page.id);
+        mapping=await loadMappingByPage(input.database,page.id);if(!mapping)throw Error("DIRECTORY_INBOUND_MAPPING_MISSING");
+      }
       if (propertyText(page, "Psipedia ID") === String(mapping.directory_profile_id)) {
         try {
           const reviewed = await syncDirectoryReviewedWithNotion({
@@ -4294,11 +4618,16 @@ export async function runNotionDirectorySyncSweep(input: {
 
   // A one-page Gemini save must not bootstrap unrelated canonical profiles.
   // Regular scheduled sync continues to bootstrap as before.
-  const bootstrapIds = input.targetPageId ? [] : await bootstrapProfileIds(input.database);
+  const bootstrapIds = input.targetPageId ? [] : await bootstrapProfileIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text");
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.reviewed || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
+      if(!profile)continue;
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await createStagedDirectoryCopy(input.database,input.bindings,dataSourceId,profileId);
+        summary.bootstrapped++;await recordNotionTransfer(input.database,"directory:"+profile.category,"ADMIN_TO_NOTION",1);continue;
+      }
+      if (profile.reviewed || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
@@ -4357,6 +4686,10 @@ export async function inspectManualDirectoryProfile(input:{
 export async function recoverDirectoryV2Field(database:D1Database,bindings:NotionDirectorySyncBindings,
   id:number,pageId:string,field:string,direction:"observe"|"push"|"pull"="observe") {
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true"||!notionFlagEnabled(bindings.NOTION_DIRECTORY_SYNC_ENABLED))throw Error("DIRECTORY_V2_RECOVERY_DISABLED");
+  if(field==="imageSourceUrl"){
+    if(direction==="push")throw Error("NOTION_AUTHORITY_PULL_REQUIRED");
+    await syncStagedDirectoryImageSource({database,bindings,profileId:id,pageId,direction});return;
+  }
   if(field==="additionalCategories"){
     if(direction==="push"){const mapping=await loadMappingByProfile(database,id);if(mapping?.notion_page_id!==pageId)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");await mirrorDirectoryAdditionalCategoriesToNotion({database,bindings,profileId:id});}
     else if(direction==="pull"){
@@ -4371,7 +4704,7 @@ export async function recoverDirectoryV2Field(database:D1Database,bindings:Notio
   if(field.startsWith("facet:")){
     const [,category,key]=field.split(":");
     const profile=await getManagedDirectoryProfileById(id,database);
-    if(!profile||profile.category!==category||!key)throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
+    if(!profile||!key||getDirectoryFilterDefinition(key)?.category!==category||(profile.category!==category&&!(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&profile.additionalCategories?.some(c=>c===category))))throw Error("DIRECTORY_V2_RECOVERY_SCOPE");
     await syncUnifiedDirectoryOperationalFields({database,bindings,profileId:id,pageId,direction,fields:[{kind:"facet",field:key}]});return;
   }
   if(field==="relation:breedIds"||field==="relation:clubIds"){

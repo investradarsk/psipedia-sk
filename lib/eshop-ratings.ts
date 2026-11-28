@@ -1,3 +1,6 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
+import { findProfileDuplicate } from "./profile-duplicate-review.ts";
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { commitEshopV2AdminEdit, type EshopV2Field } from "./notion-eshop-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { env } from "cloudflare:workers";
@@ -261,8 +264,10 @@ export async function updateManagedEshop(
   actor: string,
   database?: D1Database,
   unifiedExpectedRevision?: string,
+  reviewOnSave=false,
 ): Promise<ManagedEshop | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
+  if(reviewOnSave&&unifiedExpectedRevision===undefined)throw Error("ESHOP_REVIEW_REQUIRES_REVISION");
   const db = getEshopDatabase(database);
   const current = await getManagedEshopById(id, db);
   if (!current) return null;
@@ -279,6 +284,7 @@ export async function updateManagedEshop(
   const focusTags = normalizeEshopFocusTags(input.focusTags);
   const status = input.status === "published" || input.status === "archived" ? input.status : "draft";
   const now = unifiedExpectedRevision===undefined?new Date().toISOString():nextHelpV2Revision(unifiedExpectedRevision);
+  await assertProfilePublicationIdentity(db,"eshops",current.status,status,{name,slug,websiteUrl},id);
   const publishedAt = status === "published" ? (current.publishedAt ?? now) : current.publishedAt;
 
   try {
@@ -295,6 +301,10 @@ export async function updateManagedEshop(
     );
     if(unifiedExpectedRevision!==undefined)await commitEshopV2AdminEdit(db,statement,{
       id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:actor,
+      companionStatements:reviewOnSave?[
+        db.prepare("INSERT OR IGNORE INTO admin_entity_reviews(entity_type,entity_id,reviewed_at,reviewed_by) SELECT \'ESHOP\',id,?,? FROM managed_eshops WHERE id=? AND updated_at=?").bind(now,actor,id,now),
+        db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=\'ESHOP\' AND entity_id=?) THEN 1 ELSE json_extract(\'ESHOP_REVIEW_LOCK_FAILED\',\'$\') END").bind(id),
+      ]:[],
     });else await statement.run();
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) {
@@ -367,6 +377,10 @@ export async function createManagedEshop(
   const status = input.status === "published" || input.status === "archived" ? input.status : "draft";
   const now = new Date().toISOString();
   const publishedAt = status === "published" ? now : null;
+  if((env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const duplicate=await findProfileDuplicate(db,"eshops",{name,slug,website:websiteUrl});
+    if(duplicate)throw new EshopRatingError("Možná duplicita e-shopu #"+duplicate.id+". Najprv over existujúci profil.",409,"DUPLICATE_PROFILE_REVIEW");
+  }
 
   try {
     const row = await db.prepare(`
@@ -395,6 +409,8 @@ export async function createManagedEshop(
 export async function updateEshopV2NotionField(input:{
   database:D1Database;id:number;pageId:string;revision:string;field:EshopV2Field;value:unknown;
   logo?:{imageUrl:string|null;imageKey:string|null};
+  mediaProof?:VerifiedProfileMedia;
+  authorityReservation?: import("./notion-unified-field-transfer.ts").FieldReservation;
 }) {
   const {database,id,pageId,revision,field,value}=input;
   let assignments:string, args:unknown[];
@@ -411,16 +427,25 @@ export async function updateEshopV2NotionField(input:{
     case "logoUrl": {
       if(!input.logo)throw Error("ESHOP_V2_LOGO_PREPARATION_REQUIRED");
       const logo=normalizedOptionalUrl(input.logo.imageUrl,"Logo");
-      if((logo?.startsWith("/")?"https://psipedia.sk"+logo:logo??"")!==value)throw Error("ESHOP_V2_LOGO_NORMALIZATION_REVIEW");
+      const expected=input.authorityReservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("eshops",value,input.mediaProof)):value;
+      if((logo?.startsWith("/")?"https://psipedia.sk"+logo:logo??"")!==expected||(input.authorityReservation?.profileAuthority&&input.logo.imageKey!==input.mediaProof?.key))throw Error("ESHOP_V2_LOGO_NORMALIZATION_REVIEW");
       assignments="logo_url=?,logo_key=?";args=[logo,input.logo.imageKey];break;
     }
     default:throw Error("ESHOP_V2_PROTECTED_FIELD");
   }
   if(field!=="focusTags"&&field!=="logoUrl"&&(typeof args[0]!=="string"||args[0].replace(/\r\n?/g,"\n").trim()!==value))
     throw Error("ESHOP_V2_NORMALIZATION_REVIEW");
+  const authority=input.authorityReservation?.profileAuthority===true;
+  const guard=authority
+    ? " AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ESHOP' AND entity_id=managed_eshops.id)"+
+      " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='eshops' AND record_id=managed_eshops.id)"+
+      " AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='eshops' AND entity_id=CAST(managed_eshops.id AS TEXT))"+
+      " AND EXISTS(SELECT 1 FROM notion_unified_field_state WHERE agenda='eshops' AND entity_id=CAST(managed_eshops.id AS TEXT) AND notion_page_id=? AND field_key=? AND version=? AND status='PENDING')"
+    : "";
   const result=await database.prepare("UPDATE managed_eshops SET "+assignments+",updated_at=?,updated_by=? "+
     "WHERE id=? AND updated_at=? AND status<>'archived' "+
-    "AND EXISTS(SELECT 1 FROM eshop_notion_sync WHERE eshop_id=managed_eshops.id AND notion_page_id=?)")
-    .bind(...args,nextHelpV2Revision(revision),"notion-eshop-sync@psipedia.sk",id,revision,pageId).run();
+    "AND EXISTS(SELECT 1 FROM eshop_notion_sync WHERE eshop_id=managed_eshops.id AND notion_page_id=?)"+guard)
+    .bind(...args,nextHelpV2Revision(revision),"notion-eshop-sync@psipedia.sk",id,revision,pageId,
+      ...(authority?[input.authorityReservation!.identity.pageId,input.authorityReservation!.identity.field,input.authorityReservation!.version]:[])).run();
   if(result.meta.changes!==1)throw Error("ESHOP_V2_WRITE_CONFLICT");
 }

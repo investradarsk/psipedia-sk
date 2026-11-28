@@ -1,3 +1,4 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { commitHelpCaseV2AdminEdit } from "@/lib/notion-help-case-v2-contract";
 import { nextHelpV2Revision } from "@/lib/notion-help-v2-admin-receipts";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
@@ -29,14 +30,17 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedHelpCaseById(id); if (!before) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
-    const payload = await request.json() as ManagedHelpCaseInput & {expectedUpdatedAt?:unknown};
+    const payload = await request.json() as ManagedHelpCaseInput & {expectedUpdatedAt?:unknown;reviewOnSave?:unknown};
+    const authority=(env as unknown as TargetedNotionSaveBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const reviewOnSave=authority&&payload.reviewOnSave===true;
+    if(reviewOnSave&&!unifiedHelpEnabled())return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
     if(unifiedHelpEnabled()&&(typeof payload.expectedUpdatedAt!=="string"||payload.expectedUpdatedAt!==before.updatedAt))
       return Response.json({error:"Prípad sa medzičasom zmenil. Obnov stránku."},{status:409});
-    const item = await updateManagedHelpCase(id, payload, user.email, before, unifiedHelpEnabled()?before.updatedAt:undefined); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
+    const item = await updateManagedHelpCase(id, payload, user.email, before, unifiedHelpEnabled()?before.updatedAt:undefined,reviewOnSave); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(before.imageKey).catch(() => undefined); }
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"help",id,item.status);
-    return Response.json({ item, notionFieldSync });
+    return Response.json({ item, notionFieldSync, ...(authority?{review:await getAdminEntityReview("HELP_CASE",id).catch(()=>null)}:{}) });
   } catch (error) { return errorResponse(error); }
 }
 

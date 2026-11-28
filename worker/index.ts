@@ -1,3 +1,4 @@
+import { retryPendingPublicationGuards } from "../lib/admin-record-lifecycle";
 import { runNotionUnifiedRecoverySweep } from "../lib/notion-unified-recovery.ts";
 import { observeWorkerResponse } from "../lib/stability-diagnostics.ts";
 import { matchOptionalPublicCache, putOptionalPublicCache } from "../lib/optional-read-recovery.ts";
@@ -502,6 +503,11 @@ const worker = {
     // Independent waitUntil means Facebook publication cannot delay or cancel
     // one-record Notion imports. The hourly scan remains a safety net.
     if (controller.cron === "* * * * *") {
+      if((env as Env&{NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        _ctx.waitUntil(retryPendingPublicationGuards(env.DB,env)
+          .then(summary=>console.info(JSON.stringify({event:"notion_publication_guard_recovery",...summary})))
+          .catch(()=>console.error(JSON.stringify({event:"notion_publication_guard_recovery",result:"failed"}))));
+      }
       if(env.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"){
         _ctx.waitUntil(runNotionUnifiedRecoverySweep({database:env.DB,bindings:env})
           .then(summary=>console.info(JSON.stringify({event:"notion_unified_recovery",...summary})))

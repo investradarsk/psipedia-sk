@@ -5,6 +5,9 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import vm from "node:vm";
 import { mergeManagedBreedEdit, mergeNotionBreedInput } from "../lib/breed-sync-preservation.ts";
+import { reviewOnSaveStatements } from "../lib/admin-review-on-save.ts";
+import { BREED_EVENT_SCALAR_COLUMNS } from "../lib/notion-breed-workcopy-field-sql.mjs";
+import { breedSqlV2DirectFieldStatements, breedSqlV2CasGuard } from "../lib/breed-sql-v2-writer.mjs";
 import { breedSqlPrimaryProjection } from "../lib/breed-sql-v2-primary-read.mjs";
 import { BREED_ADDITIONAL_CANONICAL_SQL_FIELDS } from "../lib/breed-storage-decision.mjs";
 import {breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements}
@@ -26,7 +29,7 @@ function section(src, first, after) {
   return src.slice(a, b);
 }
 const factories =
-  section(store, "function values(", "export async function createManagedBreed(") +
+  section(store, "function values(", "export async function createNotionWorkOnlyBreedDraft(") +
   "\n" +
   section(store, "const select =", "export async function listManagedBreedSummaries(") +
   // Exercise the production SQL projection without any historic physical columns.
@@ -164,8 +167,8 @@ function adapter() {
         const results = statements.map(({ sql, args = [] }) => {
           const stmt = sqlite.prepare(sql);
           return /\bRETURNING\b/i.test(sql) || /^\s*SELECT\b/i.test(sql)
-            ? { results: stmt.all(...args) }
-            : { results: [], meta: stmt.run(...args) };
+            ? { success:true,results: stmt.all(...args) }
+            : { success:true,results: [], meta: stmt.run(...args) };
         });
         sqlite.exec("COMMIT");
         return results;
@@ -190,7 +193,7 @@ function adapter() {
     db.batch(
       buildManagedBreedUpdateStatements(db, 1, candidate, "editor", expectedVersion, nextVersion),
     );
-  return { sqlite, row, articleLinks, directoryLinks, write };
+  return { sqlite, db, row, articleLinks, directoryLinks, write };
 }
 
 test("SQL-only full save excludes four obsolete object JSON columns and still includes canonical snapshot",()=>{
@@ -350,4 +353,51 @@ test("admin and Notion call-sites must use the read version and return an action
     store.indexOf("breed_update_guard") <
       store.search(/\.\.\.breedRelationStatements\(database,\s*id,\s*value,\s*user\)/),
   );
+});
+
+
+test("staged combined breed editor rolls back canonical, controlled and review changes together",async()=>{
+  const fixture=adapter(),{sqlite,db}=fixture;
+  try{
+    sqlite.exec(`
+      CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
+      CREATE TABLE notion_unified_manual_fence(agenda TEXT,entity_id TEXT);
+      CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER,reviewed_at TEXT,reviewed_by TEXT,PRIMARY KEY(entity_type,entity_id));
+      CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER PRIMARY KEY,work_last_error_code TEXT);
+      CREATE TABLE breed_notion_controlled_values(breed_id INTEGER PRIMARY KEY,values_json TEXT,revision INTEGER);
+      INSERT INTO breed_notion_controlled_values VALUES(1,'{"heightMin":20}',3);
+      INSERT INTO breed_fci_standard(breed_id) VALUES(1);
+      INSERT INTO breed_editorial_text(breed_id) VALUES(1);
+    `);
+    const code=section(store,"export async function saveManagedBreedCombined(","export async function deleteManagedBreed(").replace(/^export /,"");
+    const combined=vm.runInNewContext(stripTypeScriptTypes(
+      section(store,"function values(","function breedSqlOnlyUpdate(")+"\n"+
+      code+"\n({saveManagedBreedCombined})"
+    ),{JSON,Date,clean:v=>v,mergeManagedBreedEdit,reviewOnSaveStatements,
+      BREED_EVENT_SCALAR_COLUMNS,breedSqlV2DirectFieldStatements,breedSqlV2CasGuard,
+      nextBreedVersion:()=>next,BreedUpdateConflictError:Error,
+      readSelect:"SELECT * FROM managed_breeds",fromRow:(row,relations)=>({row,relations})}).saveManagedBreedCombined;
+    const before={...payload(),id:1,updatedAt:stamp};
+    const attempt=expectedControl=>combined({database:db,before,patch:{intro:"Nový úvod",editorial:{overview:"Nový text"}},
+      fields:["intro","editorial.overview"],actor:"owner",expectedRevision:stamp,reviewOnSave:true,
+      controlledStatements:()=>[
+        db.prepare("UPDATE breed_notion_controlled_values SET values_json=?,revision=revision+1 WHERE breed_id=1 AND revision=?").bind('{"heightMin":25}',expectedControl),
+        breedSqlV2CasGuard(db),
+      ]});
+    await assert.rejects(attempt(2));
+    assert.equal(fixture.row().updated_at,stamp);
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_entity_reviews").get().n,0);
+    assert.equal(sqlite.prepare("SELECT revision FROM breed_notion_controlled_values").get().revision,3);
+    assert.deepEqual(fixture.articleLinks(),[10]);
+    assert.deepEqual(fixture.directoryLinks(),[20]);
+    await attempt(3);
+    assert.equal(fixture.row().intro,"Nový úvod");
+    assert.equal(fixture.row().updated_at,next);
+    assert.equal(sqlite.prepare("SELECT revision FROM breed_notion_controlled_values").get().revision,4);
+    assert.equal(sqlite.prepare("SELECT reviewed_by FROM admin_entity_reviews").get().reviewed_by,"owner");
+    assert.equal(sqlite.prepare("SELECT created_at FROM breed_article_relations").get().created_at,"first");
+    assert.equal(sqlite.prepare("SELECT created_at FROM breed_directory_relations").get().created_at,"first");
+    await assert.rejects(attempt(4));
+    assert.equal(sqlite.prepare("SELECT revision FROM breed_notion_controlled_values").get().revision,4);
+  }finally{sqlite.close();}
 });

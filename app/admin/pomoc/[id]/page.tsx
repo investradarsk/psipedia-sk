@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { AdminPartnerCanonicalAudit } from "@/components/admin-partner-canonical-audit";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -28,6 +30,7 @@ export default async function EditHelpCasePage({ params, searchParams }: Props) 
   // warning and update suggestions, so begin its read alongside the item.
   const item = await getManagedHelpCaseById(numericId);
   if (!item) notFound();
+  const review=(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?await getAdminEntityReview("HELP_CASE",item.id):null;
   const entityType = item.category === "docasna-opatera" ? "FOSTER" as const : "HELP_ITEM" as const;
   const [duplicateWarning, automationSuggestions] = await Promise.all([
     getCanonicalDraftDuplicateWarning(entityType, item.id).catch(() => null),
@@ -44,7 +47,7 @@ export default async function EditHelpCasePage({ params, searchParams }: Props) 
     <Link href={returnHref}>{returnHref.startsWith("/admin/kvalita/seo?") ? "← Späť na SEO audit" : "← Späť na pomoc psom"}</Link>
    </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="HELP_CASE" canonicalId={item.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="HELP_CASE" canonicalId={item.id} /></Suspense><AdminGeminiOriginBadge agenda="help-cases" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} />
-    <AdminHelpEditor item={item} automationSuggestions={automationSuggestions} returnHref={returnHref} />
+    <AdminHelpEditor item={item} initialReview={review} automationSuggestions={automationSuggestions} returnHref={returnHref} />
     {item.status === "draft" && <AdminCanonicalDraftDelete entityType={entityType} canonicalEntityId={item.id} returnHref={returnHref} />}
   </AdminShell>;
 }

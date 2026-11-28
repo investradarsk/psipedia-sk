@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { createAdoptionFromAdmin, isAdoptionAdminConflict } from "@/lib/adoption-admin-write";
 import type { ManagedAdoptionInput } from "@/lib/adoption";
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as Body;
     if (!isRecord(body) || !isRecord(body.payload)) return Response.json({ error: "Neplatný payload adopčného profilu." }, { status: 400 });
+    const duplicate=await adminProfileDuplicateResponse("adoptions",body.payload);if(duplicate)return duplicate;
     const item = await createAdoptionFromAdmin(body.payload as ManagedAdoptionInput, user.email);
     return Response.json({ item }, { status: 201 });
   } catch (error) {

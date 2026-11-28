@@ -1,8 +1,10 @@
+import { prepareProfileMedia, profileMediaSourceAlias, requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import { ORGANIZATION_V2_COLUMNS, isOrganizationV2Field, ORGANIZATION_LOCATION_V2_COLUMNS, isOrganizationLocationV2Field, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import { normalizeOrganizationLocationAdminInput } from "./organization-location-admin.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeOrganizationNotionField } from "./help-organization-admin-input.ts";
-import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { loadNotionBulkOrganizations } from "./notion-bulk-sources.ts";
@@ -71,34 +73,39 @@ async function observe(input: OrganizationV2Scope, field: string, allowSlugChang
   const after=await database.prepare("SELECT updated_at FROM help_organizations WHERE id=?").bind(entityId).first<{updated_at:string}>();
   if(after?.updated_at!==before.updated_at || (isOrganizationLocationV2Field(field) && JSON.stringify(location)!==JSON.stringify(await readLocation(database,entityId))))
     throw Error("ORGANIZATION_V2_REVISION_CHANGED");
+  const notion=organizationNotionObservation(page,field);
+  const canonical=source.properties[field];
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field==="Hlavný obrázok URL"&&notion.present?await profileMediaSourceAlias("organizations",canonical,notion.value,bindings.BUCKET):canonical;
   return {page,source,mapping,location,revision:before.updated_at,archived:before.status==="ARCHIVED"||!!before.archived_at,
-    notion:organizationNotionObservation(page,field),
-    psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:source.properties[field]} : {present:false as const}};
+    notion,psipedia:Object.hasOwn(source.properties,field) ? {present:true as const,value:logical} : {present:false as const}};
 }
 
-async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string) {
+async function pullScalar(input:OrganizationV2Scope,field:string,value:unknown,revision:string,reservation?:FieldReservation,proof?:VerifiedProfileMedia) {
+  const authority=helpAuthorityWriteGuard(reservation,"organizations",input.entityId,input.pageId,field);
   if(!isOrganizationV2Field(field))throw Error("ORGANIZATION_V2_FIELD_PROTECTED");
-  const normalized=normalizeOrganizationNotionField(field,value);
+  const owned=field==="Hlavný obrázok URL"&&reservation?.profileAuthority?requireProfileMediaProof("organizations",value,proof):undefined;
+  const normalized=normalizeOrganizationNotionField(field,owned?profileMediaCanonicalValue(owned):value);
   // URL normalization is allowed only when it does not silently change the
   // requested observed value. A differing canonical value remains review.
   const comparable=field==="Hlavný obrázok URL" && normalized?.startsWith("/") ? "https://psipedia.sk"+normalized : normalized??"";
-  if(comparable!==value)throw Error("ORGANIZATION_V2_NORMALIZATION_REVIEW");
-  const media=field==="Hlavný obrázok URL" ? ",image_key=NULL,thumbnail_display_json=NULL,detail_display_json=NULL" : "";
+  if(comparable!==(owned?profileMediaCanonicalValue(owned):value))throw Error("ORGANIZATION_V2_NORMALIZATION_REVIEW");
+  const media=field==="Hlavný obrázok URL" ? (owned?",image_key=?":",image_key=NULL")+",thumbnail_display_json=NULL,detail_display_json=NULL" : "";
   const result=await input.database.prepare(
     "UPDATE help_organizations SET "+ORGANIZATION_V2_COLUMNS[field]+"=?"+media+",updated_at=?,updated_by=? "+
     "WHERE id=? AND updated_at=? AND archived_at IS NULL AND status<>'ARCHIVED' "+
     "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ORGANIZATION' AND entity_id=help_organizations.id) "+
     "AND NOT "+partnerReviewOwnerSql("ORGANIZATION","help_organizations.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=help_organizations.id) "+
-    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"
-  ).bind(normalized,nextOrganizationEditRevision(revision,new Date()),ACTOR,input.entityId,revision,input.pageId).run();
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"+authority.sql
+  ).bind(owned?owned.url:normalized,...(owned?[owned.key]:[]),nextOrganizationEditRevision(revision,new Date()),ACTOR,input.entityId,revision,input.pageId,...authority.params).run();
   if(result.meta.changes!==1)throw Error("ORGANIZATION_V2_WRITE_CONFLICT");
 }
 
-async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown,observed:Awaited<ReturnType<typeof observe>>) {
-  if(!isOrganizationLocationV2Field(field) || typeof value!=="string" || !value.trim())throw Error("ORGANIZATION_V2_LOCATION_INVALID");
+async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown,observed:Awaited<ReturnType<typeof observe>>,reservation?:FieldReservation) {
+  if(!isOrganizationLocationV2Field(field) || typeof value!=="string" || (!value.trim()&&!reservation?.profileAuthority))throw Error("ORGANIZATION_V2_LOCATION_INVALID");
   if(observed.location?.google_current)throw Error("ORGANIZATION_V2_GOOGLE_LOCATION_LOCKED");
   const {database,entityId,pageId}=input;
+  const authority=helpAuthorityWriteGuard(reservation,"organizations",entityId,pageId,field);
   const column=ORGANIZATION_LOCATION_V2_COLUMNS[field];
   const loc=observed.location;
   const desired=normalizeOrganizationLocationAdminInput({
@@ -113,8 +120,8 @@ async function pullLocation(input:OrganizationV2Scope,field:string,value:unknown
     "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ORGANIZATION' AND entity_id=help_organizations.id) "+
     "AND NOT "+partnerReviewOwnerSql("ORGANIZATION","help_organizations.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=help_organizations.id) "+
-    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)")
-    .bind(nextOrganizationEditRevision(observed.revision,new Date()),ACTOR,entityId,observed.revision,pageId);
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=help_organizations.id AND notion_page_id=?)"+authority.sql)
+    .bind(nextOrganizationEditRevision(observed.revision,new Date()),ACTOR,entityId,observed.revision,pageId,...authority.params);
   const update=loc ? database.prepare("UPDATE organization_locations SET "+column+"=? "+
     "WHERE id=? AND organization_id=? AND id=("+selectedLocationSql+") "+
     "AND role IS ? AND label IS ? AND address IS ? AND city IS ? AND district IS ? AND region IS ? "+
@@ -136,6 +143,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>;
 }) {
   const {database,entityId,pageId,direction}=input;
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&direction==="push")return {pulled:0,pushed:0,failed:[] as string[]};
   const failed:string[]=[];
   let pulled=0,pushed=0;
   const fields=[...new Set(input.fields)];
@@ -156,7 +164,7 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
       const identity={agenda:"organizations" as const,entityId:String(entityId),pageId,field};
       const historical=await readProfileFieldBaseline({database,agenda:"organizations",entityId,pageId,expectedHash:observation.mapping.content_hash});
       const reservation=structural ? null : await reserveUnifiedField({
-        database,identity,historicalBaseline:historical && Object.hasOwn(historical,field)
+        database,identity,authorityBindings:input.bindings,authorityProperty:observation.page.properties?.[field],historicalBaseline:historical && Object.hasOwn(historical,field)
           ? {value:historical[field],version:observation.mapping.content_hash} : null,
         notion:observation.notion,psipedia:observation.psipedia,direction,
         psipediaEdit:await readUnifiedAdminEdit(database,identity,observation.revision),
@@ -164,14 +172,15 @@ export async function syncOrganizationV2Fields(input:OrganizationV2Scope & {
       if(!structural && !reservation)continue;
       const value=reservation ? reservation.value : observation.psipedia.value;
       if(direction==="pull"){
+        const proof=reservation?.profileAuthority&&field==="Hlavný obrázok URL"?await prepareProfileMedia("organizations",value,input.bindings,observation.source.properties[field]):undefined;
         const fresh=await observe(input,field,false);
-        if(fresh.revision!==observation.revision || !fresh.notion.present || fresh.notion.value!==value ||
+        if(fresh.revision!==observation.revision || (reservation?.profileAuthority&&fresh.page.last_edited_time!==observation.page.last_edited_time) || !fresh.notion.present || fresh.notion.value!==value ||
           !fresh.psipedia.present || fresh.psipedia.value!==observation.psipedia.value ||
           JSON.stringify(fresh.location)!==JSON.stringify(observation.location))
           throw Error("ORGANIZATION_V2_SOURCE_CHANGED");
         if(reservation)await assertUnifiedReservationCurrent(database,reservation);
-        if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh);
-        else await pullScalar(input,field,value,observation.revision);
+        if(isOrganizationLocationV2Field(field))await pullLocation(input,field,value,fresh,reservation??undefined);
+        else await pullScalar(input,field,value,observation.revision,reservation??undefined,proof);
         pulled++;
       }else{
         const fresh=await observe(input,field,slug);
@@ -206,7 +215,7 @@ export async function recoverOrganizationV2Field(input:OrganizationV2Scope,field
   const {database,entityId,pageId}=input;
   const historical=await readProfileFieldBaseline({database,agenda:"organizations",entityId,pageId,expectedHash:observed.mapping.content_hash});
   const identity={agenda:"organizations" as const,entityId:String(entityId),pageId,field};
-  await reserveUnifiedField({database,identity,direction:"observe",notion:observed.notion,psipedia:observed.psipedia,
+  await reserveUnifiedField({database,identity,direction:"observe",authorityBindings:input.bindings,authorityProperty:observed.page.properties?.[field],notion:observed.notion,psipedia:observed.psipedia,
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:observed.mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision)});
 }

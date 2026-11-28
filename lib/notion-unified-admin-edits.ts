@@ -7,10 +7,15 @@ import type { FieldIdentity, ScopedFieldEdit } from "./notion-unified-field-sync
 export async function commitEventAdminEdit<T>(
   database: D1Database, statement: D1PreparedStatement,
   input: { id: number; expectedRevision: string; nextRevision: string;
-    editor: string; fields: readonly EventNotionField[] },
+    editor: string; fields: readonly EventNotionField[]; companionStatements?:readonly D1PreparedStatement[] },
 ): Promise<T | null> {
   const fields = [...new Set(input.fields)].filter(field => EVENT_NOTION_PATHS.includes(field));
-  if (!fields.length) return statement.first<T>();
+  if (!fields.length) {
+    if(!input.companionStatements?.length)return statement.first<T>();
+    const rows=await database.batch<T>([statement,...input.companionStatements]);
+    if(rows.some(row=>!row.success))throw Error("UNIFIED_ADMIN_EDIT_TRANSACTION_FAILED");
+    return rows[0].results?.[0]??null;
+  }
   const editId = crypto.randomUUID();
   const results = await database.batch<T>([
     database.prepare(
@@ -18,10 +23,11 @@ export async function commitEventAdminEdit<T>(
       "(entity_id,edit_id,expected_revision,next_revision,editor,fields_json) VALUES (?,?,?,?,?,?)",
     ).bind(input.id, editId, input.expectedRevision, input.nextRevision, input.editor, JSON.stringify(fields)),
     statement,
+    ...(input.companionStatements??[]),
     database.prepare("DELETE FROM notion_event_admin_edit_intent WHERE entity_id=? AND edit_id=?")
       .bind(input.id, editId),
   ]);
-  if (results.length !== 3 || results.some(result => !result.success))
+  if (results.length !== 3+(input.companionStatements?.length??0) || results.some(result => !result.success))
     throw Error("UNIFIED_ADMIN_EDIT_TRANSACTION_FAILED");
   return results[1].results?.[0] ?? null;
 }

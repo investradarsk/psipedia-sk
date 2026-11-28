@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AdminNotionDataQualityAudit } from "./admin-notion-data-quality-audit";
 import { AdminNotionFieldSettings } from "./admin-notion-field-settings";
 import type { UnifiedDiagnostics } from "@/lib/notion-unified-diagnostics";
+import type { NotionQueueDiagnostics } from "@/lib/notion-queue-diagnostics";
 import { AdminNotionManualTransfer } from "./admin-notion-manual-transfer";
 
 type DeliveryCase = {
@@ -83,6 +84,7 @@ type OverviewResponse = {
   checkedAt: string;
   rows: OverviewRow[];
   unified?: UnifiedDiagnostics;
+  queues?: NotionQueueDiagnostics;
 };
 
 const stateLabels: Record<OverviewRow["status"], string> = {
@@ -214,9 +216,9 @@ export function AdminNotionSyncOverview({ view = "status" }: { view?: "status" |
     <section className={styles.panel} aria-labelledby="notion-sync-overview-heading">
       <div className={styles.heading}>
         <div>
-          <h2 id="notion-sync-overview-heading">{view === "status" ? "Stav synchronizácie Psipedia ↔ Notion" : "D1 outbox – čakajúce záznamy a chyby"}</h2>
+          <h2 id="notion-sync-overview-heading">{view === "status" ? "Stav synchronizácie Psipedia ↔ Notion" : "Chyby a čakajúce prenosy"}</h2>
           <p>{view === "status" ? "Evidované mapovania, čakajúce zmeny a výsledky behov podľa agendy."
-            : "Konkrétne nedokončené prenosy štyroch agend Pomoci psom; bez automatických opráv."}</p>
+            : "Nedokončené prenosy, konflikty a upozornenia zo všetkých dostupných SQL evidencií."}</p>
         </div>
         <strong className={styles.readOnly}>Len na čítanie</strong>
       </div>
@@ -232,6 +234,7 @@ export function AdminNotionSyncOverview({ view = "status" }: { view?: "status" |
       </div>
       {error ? <p role="alert" className="admin-message admin-message--error">{error}</p> : null}
       {loading && !snapshot ? <p role="status">Načítavam evidenciu prepojení…</p> : null}
+      {snapshot?.queues ? <QueueDiagnosticsView queues={snapshot.queues} view={view} /> : null}
       {snapshot?.unified ? <UnifiedJournalView journal={snapshot.unified} view={view} /> : null}
       {snapshot && view === "status" ? (
         <>
@@ -330,12 +333,17 @@ export function AdminNotionSyncOverview({ view = "status" }: { view?: "status" |
 }
 
 const unifiedLabels: Record<string,string> = {
-  directory:"Adresár",breeds:"Plemená",events:"Podujatia",organizations:"Organizácie",
+  directory:"Adresár",breeds:"Plemená",articles:"Články",events:"Podujatia",organizations:"Organizácie",
   adoptions:"Adopcie","lost-found":"Stratené a nájdené","help-cases":"Ostatná pomoc psom",eshops:"E-shopy",
 };
 const unifiedReasonLabels: Record<string,string> = {
   BASELINE_UNAVAILABLE:"Chýba potvrdená východisková hodnota",
-  MISSING_FIELD:"Chýba alebo je neplatné pole",
+  MISSING_FIELD:"Pole sa nepodarilo úplne načítať – hodnotu v D1 nemeníme",
+  INVALID_NOTION_FIELD:"Neplatná alebo neúplná hodnota v Notione – hodnotu v D1 nemeníme",
+  LOCKED:"Ochranný zámok alebo neoverené vlastníctvo – bez automatického prepisu",
+  PROTECTED_FIELD:"Chránené alebo nemapované pole – bez automatického prepisu",
+  NOTION_SYNC_DISABLED:"Synchronizácia agendy je vypnutá",
+  NOTION_SYNC_NOT_CONFIGURED:"Chýba konfigurácia synchronizácie",
   UNVERIFIED_NOTION_CLEAR:"Prázdne pole v Notione – ochrana SQL",
   UNVERIFIED_ADMIN_CLEAR:"Chýba potvrdenie vymazania v Admine",
   RECOVERY_DIVERGED:"Nepotvrdený prenos – hodnoty sa líšia",
@@ -348,7 +356,41 @@ const unifiedReasonLabels: Record<string,string> = {
   RECOVERY_DIRECTION_REQUIRED:"Čaká na bezpečný prenos",
   OPPOSITE_DIRECTION_REQUIRED:"Zmena vyžaduje opačný smer prenosu",
   AWAITING_CONFIRMATION:"Čaká na potvrdenie",
+  NOTION_AUTHORITY_PULL_REQUIRED:"Čaká na bezpečné prevzatie hodnoty z Notionu",
+  NOTION_REMOTE_DELETED:"Stránka vymazaná v Notione – záznam v D1 zostáva",
+  LEASE_EXPIRED:"Prerušený prenos – čaká na obnovenie",
+  RETRY_EXHAUSTED:"Vyčerpané pokusy – vyžaduje kontrolu",
+  DISPATCH_FAILED:"Prenos zlyhal",
+  RECONCILIATION_DEFERRED:"Prenos odložený – čaká na ďalší pokus",
+  PROCESSING:"Prenos prebieha",
+  NEEDS_REVIEW:"Vyžaduje kontrolu",
+  UNCLASSIFIED:"Dôvod nebol potvrdený",
 };
+function QueueDiagnosticsView({queues,view}:{queues:NotionQueueDiagnostics;view:"status"|"issues"}){
+  const inbox=queues.inbox, articles=queues.articles;
+  return <div className={styles.details}>
+    <h3>Čakajúce prenosy a upozornenia</h3>
+    <p>{inbox?`Notion → Admin: ${inbox.pending} čaká · ${inbox.processing} spracováva sa (z toho ${inbox.expired} po vypršaní zámku) · ${inbox.review} na kontrolu.`:"Front webhookov: neoverený."}</p>
+    <p>{articles?`Články Admin → Notion: ${articles.pending} čaká · ${articles.processing} spracováva sa · ${articles.expired} prerušených.`:"Redakčný outbox: neoverený."}</p>
+    {inbox&&inbox.deleted>0?<p role="alert" className="admin-message admin-message--error">Vymazané stránky v Notione: {inbox.deleted} evidovaných upozornení. Údaje v D1 zostávajú; over mapovanie pred ďalším prenosom.</p>:null}
+    {!queues.mappingAvailable?<p role="status">Mapovanie nie je úplne overené. Odkazy na editory webhookov môžu chýbať.</p>:null}
+    {view==="issues"&&queues.issues.length>0?<div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead><tr><th>Agenda / záznam</th><th>Smer</th><th>Stav</th><th>Dôvod</th><th>Posledná evidencia</th><th>Ďalší pokus</th></tr></thead>
+        <tbody>{queues.issues.map((item,index)=><tr key={item.source+":"+index}>
+          <td>{item.agenda?unifiedLabels[item.agenda]??item.agenda:item.mappingState==="AMBIGUOUS"?"Nejednoznačné mapovanie":item.mappingState==="MISSING"?"Bez mapovania":"Mapovanie neoverené"}{" "}{item.editorHref?<Link href={item.editorHref} prefetch={false}>#{item.entityId}</Link>:item.entityId?"#"+item.entityId:null}</td>
+          <td>{item.source==="webhook"?"Notion → Admin":"Admin → Notion"}</td>
+          <td>{item.state==="REVIEW"?"Na kontrolu":item.state==="PROCESSING"?"Spracováva sa":"Čaká"}{item.attempts===null?"":" · pokusov "+item.attempts}</td>
+          <td>{unifiedReasonLabels[item.reason]??item.reason}</td>
+          <td>{formatDate(item.updatedAt)}</td><td>{formatDate(item.nextAttemptAt)}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>:null}
+    {view==="issues"&&queues.truncated?<p>Najviac 50 položiek z každého frontu; ďalšie zostávajú v evidencii.</p>:null}
+    <p className={styles.progress}>Počty predstavujú udalosti a čakajúce zápisy, nie počet unikátnych profilov. Prehľad nič neprepisuje ani neodstraňuje.</p>
+  </div>;
+}
+
 function UnifiedJournalView({journal,view}:{journal:UnifiedDiagnostics;view:"status"|"issues"}){
   return <div className={styles.details}>
     <h3>Synchronizácia V2 – jednotlivé polia</h3>

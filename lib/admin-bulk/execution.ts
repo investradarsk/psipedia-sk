@@ -13,6 +13,11 @@ import {
   type BulkStatement,
 } from "./snapshot-store.ts";
 
+type BulkPublicationHooks = {
+  validate: (module:"directory"|"articles",items:readonly BulkMaterializedItem[])=>Promise<void>;
+  lifecycleGuards: boolean;
+};
+
 type RunResult = {
   meta?: { changes?: number };
   changes?: number;
@@ -51,13 +56,14 @@ function mutationStatement(
   item: BulkMaterializedItem,
   editorEmail: string,
   now: string,
+  immediatePublication=false,
 ): BulkStatement {
   if (module === "articles") {
     if (action === "publish") {
       return database.prepare(`UPDATE managed_articles
-        SET status = 'published', published_at = COALESCE(published_at, ?), updated_at = ?, updated_by = ?
+        SET status = 'published', published_at = ${immediatePublication?"CASE WHEN published_at IS NULL OR published_at > ? THEN ? ELSE published_at END":"COALESCE(published_at, ?)"}, updated_at = ?, updated_by = ?
         WHERE id = ? AND status = ? AND updated_at = ?`)
-        .bind(now, now, editorEmail, Number(item.recordId), item.capturedStatus, item.capturedUpdatedAt);
+        .bind(...(immediatePublication?[now,now]:[now]), now, editorEmail, Number(item.recordId), item.capturedStatus, item.capturedUpdatedAt);
     }
     return database.prepare(`UPDATE managed_articles
       SET status = 'draft', updated_at = ?, updated_by = ?
@@ -83,6 +89,7 @@ export async function runBulkExecution(
   editorEmail: string,
   payload: unknown,
   now = new Date(),
+  hooks?:BulkPublicationHooks,
 ): Promise<BulkExecutionResult> {
   const request = parseBulkExecutionRequest(payload);
   const adapter = request.module === "articles" ? articleBulkAdapter : directoryBulkAdapter;
@@ -126,11 +133,25 @@ export async function runBulkExecution(
   const updated: BulkExecutionResult["updated"] = [];
   const failed: BulkExecutionResult["failed"] = [];
   const timestamp = now.toISOString();
+  const eligible=revalidated.filter(candidate=>candidate.eligible);
+  if(hooks&&request.action==="publish"){
+    try{await hooks.validate(request.module,eligible);}
+    catch(error){throw new BulkPreflightError(error instanceof Error?error.message:"Kontrola publikovania zlyhala.",409,"publication-blocked");}
+  }
 
-  for (const item of revalidated.filter((candidate) => candidate.eligible)) {
+  for (const item of eligible) {
     const id = Number(item.recordId);
     try {
-      const result = await mutationStatement(database, request.module, request.action, item, editorEmail, timestamp).run();
+      const mutation=mutationStatement(database,request.module,request.action,item,editorEmail,timestamp,hooks?.lifecycleGuards===true);
+      let result:unknown;
+      if(hooks?.lifecycleGuards){
+        // changes() refers to the immediately preceding CAS statement in the
+        // same D1 batch: a stale row must never create or remove a guard.
+        const guard=request.action==="publish"
+          ?database.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id=? AND changes()=1").bind(request.module,id)
+          :database.prepare("INSERT INTO admin_record_publication_guards(kind,record_id,remote_state,error_code,updated_at) SELECT ?,?,'PENDING',NULL,? WHERE changes()=1 ON CONFLICT(kind,record_id) DO UPDATE SET remote_state='PENDING',error_code=NULL,updated_at=excluded.updated_at").bind(request.module,id,timestamp);
+        [result]=await database.batch([mutation,guard]);
+      }else result=await mutation.run();
       if (changedRows(result) === 1) {
         updated.push({ id });
       } else {

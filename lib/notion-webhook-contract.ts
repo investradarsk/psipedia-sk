@@ -14,7 +14,7 @@ export type NotionWebhookEvent = {
 
 export type WebhookPageProperties = { properties?: Record<string, unknown> };
 export const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
-export const EVENT_TYPES = new Set(["page.created", "page.properties_updated", "page.content_updated"]);
+export const EVENT_TYPES = new Set(["page.created", "page.properties_updated", "page.content_updated", "page.deleted"]);
 const SYNC_ONLY = new Set([
   "Sync stav", "Sync chyba", "Sync hash", "Posledný sync",
   "Psipedia ID", "URL Psipedia",

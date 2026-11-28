@@ -149,7 +149,8 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
     {editorialReadError
       ? <p role="alert">Kanonické SQL údaje profilu sa nepodarilo načítať. Formulár nie je dostupný; údaje sa nezmenili.</p>
       : <AdminDirectoryEditor profile={profile} returnHref={returnHref}
-          partnerOwner={partnerOwner} partnerOwnershipUnavailable={partnerOwnershipUnavailable} />}
+          partnerOwner={partnerOwner} partnerOwnershipUnavailable={partnerOwnershipUnavailable}
+          profileAuthority={(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"} />}
     <Suspense fallback={null}><AdminDirectoryNotionSyncStatus profileId={profile.id} /></Suspense>
     {isServiceCategory && !editorialReadError && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
       <DirectoryServiceValues profileId={profile.id} category={profile.category as ServiceFilterCategory}

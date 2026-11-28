@@ -18,6 +18,7 @@ export async function syncOneAdminHelpRecord(input: {
   changedEventFields?: readonly EventNotionField[];
   changedHelpFields?: readonly string[];
 }): Promise<"disabled" | "unlinked" | "synced" | "pending"> {
+  if (input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") return "disabled";
   if (input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
   // A checked review or partner owner suppresses all outbound mirrors.
   if(await isAdminNotionSyncLocked(input.database,input.agenda,input.entityId))return "disabled";

@@ -4,6 +4,8 @@ import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 
 import Link from "next/link";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -31,7 +33,9 @@ function tagsFromText(value: string) {
     .filter(Boolean);
 }
 
-export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
+export function AdminEshopEditor({ shop,initialReview=null }: { shop: ManagedEshop;initialReview?:{reviewed:boolean;reviewedAt:string}|null }) {
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const [activeSection, setActiveSection] = useState(ESHOP_SECTIONS[0].id);
   const navigatePager = useProfileEditorSectionPager(activeSection, setActiveSection);
   const [name, setName] = useState(shop.name);
@@ -80,6 +84,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    const reviewOnSave=Boolean(review&&!review.reviewed&&lockWithSave);
     setSaving(true);
     setMessage("");
     setError("");
@@ -89,6 +94,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           expectedUpdatedAt:persistedRevision,
+          reviewOnSave,
           name,
           slug,
           websiteUrl,
@@ -100,9 +106,10 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           status,
         }),
       });
-      const data = await response.json() as { shop?: ManagedEshop; error?: string };
+      const data = await response.json() as { shop?: ManagedEshop; error?: string;review?:{reviewed:boolean;reviewedAt:string} };
       if (!response.ok || !data.shop) throw new Error(data.error || "E-shop sa nepodarilo uložiť.");
       setPersistedRevision(data.shop.updatedAt);
+      if(data.review)setReview(data.review);
       setName(data.shop.name);
       setSlug(data.shop.slug);
       setWebsiteUrl(data.shop.websiteUrl);
@@ -129,6 +136,11 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
 
   return (
     <form className={styles.editor} noValidate onSubmit={save}>
+      {review&&<AdminReviewCheckbox key={String(review.reviewed)+review.reviewedAt} entityType="ESHOP" entityId={shop.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate disabled={saving||dirty} onReviewChange={setReview}/>}
+      {review&&!review.reviewed&&<div role="status">
+        <p>Neodkontrolovaný e-shop: Notion môže prepísať uložené úpravy.</p>
+        <label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={event=>setLockWithSave(event.target.checked)}/> Uložiť a označiť ako Odkontrolované</label>
+      </div>}
       <EditorWorkspace
         mode="page"
         title={"E-shop — " + (name || "Úprava profilu")}
@@ -150,6 +162,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         actions={<EditorActionBar
           dirty={dirty} pending={saving} uploading={uploading}
           secondary={<div className={styles.actionLinks}>
+            {review&&<AdminRecordLifecycleActions kind="eshops" recordId={shop.id} status={status} disabled={saving||dirty} returnHref="/admin/recenzie/eshopy" onUnpublished={(next,revision)=>{setStatus(next as ManagedEshop["status"]);if(revision)setPersistedRevision(revision);setSavedSignature(signature=>JSON.stringify({...JSON.parse(signature),status:next}));}}/>}
             <Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>
             {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}
           </div>}

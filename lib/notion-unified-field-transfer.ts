@@ -1,10 +1,16 @@
-import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit } from "./notion-unified-field-sync.ts";
+import { getDirectoryFilterDefinition, normalizeDirectoryFilterValue } from "./directory-filter-contract.ts";
+import { resolveBreederRelationText, sameBreederRelationIds, type BreederNameOption } from "./breeder-relation-text.ts";
+import { verifiedBreedStructuredProperty, breedStructuredAuthorityFields } from "./notion-breed-structured-authority.mjs";
+import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
+import { decideUnifiedField, isConfirmedBlankPush, type FieldIdentity, type FieldObservation, type ScopedFieldEdit, type ProfileAuthorityContext } from "./notion-unified-field-sync.ts";
+import { readProfileAuthorityOwner, profileAuthorityEnabled, profileAuthorityTextFieldAllowed, type ProfileAuthorityBindings } from "./notion-profile-authority.ts";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 
 export type FieldReservation = {
   identity: FieldIdentity;
   version: number;
   value: unknown;
+  profileAuthority?: true;
 };
 
 /** Reserve one field before attempting any cross-system write. Existing PENDING
@@ -19,9 +25,57 @@ export async function reserveUnifiedField(input: {
   direction: "pull" | "push" | "observe";
   psipediaEdit?: ScopedFieldEdit;
   notionEdit?: ScopedFieldEdit;
+  authorityBindings?: ProfileAuthorityBindings;
+  authorityProperty?: unknown;
 }): Promise<FieldReservation | null> {
   const { database, identity } = input;
   const old = await readUnifiedFieldState(database, identity);
+  if (profileAuthorityEnabled(input.authorityBindings)) {
+    const owner = await readProfileAuthorityOwner(database,identity);
+    const authority: ProfileAuthorityContext = {
+      owner, fieldAllowed: profileAuthorityTextFieldAllowed(identity),
+      notionValidated: identity.agenda==="breeds"&&breedStructuredAuthorityFields.includes(identity.field)
+        ? verifiedBreedStructuredProperty(identity.field,input.authorityProperty,input.notion,BREED_NOTION_SCHEMA)
+        : identity.agenda==="directory"&&["qualifications","relation:breedIds","relation:clubIds"].includes(identity.field)
+          ? isVerifiedDirectoryStructuredProperty(identity.field,input.authorityProperty,input.notion)
+          : identity.agenda==="directory"&&identity.field.startsWith("facet:")
+            ? isVerifiedDirectoryFacetProperty(identity.field,input.authorityProperty,input.notion)
+            : identity.agenda==="directory"&&identity.field==="serviceIds"
+              ? isVerifiedDirectoryServiceRelation(input.authorityProperty,input.notion)
+              : isVerifiedAuthorityProperty(input.authorityProperty,input.notion),
+    };
+    const decision=decideUnifiedField({identity,baseline:null,notion:input.notion,psipedia:input.psipedia,profileAuthority:authority});
+    if(old?.status==="PENDING"){
+      const age=Date.now()-Date.parse(old.updatedAt);
+      if(!Number.isFinite(age)||age<600_000)throw Error("UNIFIED_FIELD_PENDING_RECOVERY");
+      // Resolve uncertain earlier writes only from fresh equality. A new
+      // observation on a later attempt can then obtain a new pull reservation.
+      const equal=decision.action==="unchanged";
+      const recovered=await writeUnifiedFieldState(database,identity,old.version,{
+        baselineVersion:equal?crypto.randomUUID():old.baselineVersion,
+        baseline:equal?decision.value:old.baseline,notion:equal?decision.value:old.notion,psipedia:equal?decision.value:old.psipedia,
+        notionEdit:undefined,psipediaEdit:undefined,status:equal?"SYNCED":"REVIEW",
+        reason:equal?null:"RECOVERY_DIVERGED",
+      });
+      if(recovered===null)throw Error("UNIFIED_FIELD_CONCURRENT_RECOVERY");
+      if(equal)return null;
+      throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
+    }
+    const unchanged=decision.action==="unchanged";
+    const allowed=decision.action==="pull"&&input.direction==="pull";
+    const reason=unchanged||allowed?null:decision.action==="review"?decision.reason:"NOTION_AUTHORITY_PULL_REQUIRED";
+    const version=await writeUnifiedFieldState(database,identity,old?.version??null,{
+      baselineVersion:unchanged?crypto.randomUUID():old?.baselineVersion,
+      baseline:unchanged?decision.value:old?.baseline,
+      notion:input.notion.present?input.notion.value:undefined,
+      psipedia:input.psipedia.present?input.psipedia.value:undefined,
+      notionEdit:undefined,psipediaEdit:undefined,status:unchanged?"SYNCED":allowed?"PENDING":"REVIEW",reason,
+    });
+    if(version===null)throw Error("UNIFIED_FIELD_CONCURRENT_RESERVATION");
+    if(unchanged||input.direction==="observe")return null;
+    if(!allowed)throw Error(reason??"UNIFIED_FIELD_REVIEW");
+    return {identity,version,value:decision.value,profileAuthority:true};
+  }
   // Observation-only recovery may establish equality or record a conflict;
   // it must never grant permission to mutate canonical or remote content.
   if (old?.status === "PENDING") {
@@ -120,6 +174,8 @@ export async function confirmUnifiedField(
   database: D1Database, reservation: FieldReservation,
   notion: FieldObservation, psipedia: FieldObservation,
 ): Promise<void> {
+  if(reservation.profileAuthority && await readProfileAuthorityOwner(database,reservation.identity)!=="notion")
+    throw Error("UNIFIED_FIELD_AUTHORITY_CHANGED");
   const decision = decideUnifiedField({
     identity: reservation.identity,
     baseline: { value: reservation.value, version: String(reservation.version) },
@@ -143,7 +199,124 @@ export async function confirmUnifiedField(
 /** Recheck the actual reservation immediately before external side effects.
  * The provider has no CAS; this reduces, but cannot eliminate, that gap. */
 export async function assertUnifiedReservationCurrent(database:D1Database,reservation:FieldReservation){
+  if(reservation.profileAuthority && await readProfileAuthorityOwner(database,reservation.identity)!=="notion")
+    throw Error("UNIFIED_FIELD_AUTHORITY_CHANGED");
   const state=await readUnifiedFieldState(database,reservation.identity);
   if(!state||state.version!==reservation.version||state.status!=="PENDING")
     throw Error("UNIFIED_FIELD_RESERVATION_INVALIDATED");
+}
+
+
+/** Independently prove an exact, complete rich-text observation. A decoder
+ * fallback, wrong type, partial pagination or missing property is not a clear. */
+export function isVerifiedAuthorityText(raw:unknown,observation:FieldObservation):boolean{
+  if(!observation.present||typeof observation.value!=="string"||!raw||typeof raw!=="object")return false;
+  const prop=raw as Record<string,unknown>;
+  if(prop.type!=="rich_text"||prop.has_more===true||!Array.isArray(prop.rich_text)||prop.rich_text.length>=25)return false;
+  const parts=prop.rich_text as Array<{plain_text?:unknown;type?:unknown}>;
+  if(parts.some(part=>!part||typeof part.plain_text!=="string"||part.type==="mention"))return false;
+  const normalize=(value:string)=>value.replace(/\r\n?/g,"\n").trim();
+  return normalize(parts.map(part=>part.plain_text).join(""))===normalize(observation.value);
+}
+
+
+/** Verify the raw typed provider cell independently of any adapter fallback.
+ * Domain validators still decide whether a value can be stored in D1. */
+export function isVerifiedAuthorityProperty(raw:unknown,observed:FieldObservation):boolean{
+  if(!observed.present||!raw||typeof raw!=="object")return false;
+  const prop=raw as Record<string,unknown>;
+  const type=prop.type;
+  if(typeof type!=="string"||prop.has_more===true||!Object.hasOwn(prop,type))return false;
+  const value=prop[type];
+  const text=(v:unknown)=>typeof v==="string"?v.replace(/\r\n?/g,"\n").trim():null;
+  if(type==="rich_text")return isVerifiedAuthorityText(raw,observed);
+  if(type==="title")return isVerifiedAuthorityText({...prop,type:"rich_text",rich_text:value},observed);
+  if(["url","email","phone_number"].includes(type))
+    return typeof observed.value==="string"&&(value===null?observed.value==="":typeof value==="string"&&text(value)===text(observed.value));
+  if(type==="number")return (value===null||typeof value==="number"&&Number.isFinite(value))&&value===observed.value;
+  if(type==="checkbox")return typeof value==="boolean"&&value===observed.value;
+  if(type==="select"||type==="status"){
+    const label=value&&typeof value==="object"?(value as {name?:unknown}).name:undefined;
+    return value===null?(observed.value===""||observed.value===null):typeof observed.value==="string"&&typeof label==="string"&&!!label.trim()&&text(label)===text(observed.value);
+  }
+  if(type==="date"){
+    if(value===null)return observed.value===""||observed.value===null;
+    const d=value as {start?:unknown;end?:unknown}|undefined;
+    if(typeof d?.start==="string"&&!d.end&&typeof observed.value==="string"&&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(d.start)&&Number.isFinite(Date.parse(d.start)))
+      return new Date(d.start).toISOString()===observed.value;
+    return typeof d?.start==="string"&&!d.end&&typeof observed.value==="string"&&
+      /^\d{4}-\d{2}-\d{2}$/.test(d.start)&&Number.isFinite(Date.parse(d.start))&&
+      new Date(d.start+"T00:00:00Z").toISOString().slice(0,10)===d.start&&d.start===observed.value;
+  }
+  if(type==="multi_select"){
+    if(!Array.isArray(value)||value.length>=25||!Array.isArray(observed.value))return false;
+    const names=value.map(item=>item&&typeof item==="object"?(item as {name?:unknown}).name:undefined);
+    return names.every(name=>typeof name==="string"&&!!name.trim())&&
+      new Set(names).size===names.length&&observed.value.every(item=>typeof item==="string")&&
+      JSON.stringify([...names].sort())===JSON.stringify([...observed.value].sort());
+  }
+  return false;
+}
+
+/** Reject incomplete rich text and lossy qualification parsing. Relations
+ * resolve exact unique names against the same live canonical option list. */
+export function isVerifiedDirectoryStructuredProperty(field:string,raw:unknown,observed:FieldObservation):boolean {
+  if(!observed.present||!Array.isArray(observed.value)||!raw||typeof raw!=="object")return false;
+  const wrapper=raw as {property?:unknown;candidates?:unknown};
+  const relation=field==="relation:breedIds"||field==="relation:clubIds";
+  if(!relation&&field!=="qualifications")return false;
+  const cell=(relation?wrapper.property:raw) as {type?:unknown;has_more?:unknown;rich_text?:unknown}|null;
+  if(!cell||cell.type!=="rich_text"||cell.has_more===true||!Array.isArray(cell.rich_text)||cell.rich_text.length>=25)return false;
+  if(cell.rich_text.some(part=>!part||part.type!=="text"||typeof part.plain_text!=="string"))return false;
+  const text=cell.rich_text.map(part=>part.plain_text).join("").replace(/\r\n?/g,"\n").trim();
+  if(!relation){
+    const items=[...new Set(text.split(/\n|<br\s*\/?\s*>/gi).map(item=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean))];
+    return items.length<=40&&JSON.stringify(items)===JSON.stringify(observed.value);
+  }
+  if(!Array.isArray(wrapper.candidates)||wrapper.candidates.length>=(field==="relation:breedIds"?500:1000)||
+    wrapper.candidates.some(option=>!option||!Number.isSafeInteger(option.id)||option.id<1||typeof option.name!=="string"||!option.name.trim()))return false;
+  const result=resolveBreederRelationText(text,wrapper.candidates as BreederNameOption[]);
+  return result.status!=="unmatched"&&observed.value.every(id=>Number.isSafeInteger(id)&&id>0)&&
+    new Set(observed.value).size===observed.value.length&&sameBreederRelationIds(result.ids,observed.value as number[]);
+}
+
+/** Only a real select:null is a clear; a missing name, wrong schema or
+ * unknown option is never interpreted as an empty category filter. */
+export function isVerifiedDirectoryFacetProperty(field:string,raw:unknown,observed:FieldObservation):boolean{
+  const parts=field.split(":");
+  const def=parts.length===3&&parts[0]==="facet"?getDirectoryFilterDefinition(parts[2]):undefined;
+  if(!def||def.category!==parts[1]||!observed.present||!raw||typeof raw!=="object")return false;
+  const cell=raw as {type?:unknown;has_more?:unknown;select?:unknown};
+  if(cell.type!=="select"||cell.has_more===true||!Object.hasOwn(cell,"select"))return false;
+  if(cell.select===null)return observed.value===null;
+  if(!cell.select||typeof cell.select!=="object")return false;
+  const label=(cell.select as {name?:unknown}).name;
+  if(typeof label!=="string"||!label.trim())return false;
+  const aliases:Record<string,string>={"Ambulancia":"ambulance","Klinika":"clinic","Nemocnica":"hospital","Neznáme":"unknown"};
+  const normalized=normalizeDirectoryFilterValue(def,Object.hasOwn(aliases,label)?aliases[label]:label);
+  return normalized.status==="known"&&normalized.value===observed.value;
+}
+
+/** A complete Notion relation and its one-to-one catalog mapping must prove
+ * the exact canonical ID set, including an explicitly empty relation. */
+export function isVerifiedDirectoryServiceRelation(raw:unknown,observed:FieldObservation):boolean{
+  if(!observed.present||!Array.isArray(observed.value)||!raw||typeof raw!=="object")return false;
+  const wrapper=raw as {property?:unknown;mapping?:unknown};
+  const cell=wrapper.property as {type?:unknown;has_more?:unknown;relation?:unknown}|undefined;
+  const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  const service=/^svc\.(?:admin\.[a-f0-9]{32}|[a-z0-9._-]+)$/;
+  if(cell?.type!=="relation"||cell.has_more!==false||!Array.isArray(cell.relation)||cell.relation.length>25||
+      !Array.isArray(wrapper.mapping)||wrapper.mapping.length!==cell.relation.length)return false;
+  const pages=cell.relation.map(item=>item?.id);
+  if(pages.some(id=>typeof id!=="string"||!uuid.test(id)))return false;
+  const normalized=pages.map(id=>id.toLowerCase());
+  const ids:string[]=[],mappedPages:string[]=[];
+  for(const item of wrapper.mapping){
+    if(!item||typeof item.pageId!=="string"||!uuid.test(item.pageId)||typeof item.serviceId!=="string"||!service.test(item.serviceId))return false;
+    mappedPages.push(item.pageId.toLowerCase());ids.push(item.serviceId);
+  }
+  return new Set(normalized).size===normalized.length&&new Set(mappedPages).size===mappedPages.length&&new Set(ids).size===ids.length&&
+    JSON.stringify([...normalized].sort())===JSON.stringify(mappedPages.sort())&&
+    JSON.stringify(ids.sort())===JSON.stringify([...observed.value].sort());
 }

@@ -1,3 +1,4 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
@@ -43,7 +44,7 @@ export async function PUT(request: Request, { params }: Props) {
     const before = await getManagedEventById(id);
     if (!before) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     const raw = await request.json() as ManagedEventInput & {
-      expectedUpdatedAt?: unknown; eventEditorialChangedFields?: unknown;
+      expectedUpdatedAt?: unknown; eventEditorialChangedFields?: unknown; reviewOnSave?:unknown;
     };
     // The version comes from the editor's initial D1 snapshot. A fresh read
     // alone is not sufficient: another writer can commit between SELECT/UPDATE.
@@ -92,7 +93,10 @@ export async function PUT(request: Request, { params }: Props) {
     const unifiedEdit = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string })
       .NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
     const receiptFields = unifiedEdit ? (edited ?? []).filter(field => !sanitizedFields.has(field)) : undefined;
-    const event = await updateManagedEvent(id, safe, user.email, before, receiptFields);
+    const authority=(env as unknown as TargetedNotionSaveBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const reviewOnSave=authority&&raw.reviewOnSave===true;
+    if(reviewOnSave&&!unifiedEdit)return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
+    const event = await updateManagedEvent(id, safe, user.email, before, receiptFields,reviewOnSave);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     // The D1 write has committed. Remote Notion mirroring and auxiliary
     // acknowledgements are separate outcomes, never a failed Admin save.
@@ -137,7 +141,8 @@ export async function PUT(request: Request, { params }: Props) {
         console.error("event_publication_acknowledgement_failed", id, error);
         fieldWarnings.push("Interné potvrdenie stavu publikovania sa nepodarilo dokončiť.");
       });
-    return Response.json({ event, savedToD1: true, notionFieldSync, notionWarnings, fieldWarnings });
+    return Response.json({ event, savedToD1: true, notionFieldSync, notionWarnings, fieldWarnings,
+      ...(authority?{review:await getAdminEntityReview("EVENT",id).catch(()=>null)}:{}) });
   } catch (error) { return errorResponse(error); }
 }
 

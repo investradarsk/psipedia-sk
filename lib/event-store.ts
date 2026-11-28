@@ -1,3 +1,5 @@
+import { assertProfilePublicationIdentity, assertBulkPublicationIdentities, publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { EVENT_SUBSCRIPTION_LIMIT, eventSubscriptionWindow, type EventSubscriptionFilters, type EventSubscriptionRow } from "@/lib/event-subscription";
 import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
@@ -717,6 +719,7 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   const database = requireD1Binding(injectedDatabase);
   await ensureEventStore(database);
   const input = normalizeManagedEventInput(payload);
+  await assertProfilePublicationIdentity(database,"events",null,input.status,input);
   const hasContactColumns = await eventContactColumnsReady(database, input);
   const now = new Date().toISOString();
   const values = [
@@ -743,12 +746,13 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   return event;
 }
 
-export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent, unifiedEditFields?: readonly EventNotionField[]) {
+export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent, unifiedEditFields?: readonly EventNotionField[],reviewOnSave=false) {
   const database = requireD1Binding();
   await ensureEventStore(database);
   const existing = existingEvent ?? await getManagedEventById(id);
   if (!existing) return null;
   const input = normalizeManagedEventInput(payload);
+  await assertProfilePublicationIdentity(database,"events",existing.status,input.status,input,id);
   const contactValues = {
     contactPhone: payload.contactPhone === undefined ? existing.contactPhone ?? null : input.contactPhone,
     contactEmail: payload.contactEmail === undefined ? existing.contactEmail ?? null : input.contactEmail,
@@ -780,9 +784,10 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
     input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id, existing.updatedAt,
   );
-  const row = unifiedEditFields
+  const row = unifiedEditFields||reviewOnSave
     ? await commitEventAdminEdit<EventRow>(database, statement, {
-      id, expectedRevision: existing.updatedAt, nextRevision: now, editor: editorEmail, fields: unifiedEditFields,
+      id, expectedRevision: existing.updatedAt, nextRevision: now, editor: editorEmail, fields: unifiedEditFields??[],
+      companionStatements:reviewOnSave?reviewOnSaveStatements(database,{type:"EVENT",id,revision:now,actor:editorEmail}):[],
     })
     : await statement.first<EventRow>();
   if (!row) throw new EventWriteConflictError();
@@ -807,11 +812,13 @@ export function isEventSlugConflict(error: unknown) {
 
 export async function bulkUpdateEventStatus(input: unknown, editorEmail: string) {
   const { events, field, value } = validateBulkEvents(input);
+  if(field==="status"&&value==="published")await assertBulkPublicationIdentities(requireD1Binding(),"events",events.map(event=>event.id));
   const now = new Date().toISOString();
   const statusValue = field === "status" ? String(value) : "";
   const eventTypeValue = field === "eventType" ? String(value) : "";
   const cancelledValue = field === "cancelled" && value === true ? 1 : 0;
-  const result = await requireD1Binding().prepare(bulkEventUpdateSql)
+  const db=requireD1Binding();
+  const statement=db.prepare(bulkEventUpdateSql)
     .bind(
       JSON.stringify(events),
       field, statusValue,
@@ -820,7 +827,8 @@ export async function bulkUpdateEventStatus(input: unknown, editorEmail: string)
       now, editorEmail,
       field, statusValue, now,
       events.length,
-    ).all<{ id: number }>();
+    );
+  const result=publicationV3Enabled()&&field==="status"?(await db.batch<{id:number}>([statement,bulkPublicationGuardStatement(db,"events",events.map(event=>event.id),value==="published",now)]))[0]:await statement.all<{id:number}>();
   if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
   if (field === "status" || field === "cancelled") {
     const database = requireD1Binding();

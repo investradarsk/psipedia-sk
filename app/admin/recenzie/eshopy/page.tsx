@@ -1,3 +1,4 @@
+import { publicationV3Enabled } from "@/lib/publication-readiness-v3";
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminEshopNotionSyncButton } from "@/components/admin-eshop-notion-sync-button";
@@ -19,7 +20,7 @@ export default async function AdminEshopsPage() {
       description="Samostatné profily e-shopov a ich overené používateľské hodnotenia. Externé skóre sa do priemeru Psipedia nezapočítava."
       actions={<><AdminEshopNotionSyncButton /><Link className="admin-primary-action" href="/recenzie?typ=eshopy" target="_blank">Verejné e-shopy ↗</Link></>}
     >
-      <AdminEshopTable shops={shops} />
+      <AdminEshopTable shops={shops} bulkStatusEnabled={publicationV3Enabled()} />
     </AdminShell>
   );
 }

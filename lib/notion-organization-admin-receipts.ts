@@ -38,7 +38,7 @@ export function nextOrganizationEditRevision(previous: string, now: Date) {
  * This creates no remote mutation and never claims evidence from a webhook. */
 export async function commitOrganizationAdminEdit(
   database: AdoptionD1Database, statement: AdoptionD1Statement,
-  input: { id: number; expectedRevision: string; nextRevision: string; editor: string; locationMutation?: boolean },
+  input: { id: number; expectedRevision: string; nextRevision: string; editor: string; locationMutation?: boolean; companionStatements?:readonly D1PreparedStatement[] },
 ): Promise<unknown> {
   const db = database as unknown as D1Database;
   const editId = crypto.randomUUID();
@@ -73,6 +73,7 @@ export async function commitOrganizationAdminEdit(
     db.prepare(input.locationMutation
       ? "SELECT CASE WHEN changes()>0 THEN 1 ELSE json_extract('ORGANIZATION_V2_LOCATION_CAS_FAILED','$') END"
       : "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('ORGANIZATION_V2_ADMIN_CAS_FAILED','$') END"),
+    ...(input.companionStatements??[]),
     after, db.prepare("DELETE FROM notion_help_admin_edit_intent WHERE edit_id=?").bind(editId),
   ]);
   if (results.some(result => !result.success)) throw Error("ORGANIZATION_V2_ADMIN_TRANSACTION_FAILED");

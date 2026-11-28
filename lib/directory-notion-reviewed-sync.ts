@@ -1,3 +1,4 @@
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "./notion-directory-update-safety";
 import {
@@ -129,7 +130,8 @@ export async function syncDirectoryReviewedWithNotion(input: {
   if (input.ownerUnlock && (Number(state.unlock_pending) !== 1 || Boolean(state.reviewed_at?.trim()))) {
     throw new Error("DIRECTORY_OWNER_UNLOCK_NOT_PENDING");
   }
-  const adminReviewed = Boolean(state.reviewed_at?.trim());
+  const staged=input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  const adminReviewed = staged?await directoryProfileNotionSyncLocked(input.database,input.profileId):Boolean(state.reviewed_at?.trim());
   const page = input.page ?? await fetchReviewPage(input.bindings, mapping.notion_page_id);
   verifyReviewPage({
     page, pageId: mapping.notion_page_id, profileId: input.profileId, sourceId,
@@ -145,7 +147,7 @@ export async function syncDirectoryReviewedWithNotion(input: {
   const current = await loadReviewRow(input.database, input.profileId);
   if (!current || current.status === "archived" ||
       (Number(current.unlock_pending) === 1 && !input.ownerUnlock) ||
-      !sameReviewRevision(state, current)) {
+      !sameReviewRevision(state, current) || (staged&&await directoryProfileNotionSyncLocked(input.database,input.profileId)!==adminReviewed)) {
     throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
   }
 

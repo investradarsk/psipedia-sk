@@ -1,3 +1,4 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
@@ -69,7 +70,10 @@ export async function PUT(request: Request, { params }: Context) {
   }
 
   try {
-    let input = await request.json() as ManagedDogReportInput & {expectedUpdatedAt?:unknown};
+    let input = await request.json() as ManagedDogReportInput & {expectedUpdatedAt?:unknown;reviewOnSave?:unknown};
+    const authority=(env as unknown as TargetedNotionSaveBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    const reviewOnSave=authority&&input.reviewOnSave===true;
+    if(reviewOnSave&&!unifiedLostFoundEnabled())return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
     const existing = await getAdminDogReport(numericId);
     if (!existing) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
     if (unifiedLostFoundEnabled() && (typeof input.expectedUpdatedAt !== "string" || input.expectedUpdatedAt !== existing.updatedAt)) {
@@ -115,6 +119,7 @@ export async function PUT(request: Request, { params }: Context) {
       input.gallery === undefined ? { ...input, gallery: existing.gallery } : input,
       auth.user.email,
       unifiedLostFoundEnabled()?existing.updatedAt:undefined,
+      reviewOnSave,
     );
 
     if (isPublicSubmission && nextStatus !== existing.status) {
@@ -127,7 +132,7 @@ export async function PUT(request: Request, { params }: Context) {
 
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"lost-found",numericId,report.status);
-    return Response.json({ report, notionFieldSync }, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ report, notionFieldSync, ...(authority?{review:await getAdminEntityReview("LOST_FOUND",numericId).catch(()=>null)}:{}) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Hlásenie sa nepodarilo uložiť.";
     return Response.json(

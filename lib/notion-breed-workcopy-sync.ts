@@ -1,3 +1,11 @@
+import { rotateNotionDiscovery } from "./notion-discovery-cursor.ts";
+import { prepareBreedMediaProofs, logicalBreedMediaValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { validateBreedStructuredValue } from "./notion-breed-structured-authority.mjs";
+import { importNewBreedWorkCopy } from "./notion-breed-inbound-import.ts";
+import { ensureFirstProfileNotionCopy } from "./notion-profile-first-create.ts";
+import { BREED_WORKCOPY_EDITORIAL_PROPERTIES } from "./breed-notion-workcopy-field-contract.mjs";
+import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
+import { breedWorkcopyPhysicalProperty } from "./breed-notion-workcopy-field-contract.mjs";
 import { isLegacyBreedDuplicate } from "./notion-breed-legacy-duplicates.mjs";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
@@ -9,7 +17,7 @@ import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
  * source. A signed Notion page with an ACTIVE link and matching numeric
  * Psipedia ID is enough for independent field updates.
  *
- * No creation or deletion of breeds, no changes to canonical publication.
+ * Ordinary mapped field sync never creates or deletes breeds or changes publication.\n * The staged new-page importer is a separate verified draft-only entrypoint.
  * Real FCI, media and structured fields are editable with type-safe storage;
  * invalid siblings never lock otherwise valid fields.
  */
@@ -29,10 +37,10 @@ import {
   type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
 import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-delta";
-import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
+import { planBreedWorkCopyFieldWrite, encodeBreedWorkCopyCreateProperty } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
-import { receiveBreedControlledNotionEdit } from "@/lib/notion-breed-workcopy-controlled";
+import { receiveBreedControlledNotionEdit, readReviewedBreedControlledProjection, readNewBreedControlledProjection } from "@/lib/notion-breed-workcopy-controlled";
 import { breedWorkcopyEventValues } from "@/lib/notion-breed-workcopy-field-values.mjs";
 import { saveBreedNotionField } from "@/lib/notion-breed-workcopy-direct-field";
 import {
@@ -48,11 +56,11 @@ export type BreedWorkCopyBindings = NotionSyncBindings & {
 };
 
 type ShadowLink = {
-  breed_id: number; original_notion_page_id: string;
+  breed_id: number; original_notion_page_id: string|null;
   work_notion_page_id: string;
-  original_data_source_id: string; work_data_source_id: string;
-  canonical_slug: string; fci_number: number;
-  status: string; work_sync_receipt: string | null;
+  original_data_source_id: string|null; work_data_source_id: string;
+  canonical_slug: string; fci_number: number|null;
+  status: string; work_sync_receipt: string | null; work_last_error_code?:string|null;
 };
 type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
 const skippedSpecial = new Set<string>([
@@ -64,6 +72,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const normalized = (id: string) => id.replaceAll("-", "").toLowerCase();
 
 function requireWorkCopyOnly(bindings: BreedWorkCopyBindings) {
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
   if (!notionFlagEnabled(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED))
     return false;
   if (notionFlagEnabled(bindings.NOTION_BREED_SYNC_ENABLED))
@@ -109,6 +118,7 @@ function assertOwnedPage(
   bindings: BreedWorkCopyBindings,
 ) {
   const source = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!;
+  if(link.work_last_error_code==="INBOUND_ID_PENDING")throw Error("BREED_INBOUND_ID_PENDING");
   // Page/source ownership prevents cross-database writes. The ONLY breed
   // matching key is the immutable Admin / Psipedia numeric ID. Every other
   // Notion value (including name, FCI, slug-adjacent text and provenance) is
@@ -124,7 +134,7 @@ function assertOwnedPage(
 async function getActiveLink(database: D1Database, breedId: number) {
   return database.prepare(
     "SELECT * FROM breed_notion_workcopy_links "+
-    "WHERE breed_id=? AND status='ACTIVE' LIMIT 1",
+    "WHERE breed_id=? AND status='ACTIVE' AND COALESCE(work_last_error_code,'')<>'INBOUND_ID_PENDING' LIMIT 1",
   ).bind(breedId).first<ShadowLink>();
 }
 
@@ -165,12 +175,26 @@ async function observeUnifiedBreedField(database: D1Database, bindings: BreedWor
     throw Error("BREED_UNIFIED_REVISION_CHANGED");
   const parsed = breedWorkcopyEventValues(page, Object.keys(page.properties ?? {}), BREED_NOTION_SCHEMA, true);
   const remote = parsed.values.find(item => item.field === field);
+  const stagedMedia=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&remote&&(field==="image"||field==="gallery");
+  if(stagedMedia&&!validateBreedStructuredValue(field,remote.value))throw Error("BREED_MEDIA_REVIEW_REQUIRED");
   const snapshot = breedFieldSnapshot(after) as Record<string, unknown>;
   const value = field === "fciNumber" ? after.fciNumber : snapshot[field];
-  return { page, revision: after.updatedAt, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const listColumns:Record<string,string>={gallery:"gallery_json",sports:"sports_json",sources:"sources_json",healthRisks:"health_risks_json",goodFor:"good_for_json",consider:"consider_json"};
+    const column=listColumns[field];
+    if(column){
+      const cell=await database.prepare("SELECT "+column+" AS value FROM managed_breeds WHERE id=? AND updated_at=?")
+        .bind(after.id,after.updatedAt).first<{value:string}>();
+      if(!cell||typeof cell.value!=="string"||!same(JSON.parse(cell.value),value))
+        throw Error("BREED_STRUCTURED_CANONICAL_UNKNOWN");
+    }
+  }
+  const logical=stagedMedia?await logicalBreedMediaValue(field as "image"|"gallery",value,after.imageKey,remote.value,bindings.BUCKET):value;
+  if(stagedMedia&&(await getManagedBreed(link.breed_id))?.updatedAt!==after.updatedAt)throw Error("BREED_UNIFIED_REVISION_CHANGED");
+  return { page, revision: after.updatedAt, physicalValue:value, snapshot: {...snapshot,workingTrial:after.workingTrial,validStandardDate:after.validStandardDate}, 
     notionSiblings:Object.fromEntries(parsed.values.map(item=>[item.field,item.value])),
     notion: breedWorkcopyObservation(remote?.value, !!remote),
-    psipedia: breedWorkcopyObservation(value, field === "fciNumber" || Object.hasOwn(snapshot, field)),
+    psipedia: breedWorkcopyObservation(logical, field === "fciNumber" || Object.hasOwn(snapshot, field)),
   };
 }
 
@@ -181,7 +205,8 @@ async function reserveBreedField(database: D1Database, bindings: BreedWorkCopyBi
   const identity = { agenda: "breeds" as const, entityId: String(link.breed_id),
     pageId: link.work_notion_page_id, field };
   const receipt = await readUnifiedAdminEdit(database, identity, observed.revision);
-  const reservation = await reserveUnifiedField({ database, identity, historicalBaseline: null,
+  const reservation = await reserveUnifiedField({ database, identity, authorityBindings: bindings,
+    authorityProperty: observed.page.properties?.[breedWorkcopyPhysicalProperty(BREED_NOTION_SCHEMA.find(entry=>entry.id===field)?.notion) ?? ""], historicalBaseline: null,
     notion: observed.notion, psipedia: observed.psipedia, psipediaEdit: receipt, direction });
   return { ...observed, reservation };
 }
@@ -199,12 +224,63 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     throw Error("BREED_WORKCOPY_MANUAL_SCOPE_INVALID");
   const summary={
     enabled:notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
-    scanned:0,notionScanned:0,created:0,updated:0,unchanged:0,failed:0,
+    scanned:0,notionScanned:0,created:0,updated:0,unchanged:0,failed:0,reviewRequired:0,
   };
   if (!requireWorkCopyOnly(args.bindings)) return summary;
   // Never reconcile 344 records from a stale hash or rewrite an entire profile.
   // Only the signed edited property IDs, or explicit one-profile import, apply.
-  if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length))
+  if (!args.targetPageId && args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const candidates=await args.database.prepare("SELECT p.id FROM managed_breeds p WHERE p.status<>'archived' "+
+      "AND NOT EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=p.id) "+
+      "AND NOT EXISTS(SELECT 1 FROM breed_notion_sync WHERE breed_id=p.id) "+
+      "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=p.id) "+
+      "AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda='breeds' AND entity_id=CAST(p.id AS TEXT)) "+
+      "ORDER BY p.id LIMIT 3").all<{id:number}>();
+    for(const row of candidates.results??[]){
+      summary.scanned++;
+      try{
+        const result=await createNewBreedWorkCopy({database:args.database,bindings:args.bindings,entityId:row.id});
+        if(result.created)summary.created++;else summary.unchanged++;
+      }catch(error){
+        summary.failed++;
+        console.warn("BREED_FIRST_COPY_PENDING",{id:row.id,code:error instanceof Error?error.message:"UNKNOWN"});
+      }
+    }
+    // The work-copy source also needs a backup when a new-page webhook
+    // never arrives. Existing mapped editorial fields are handled by V2
+    // recovery, not a fabricated property-change event.
+    try{
+      const sourceId=args.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!;
+      const pages=await rotateNotionDiscovery({
+        database:args.database,bindings:args.bindings,agenda:"breeds",sourceId,limit:3,
+        filter:{property:"Psipedia ID",rich_text:{is_empty:true}},
+      });
+      const pending=await args.database.prepare("SELECT work_notion_page_id AS page FROM breed_notion_workcopy_links "+
+        "WHERE status='ACTIVE' AND work_last_error_code='INBOUND_ID_PENDING' AND "+
+        "replace(lower(work_data_source_id),'-','')=replace(lower(?),'-','') ORDER BY updated_at LIMIT 2")
+        .bind(sourceId).all<{page:string}>();
+      const ids=new Map<string,string>();
+      for(const page of pages)ids.set(normalized(page.id),page.id);
+      for(const row of pending.results??[])ids.set(normalized(row.page),row.page);
+      for(const pageId of ids.values()){
+        summary.scanned++;summary.notionScanned++;
+        try{
+          const result=await importNewBreedWorkCopy({database:args.database,bindings:args.bindings,pageId,sourceId});
+          if(result==="created")summary.created++;
+          else if(result==="review-required")summary.reviewRequired++;
+          else summary.unchanged++;
+        }catch{
+          summary.failed++;
+          console.warn("BREED_DISCOVERY_IMPORT_FAILED");
+        }
+      }
+    }catch{
+      summary.failed++;
+      console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"breeds"});
+    }
+    return summary;
+  }
+  if (!args.targetPageId || (args.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"&&!args.manualImport && !args.changedPropertyIds?.length))
     return summary;
   const result=await args.database.prepare(
     // Notion sends dashed UUIDs; historical ACTIVE links store compact UUIDs.
@@ -212,7 +288,15 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     "SELECT * FROM breed_notion_workcopy_links WHERE status='ACTIVE' "+
     "AND replace(lower(work_notion_page_id),'-','')=? LIMIT 1",
   ).bind(normalized(args.targetPageId)).all<ShadowLink>();
+  if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!args.manualImport&&(!result.results.length||result.results[0].work_last_error_code==="INBOUND_ID_PENDING")){
+    const outcome=await importNewBreedWorkCopy({database:args.database,bindings:args.bindings,pageId:args.targetPageId,sourceId:args.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!});
+    if(outcome==="not-ready")return summary;
+    summary.scanned++;summary.notionScanned++;
+    if(outcome==="created")summary.created++;else if(outcome==="review-required")summary.reviewRequired++;else summary.unchanged++;
+    return summary;
+  }
   for (const link of result.results) {
+    if(link.work_last_error_code==="INBOUND_ID_PENDING"){summary.reviewRequired++;summary.scanned++;summary.notionScanned++;continue;}
     if (await notionPageIsTombstoned(args.database,link.work_notion_page_id)) {
       summary.unchanged++; continue;
     }
@@ -226,6 +310,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       const page=await notionRequest<NotionPage>(args.bindings,
         "/pages/"+encodeURIComponent(link.work_notion_page_id));
       assertOwnedPage(page,link,breed,args.bindings);
+      if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await mirrorStandaloneReviewFlag({database:args.database,bindings:args.bindings,agenda:"breeds",id:breed.id,pageId:link.work_notion_page_id,sourceId:args.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!});
+        if(await readStandaloneReviewLock(args.database,"breeds",breed.id)){summary.unchanged++;continue;}
+        if(args.manualImport)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
+      }
       const edited=args.manualImport
         ?Object.keys(page.properties??{}) : [...(args.changedPropertyIds??[])];
       try {
@@ -251,10 +340,19 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
           const pilot = unifiedBreedEnabled(args.bindings) && !args.manualImport
             ? await reserveBreedField(args.database, args.bindings, link, field.field, "pull") : null;
           if (pilot && !pilot.reservation) continue;
+          let mediaProofs:VerifiedProfileMedia[]|undefined;
+          if(pilot?.reservation){
+            if(pilot.reservation.profileAuthority){
+              if(field.field==="image"||field.field==="gallery")mediaProofs=await prepareBreedMediaProofs(field.field,pilot.reservation.value,pilot.physicalValue,args.bindings);
+              const fresh=await observeUnifiedBreedField(args.database,args.bindings,link,field.field);
+              if(fresh.revision!==pilot.revision||fresh.page.last_edited_time!==pilot.page.last_edited_time||!same(fresh.notion,pilot.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
+            }
+            await assertUnifiedReservationCurrent(args.database,pilot.reservation);
+          }
           const saved=await saveBreedNotionField({
             database:args.database,breedId:link.breed_id,
             field:field.field,value:pilot?.reservation ? pilot.reservation.value : field.value,
-            expectedRevision: pilot?.revision,
+            expectedRevision: pilot?.revision, authorityReservation:pilot?.reservation??undefined,mediaProofs,
           });
           if (pilot?.reservation) {
             const fresh = await observeUnifiedBreedField(args.database, args.bindings, link, field.field);
@@ -321,6 +419,10 @@ export async function writeBackBreedToWorkCopy(input: {
     throw Error("BREED_WORKCOPY_ADMIN_ID_MISMATCH");
   const link = await getActiveLink(input.database, input.breed.id);
   if (!link) return { linked:false, updated:false, reason:"not-linked" as const };
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"breeds",id:input.breed.id,pageId:link.work_notion_page_id,sourceId:input.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!});
+    return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
+  }
   const receipt = readReceipt(link.work_sync_receipt, input.before);
   const actualAdmin = breedFieldSnapshot(input.breed);
   const beforeAdmin = breedFieldSnapshot(input.before);
@@ -553,13 +655,14 @@ export async function recoverBreedV2Field(database:D1Database,bindings:BreedWork
   const link=await getActiveLink(database,id);
   if(!link||link.work_notion_page_id!==pageId)throw Error("BREED_V2_RECOVERY_SCOPE");
   if(!BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField)&&field!=="fciNumber")throw Error("BREED_V2_RECOVERY_SCOPE");
-  if(direction==="observe"&&await repairLegacyBreedDuplicate(database,bindings,link,field))return;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"&&direction==="observe"&&await repairLegacyBreedDuplicate(database,bindings,link,field))return;
   const planned=await reserveBreedField(database,bindings,link,field,direction);
   if(direction==="pull"&&planned.reservation){
+    const mediaProofs=planned.reservation.profileAuthority&&(field==="image"||field==="gallery")?await prepareBreedMediaProofs(field,planned.reservation.value,planned.physicalValue,bindings):undefined;
     const fresh=await observeUnifiedBreedField(database,bindings,link,field);
-    if(fresh.revision!==planned.revision||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
+    if(fresh.revision!==planned.revision||fresh.page.last_edited_time!==planned.page.last_edited_time||JSON.stringify(fresh.notion)!==JSON.stringify(planned.notion))throw Error("BREED_UNIFIED_REVISION_CHANGED");
     await assertUnifiedReservationCurrent(database,planned.reservation);
-    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision});
+    await saveBreedNotionField({database,breedId:id,field,value:planned.reservation.value,expectedRevision:planned.revision,authorityReservation:planned.reservation,mediaProofs});
     const verified=await observeUnifiedBreedField(database,bindings,link,field);
     await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
   }
@@ -575,4 +678,71 @@ export async function retryBreedV2AdminField(database:D1Database,bindings:BreedW
   if(!link||link.work_notion_page_id!==pageId||!breed||!isUnifiedBreedEditorialField(field))throw Error("BREED_V2_RETRY_SCOPE");
   const result=await writeBackBreedToWorkCopy({database,bindings,before:breed,breed,retryFieldKeys:[field]});
   return Boolean(result.linked&&result.acknowledgedFields?.includes(field));
+}
+
+
+export async function unlockReviewedBreed(input:{database:D1Database;bindings:BreedWorkCopyBindings;entityId:number}){
+  if(!requireWorkCopyOnly(input.bindings))throw Error("BREED_REVIEW_SYNC_DISABLED");
+  await unlockStandaloneReviewedProfile({database:input.database,bindings:input.bindings,agenda:"breeds",
+    id:input.entityId,sourceId:input.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!,
+    async projection(page){
+      const breed=await getManagedBreed(input.entityId);
+      if(!breed)throw Error("BREED_CANONICAL_MISSING");
+      const snapshot=breedFieldSnapshot(breed) as Record<string,unknown>;
+      const desired:Record<string,unknown>={};
+      for(const field of BREED_NOTION_EDITABLE_FIELDS){
+        const entry=BREED_NOTION_SCHEMA.find(spec=>spec.id===field&&spec.mode==="content");
+        const physical=breedWorkcopyPhysicalProperty(entry?.notion);
+        if(!physical||skippedSpecial.has(field))continue;
+        if(!Object.hasOwn(snapshot,field)||Object.hasOwn(desired,physical))throw Error("BREED_REVIEW_MAPPING_INCOMPLETE");
+        const plan=planBreedWorkCopyFieldWrite({schema:BREED_NOTION_SCHEMA,page,fieldId:field,
+          value:snapshot[field],baseline:undefined,allowCurrentRemote:true,expectedPageRevision:page.last_edited_time});
+        desired[physical]=plan.desiredProperty;
+      }
+      const controlled=await readReviewedBreedControlledProjection(input.database,input.entityId);
+      if(Object.keys(controlled).some(name=>Object.hasOwn(desired,name)))throw Error("BREED_REVIEW_DUPLICATE_MAPPING");
+      Object.assign(desired,controlled);
+      // FCI number has an explicit separate canonical projection.
+      desired["FCI číslo"]={number:breed.fciNumber??null};
+      if((await getManagedBreed(input.entityId))?.updatedAt!==breed.updatedAt)throw Error("BREED_REVIEW_REVISION_CHANGED");
+      return {revision:breed.updatedAt,desired};
+    }
+  });
+}
+
+
+/** New canonical breeds have no historical original. Reuse the eight-agenda
+ * first-create engine; the work-only migration is a mandatory preflight. */
+export async function createNewBreedWorkCopy(input:{database:D1Database;bindings:BreedWorkCopyBindings;entityId:number}){
+  if(!requireWorkCopyOnly(input.bindings)||input.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")
+    throw Error("BREED_FIRST_COPY_DISABLED");
+  return ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda:"breeds",
+    id:input.entityId,sourceId:input.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!,
+    async snapshot(schema){
+      const breed=await getManagedBreed(input.entityId);
+      if(!breed)throw Error("BREED_CANONICAL_MISSING");
+      const values=breedFieldSnapshot(breed);
+      const properties:Record<string,unknown>={};
+      for(const field of BREED_NOTION_EDITABLE_FIELDS){
+        const entry=BREED_NOTION_SCHEMA.find(spec=>spec.id===field&&spec.mode==="content");
+        const physical=breedWorkcopyPhysicalProperty(entry?.notion);
+        if(!physical||skippedSpecial.has(field))continue;
+        if(!Object.hasOwn(values,field)||Object.hasOwn(properties,physical))throw Error("BREED_FIRST_COPY_MAPPING_INCOMPLETE");
+        const cell=encodeBreedWorkCopyCreateProperty({schema:BREED_NOTION_SCHEMA,properties:schema,fieldId:field,value:values[field]});
+        properties[cell.property]=cell.desiredProperty;
+      }
+      if(BREED_WORKCOPY_EDITORIAL_PROPERTIES.some(name=>!Object.hasOwn(properties,name)))
+        throw Error("BREED_FIRST_COPY_MAPPING_INCOMPLETE");
+      const controlled=await readNewBreedControlledProjection(input.database,input.entityId);
+      if(Object.keys(controlled.properties).some(name=>Object.hasOwn(properties,name)))throw Error("BREED_FIRST_COPY_DUPLICATE_MAPPING");
+      Object.assign(properties,controlled.properties);
+      properties["Psipedia ID"]={rich_text:[{text:{content:String(breed.id)}}]};
+      properties["URL profil / slug"]={rich_text:[{text:{content:breed.slug}}]};
+      properties["FCI číslo"]={number:breed.fciNumber??null};
+      const review=await input.database.prepare("SELECT 1 AS reviewed FROM admin_entity_reviews WHERE entity_type='BREED' AND entity_id=?")
+        .bind(breed.id).first<{reviewed:number}>();
+      if((await getManagedBreed(input.entityId))?.updatedAt!==breed.updatedAt)throw Error("BREED_FIRST_COPY_REVISION_CHANGED");
+      return {revision:breed.updatedAt,hash:encodeReceipt({notion:values,admin:values}),properties,
+        reviewed:!!review,breedControlledValues:controlled.values};
+    }});
 }

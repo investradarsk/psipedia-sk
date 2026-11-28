@@ -215,7 +215,7 @@ function importHarness(options = {}) {
     definition: { key: "events", load: async () => [source] },
     database: { prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }) }) }) }, bindings: {} };
   const context = { input, summary, sources: [], sourcesById: new Map(), schema: {},
-    trustedGemini: !options.ownerLegacy, operatorLegacy: Boolean(options.ownerLegacy),
+    staged: false, trustedGemini: !options.ownerLegacy, operatorLegacy: Boolean(options.ownerLegacy),
     privateImport: true, values: { "Názov": "Offline", "Slug": "offline" }, target: { dataSourceId: "ds" },
     acquireGeminiNotionLock: async (_db, id) => {
       if (held.has(id)) return null;
@@ -242,7 +242,7 @@ function importHarness(options = {}) {
     // real Events/Help reconciler. The fake snapshot hash is fixed at "hash".
     requireVerifiedMappedNotionWriteback: ({ written, expectedPageId, expectedHash }) =>
       requireNotionWritebackEvidence(written, expectedPageId, expectedHash, async () => "hash"),
-    logFailure: () => { summary.failed++; }, patchPage: async () => {}, encodeProperties: v => v,
+    logFailure: (_summary, details) => { summary.failed++; if(details?.error instanceof ReferenceError) throw details.error; }, patchPage: async () => {}, encodeProperties: v => v,
   };
   runInNewContext(criticalJs, context);
   return { held, released, operations, summary, run: context.runImport };

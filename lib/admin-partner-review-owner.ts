@@ -7,6 +7,7 @@ export async function getAdminReviewPartnerOwner(input:{
 }):Promise<null|{accountId:string;email:string;grantedAt:string;accountStatus:string}>{
   const {database,type,entityId,encryptionKey}=input;
   if(!Number.isSafeInteger(entityId)||entityId<1)throw Error("ADMIN_REVIEW_INVALID_ID");
+  if(type==="BREED"||type==="ESHOP")return null;
   const help=({ADOPTION:"adoption_dog_id",LOST_FOUND:"lost_found_report_id",HELP_CASE:"help_case_id"} as const);
   const canonical=({EVENT:"managed_event_id",ORGANIZATION:"help_organization_id"} as const);
   type OwnerRow={accountId:string;emailCiphertext:string;grantedAt:string;accountStatus:string};

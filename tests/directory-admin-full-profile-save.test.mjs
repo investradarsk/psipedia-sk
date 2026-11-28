@@ -87,8 +87,10 @@ test("Editor and server use the explicit full-form contract, not only dirty path
   assert.match(editor, /expectedUpdatedAt: breederBaseline\?\.updatedAt/);
   assert.match(route, /validateDirectoryFullProfileSave\(\{/);
   assert.match(route, /const fieldPreserved = !fullProfileSave && editedPaths/);
-  assert.match(route, /const safeOptionalFields = fullProfileSave/);
-  assert.match(route, /const confirmContactSync = \(fullProfileSave \|\| rawConfirmContactSync === true\)/);
+  assert.match(route, /const safeOptionalFields = preserveUntouchedDirectoryContacts/);
+  assert.match(route, /const confirmContactSync = rawConfirmContactSync === true/);
+  assert.match(route, /fullContactPaths = scoped\.editedPaths/);
+  assert.match(route, /fullProfileSave \? fullContactPaths : editedPaths \?\? \[\]/);
   assert.match(route, /directoryContactValueMismatches\(expectedContactValues/);
   assert.match(route, /directoryContactValueMismatches\(expectedContactValues/);
 });

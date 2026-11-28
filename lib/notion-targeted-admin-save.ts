@@ -63,6 +63,7 @@ export async function syncSavedNotionRecord(input: {
   beforeEshop?: ManagedEshop | null;
 }): Promise<TargetedNotionSaveStatus> {
   const { bindings, agenda, entityId } = input;
+  if (bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") return "disabled";
   if (bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
   if (!Number.isSafeInteger(entityId) || entityId <= 0) return "unlinked";
   if (!bindings.DB) return "pending";

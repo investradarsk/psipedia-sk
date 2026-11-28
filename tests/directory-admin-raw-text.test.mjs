@@ -142,7 +142,7 @@ test("literal xxx survives D1 contact encoding for every directory category", ()
   }
 });
 
-test("saving Contacts re-confirms all five D1 text values in Notion, including an unchanged xxx", () => {
+test("saving Contacts re-confirms non-empty D1 text values in Notion, including an unchanged xxx", () => {
   assert.deepEqual([...DIRECTORY_CONTACT_EDITORIAL_PATHS], [
     "websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl",
   ]);
@@ -152,9 +152,9 @@ test("saving Contacts re-confirms all five D1 text values in Notion, including a
   assert.match(editor, /currentDirectorySection === "directory-contacts"/);
   assert.match(editor, /confirmContactSync \? \{ confirmContactSync: true \} : \{\}/);
   assert.match(editor, /breederChangedPaths\?\.length \|\| confirmContactSync/);
-  assert.match(route, /\(fullProfileSave \|\| rawConfirmContactSync === true\) && editedPaths !== null/);
+  assert.match(route, /rawConfirmContactSync === true && editedPaths !== null/);
   assert.match(route, /submittedBody\.category === before\.category/);
-  assert.match(route, /\.\.\.\(confirmContactSync \? DIRECTORY_CONTACT_EDITORIAL_PATHS : \[\]\)/);
+  assert.match(route, /confirmContactSync[\s\S]*?DIRECTORY_CONTACT_EDITORIAL_PATHS/);
   assert.match(route, /metadataWarnings\.push\("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený\."/);
   assert.match(notion, /for \(const path of fields\)/);
   assert.match(notion, /adaptDirectoryNotionTextProperties\(desired, page\.properties \?\? \{\}\)/);

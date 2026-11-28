@@ -1,3 +1,7 @@
+import { assertSavedProfilePublicationIdentity, publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
+import { planCombinedOrganizationAddress } from "./organization-location-admin-write.ts";
+import { listOrganizationLocationsAdmin } from "./organization-location-admin-store.ts";
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { env } from "cloudflare:workers";
 import { commitOrganizationAdminEdit, nextOrganizationEditRevision } from "./notion-organization-admin-receipts.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
@@ -150,7 +154,10 @@ export async function updateOrganizationFromAdmin(
   database?: AdoptionD1Database,
   now = new Date(),
   recordUnifiedReceipt = false,
+  reviewOnSave=false,
+  combinedAddress?:unknown,
 ) {
+  if((reviewOnSave||combinedAddress!==undefined)&&!recordUnifiedReceipt)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
   const input: OrganizationAdminInput = parseOrganizationAdminInput(payload);
@@ -163,6 +170,8 @@ export async function updateOrganizationFromAdmin(
   }
   const timestamp = recordUnifiedReceipt ? nextOrganizationEditRevision(expectedUpdatedAt, now) : now.toISOString();
   try {
+    const atomicDb=db as unknown as D1Database;
+    const addressPlan=combinedAddress===undefined?null:await planCombinedOrganizationAddress(atomicDb,id,combinedAddress);
     const statement = db.prepare(`
       UPDATE help_organizations
       SET name = ?, slug = ?, legal_name = ?, registration_number = ?, type = ?,
@@ -183,11 +192,22 @@ export async function updateOrganizationFromAdmin(
     );
     const result = (recordUnifiedReceipt ? await commitOrganizationAdminEdit(db, statement, {
       id, expectedRevision: expectedUpdatedAt, nextRevision: timestamp, editor: editorEmail,
+      companionStatements:[...(reviewOnSave?reviewOnSaveStatements(atomicDb,{type:"ORGANIZATION",id,revision:timestamp,actor:editorEmail}):[]),...(addressPlan?.statements??[])],
     }) : await statement.run()) as RunResult;
     const changes = Number(result.meta?.changes ?? result.changes ?? 0);
     if (changes !== 1) throw new OrganizationConcurrentEditError();
-    return getOrganizationPublicationAdminById(id, db);
+    const item=await getOrganizationPublicationAdminById(id, db);
+    if(!addressPlan||!item)return item;
+    const locations=await listOrganizationLocationsAdmin(id,db);
+    const location=addressPlan.locationId===null?locations[0]:locations.find(row=>row.id===addressPlan.locationId);
+    let addressGeoPending=false;
+    if(location){
+      try{await reconcileGeoAfterSourceMutation({targetType:"ORGANIZATION_LOCATION",targetId:location.id,actorRef:editorEmail,actorType:"ADMIN",expectedGeoRevision:addressPlan.geoRevision},atomicDb);}
+      catch(error){addressGeoPending=true;console.warn("ORGANIZATION_ADDRESS_GEO_PENDING",{id,locationId:location.id,code:error instanceof Error?error.message:"UNKNOWN"});}
+    }else addressGeoPending=true;
+    return {...item,combinedLocation:location??null,addressGeoPending};
   } catch (error) {
+    if(error instanceof Error&&/ORGANIZATION_(?:ADDRESS|V2_ADMIN)_CAS_FAILED|malformed JSON/.test(error.message))throw new OrganizationConcurrentEditError();
     if (isUniqueSlugError(error)) throw new OrganizationSlugConflictError();
     throw error;
   }
@@ -283,47 +303,52 @@ export async function changeOrganizationPublicationFromAdmin(
   if (existing.updatedAt !== expectedUpdatedAt) throw new OrganizationConcurrentEditError();
 
   const updatedAt = now.toISOString();
-  let result: RunResult;
+  let statement:ReturnType<typeof db.prepare>;
 
   if (action === "publish") {
     if (existing.status !== "DRAFT") {
       throw new OrganizationPublicationTransitionError("Publikovať možno iba organizáciu v stave DRAFT.");
     }
     if (!existing.preflight.ready) throw new OrganizationPublicationBlockedError(existing.preflight);
-    result = await db.prepare(`
+    await assertSavedProfilePublicationIdentity(db as unknown as D1Database,"organizations",id);
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'PUBLISHED', published_at = ?, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status = 'DRAFT' AND archived_at IS NULL
-    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt);
   } else if (action === "unpublish") {
     if (existing.status !== "PUBLISHED") {
       throw new OrganizationPublicationTransitionError("Do konceptu možno presunúť iba publikovanú organizáciu.");
     }
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'DRAFT', published_at = NULL, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status = 'PUBLISHED' AND archived_at IS NULL
-    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt);
   } else if (action === "archive") {
     if (existing.status === "ARCHIVED" || existing.archivedAt) {
       throw new OrganizationPublicationTransitionError("Organizácia už je archivovaná.");
     }
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'ARCHIVED', published_at = NULL, archived_at = ?, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status IN ('DRAFT', 'PUBLISHED') AND archived_at IS NULL
-    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt);
   } else {
     if (existing.status !== "ARCHIVED" || !existing.archivedAt) {
       throw new OrganizationPublicationTransitionError("Obnoviť možno iba archivovanú organizáciu.");
     }
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'DRAFT', published_at = NULL, archived_at = NULL, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status = 'ARCHIVED' AND archived_at IS NOT NULL
-    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt);
   }
 
+  const d1=db as unknown as D1Database;
+  const result=(publicationV3Enabled()
+    ?(await d1.batch([statement as unknown as D1PreparedStatement,bulkPublicationGuardStatement(d1,"organizations",[id],action==="publish",updatedAt)]))[0]
+    :await statement.run()) as RunResult;
   const changes = Number(result.meta?.changes ?? result.changes ?? 0);
   if (changes !== 1) throw new OrganizationConcurrentEditError();
   await reconcileOrganizationLocationsGeo(id, editorEmail, db);

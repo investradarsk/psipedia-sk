@@ -40,6 +40,7 @@ const projection = "json_object('name',"+clean("name")+",'websiteUrl',"+clean("w
 
 export function commitEshopV2AdminEdit(database: D1Database, statement: D1PreparedStatement, input: {
   id: number; expectedRevision: string; nextRevision: string; editor: string;
+  companionStatements?:readonly D1PreparedStatement[];
 }) {
   return commitHelpV2AdminEdit(database as unknown as AdoptionD1Database, statement as unknown as AdoptionD1Statement, {
     ...input, agenda: "eshops", table: "managed_eshops", projection,

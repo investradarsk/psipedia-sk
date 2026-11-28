@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminEshopEditor } from "@/components/admin-eshop-editor";
@@ -14,6 +16,7 @@ export default async function AdminEshopEditPage({ params }: { params: Promise<{
   if (!Number.isSafeInteger(id) || id <= 0) notFound();
   const shop = await getManagedEshopById(id);
   if (!shop) notFound();
+  const review=(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?await getAdminEntityReview("ESHOP",id):null;
 
   return (
     <AdminShell
@@ -23,7 +26,7 @@ export default async function AdminEshopEditPage({ params }: { params: Promise<{
       description="Uprav verejný profil, zameranie sortimentu a logo e-shopu."
       actions={<Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>}
     >
-      <AdminEshopEditor shop={shop} />
+      <AdminEshopEditor shop={shop} initialReview={review} />
     </AdminShell>
   );
 }

@@ -18,7 +18,7 @@ function sliceFunction(src, first, next) {
   return src.slice(from, to).replace(/^export /, "");
 }
 const update = sliceFunction(store, "export async function updateManagedArticle(", "/**\n * Calendar-only scheduling adapter:");
-const breedSync = sliceFunction(store, "async function syncArticleBreeds(", "export async function createManagedArticle(");
+const breedSync = sliceFunction(store, "async function syncArticleBreeds(", "/** Reuse the canonical publication validator");
 const routeError = sliceFunction(api, "function updateErrorResponse(", "export async function GET(");
 const routePut = sliceFunction(api, "export async function PUT(", "/**\n * Calendar rescheduling");
 const tick = String.fromCharCode(96);
@@ -94,6 +94,7 @@ function createHarness(status, injectConcurrentWrite = null) {
     // acknowledges the lifecycle guard independently of this isolated DB.
     acknowledgeAdminPublication: async () => {},
     ensureArticleStore: async () => {},
+    publicationV3Enabled: () => false,
     getManagedArticleById: async () => readArticle(),
     normalizeInput: async (payload) => {
       if (pendingWrite) {

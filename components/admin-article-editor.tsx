@@ -64,7 +64,7 @@ const notionStepNames = {
   publication: "Publikovanie v Notione",
   placement: "Sekcia a prepojené plemená v Notione",
   seo: "SEO v Notione",
-  draft: "Obsah konceptu v Notione",
+  draft: "Obsah článku v Notione",
 } as const;
 function followupLabel(receipt: FollowupReceipt) {
   if (receipt.status === "synced") return "Potvrdené";

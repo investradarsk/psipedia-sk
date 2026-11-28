@@ -93,8 +93,9 @@ test("Admin writer invokes the planner only for an explicit submitted category c
   const store=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
   // 0173 uses the same D1 batch for SEO/qualifications. Preserve the
   // 0170 invariant: secondary categories change ONLY when explicitly supplied.
-  assert.match(store,/if \(payload\.additionalCategories !== undefined \|\| editorialMirror\.length > 0 \|\| presentationMirror\.length > 0(?: \|\| receipt\.before\.length > 0)?\)/);
+  assert.match(store,/if \(reviewOnSave \|\| payload\.additionalCategories !== undefined \|\| editorialMirror\.length > 0 \|\| presentationMirror\.length > 0(?: \|\| receipt\.before\.length > 0)?\)/);
   assert.ok(store.includes("const mirror = payload.additionalCategories === undefined ? [] :"));
+  assert.match(store,/canonicalStatement,\s*\.\.\.reviewStatements,/);
   assert.match(store,/planDirectorySecondaryCategorySqlMirror\(/);
   assert.match(store,/database\.batch\(\[/);
   assert.match(store,/const canonicalStatement = buildManagedDirectoryProfileUpdateStatement\(/);

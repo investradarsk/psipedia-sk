@@ -3,6 +3,7 @@
  * Stores their exact values separately from the historical expert prose in
  * managed_breeds. It only uses the existing 344 ACTIVE work-copy links.
  */
+import { readStandaloneReviewLock } from "./notion-reviewed-profile-export.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { breedAdminFieldReceipt } from "./notion-breed-admin-receipts.ts";
@@ -18,7 +19,7 @@ import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership"
 import {
   emptyBreedControlledValues, parseBreedControlledValues,
   readBreedControlledNotionPage, touchedBreedControlledKeys,
-  breedControlledNotionPayload, breedControlledKeys, sameBreedControlledValue,
+  breedControlledNotionPayload, breedControlledKeys, sameBreedControlledValue, BREED_CONTROLLED_FIELDS,
   validateBreedControlledValue,
 } from "@/lib/breed-workcopy-controlled.mjs";
 
@@ -29,7 +30,7 @@ export type ControlledBreedBindings = NotionSyncBindings & {
   BREED_SQL_V2_WRITE_MODE?:string;
   NOTION_UNIFIED_FIELD_SYNC_ENABLED?:string;
 };
-type Link = { breed_id:number; work_notion_page_id:string; canonical_slug:string; fci_number:number; status:string };
+type Link = { breed_id:number; work_notion_page_id:string; canonical_slug:string; fci_number:number|null; status:string };
 type Raw = { breed_id:number; values_json:string; notion_values_json:string; revision:number };
 export type ControlledBreedState = {
   values:Record<string,unknown>; revision:number; pendingKeys:string[];
@@ -40,6 +41,7 @@ const eq=sameBreedControlledValue;
 const keys=new Set<string>(breedControlledKeys);
 
 function requireNewEngine(bindings:ControlledBreedBindings) {
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
   if (!notionFlagEnabled(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED) ||
       notionFlagEnabled(bindings.NOTION_BREED_SYNC_ENABLED))
     throw Error("BREED_CONTROLLED_WORKCOPY_INACTIVE");
@@ -49,7 +51,7 @@ function requireNewEngine(bindings:ControlledBreedBindings) {
 async function activeLink(database:D1Database,id:number):Promise<Link> {
   const link=await database.prepare(
     "SELECT breed_id,work_notion_page_id,canonical_slug,fci_number,status "+
-    "FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE'",
+    "FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' AND COALESCE(work_last_error_code,'')<>'INBOUND_ID_PENDING'",
   ).bind(id).first<Link>();
   if (!link) throw Error("BREED_CONTROLLED_LINK_MISSING");
   return link;
@@ -82,6 +84,7 @@ async function commitControlledShadow(args:{
   incomingNotion:boolean;
   expectedBreedRevision?:string;
   recordAdminReceipts?:boolean;
+  authorityReservation?:import("./notion-unified-field-transfer.ts").FieldReservation;
 }):Promise<void>{
   const breed=await args.database.prepare(
     "SELECT updated_at FROM managed_breeds WHERE id=?"
@@ -101,12 +104,19 @@ async function commitControlledShadow(args:{
   const params=args.incomingNotion?
     [JSON.stringify(args.values),JSON.stringify(args.notion),now,args.breedId,args.row.revision]:
     [JSON.stringify(args.values),now,args.breedId,args.row.revision];
+  const authority=args.incomingNotion&&args.authorityReservation?.profileAuthority===true;
+  const guard=authority?
+    " AND status<>\'archived\' AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=\'BREED\' AND entity_id=managed_breeds.id)"+
+    " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind=\'breeds\' AND record_id=managed_breeds.id)"+
+    " AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=\'breeds\' AND entity_id=CAST(managed_breeds.id AS TEXT))"+
+    " AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links WHERE breed_id=managed_breeds.id AND status=\'ACTIVE\' AND work_notion_page_id=?)"+
+    " AND EXISTS(SELECT 1 FROM notion_unified_field_state WHERE agenda=\'breeds\' AND entity_id=CAST(managed_breeds.id AS TEXT) AND notion_page_id=? AND field_key=? AND version=? AND status=\'PENDING\')":"";
   const statements=[
     args.database.prepare(sql).bind(...params),
     breedSqlV2CasGuard(args.database),
     args.database.prepare(
-      "UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=?"
-    ).bind(next,args.breedId,breed.updated_at),
+      "UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=?"+guard
+    ).bind(next,args.breedId,breed.updated_at,...(authority?[args.authorityReservation!.identity.pageId,args.authorityReservation!.identity.pageId,args.authorityReservation!.identity.field,args.authorityReservation!.version]:[])),
     breedSqlV2CasGuard(args.database),
     ...breedSqlV2ControlledStatements(args.database,args.breedId,args.changes),
     ...(args.recordAdminReceipts ? Object.entries(args.changes).flatMap(([key,value]) =>
@@ -114,6 +124,39 @@ async function commitControlledShadow(args:{
   ];
   try{await args.database.batch(statements)}
   catch{throw Error("BREED_CONTROLLED_EDIT_CONFLICT")}
+}
+
+/** SQL numeric FCI group and Notion select labels have distinct storage
+ * types. Translate explicitly, never compare a number with its string label. */
+async function canonicalControlledValue(database:D1Database,id:number,key:string):Promise<unknown>{
+  const field=BREED_CONTROLLED_FIELDS.find(item=>item.key===key);
+  if(!field)throw Error("BREED_CONTROLLED_UNKNOWN_FIELD");
+  const sample=key==="fciGroupSelect"?1:field.type==="select"?"":field.type==="multi_select"?[]:null;
+  const route=planBreedSqlV2FieldWrite("controlled."+key,sample);
+  if(!route||!("column" in route))throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
+  const raw=await database.prepare("SELECT "+route.column+" AS value FROM "+route.table+
+    " WHERE "+(route.table==="managed_breeds"?"id":"breed_id")+"=?").bind(id).first<{value:unknown}>();
+  if(!raw)throw Error("BREED_CONTROLLED_CANONICAL_MISSING");
+  let actual=raw.value;
+  if(route.format==="json-array"){
+    if(typeof actual!=="string")throw Error("BREED_CONTROLLED_LIST_UNKNOWN");
+    actual=JSON.parse(actual);
+  }
+  if(key==="fciGroupSelect"&&typeof actual==="number")actual=actual===0?null:String(actual);
+  if(field.type==="select"&&actual==="")actual=null;
+  return validateBreedControlledValue(key,actual);
+}
+
+export async function readNewBreedControlledProjection(database:D1Database,id:number){
+  const values:Record<string,unknown>={},properties:Record<string,unknown>={};
+  for(const key of breedControlledKeys){
+    values[key]=await canonicalControlledValue(database,id,key);
+    Object.assign(properties,breedControlledNotionPayload(key,values[key]));
+  }
+  const shadow=await record(database,id);
+  if(shadow&&!eq(parseBreedControlledValues(shadow.values_json),values))
+    throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
+  return {values,properties};
 }
 
 async function observeControlledV2(database:D1Database,bindings:ControlledBreedBindings,
@@ -129,19 +172,14 @@ async function observeControlledV2(database:D1Database,bindings:ControlledBreedB
   const remote=readBreedControlledNotionPage(page,[key]);
   const remoteValues=remote.values as Record<string,unknown>;
   const shadow=parseBreedControlledValues(row.values_json);
-  const route=planBreedSqlV2FieldWrite("controlled."+key,shadow[key]);
-  if(!route || !("column" in route))throw Error("BREED_CONTROLLED_SQL_OWNER_MISSING");
-  const raw=await database.prepare("SELECT "+route.column+" AS value FROM "+route.table+
-    " WHERE "+(route.table==="managed_breeds"?"id":"breed_id")+"=?").bind(link.breed_id).first<{value:unknown}>();
-  const actual=raw && route.format==="json-array" && typeof raw.value==="string"
-    ? JSON.parse(raw.value) : raw?.value;
+  const actual=await canonicalControlledValue(database,link.breed_id,key);
   const after=await getManagedBreed(link.breed_id);
   const current=await record(database,link.breed_id);
   if(!after || after.updatedAt!==before.updatedAt || current?.revision!==row.revision)
     throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
   // The legacy shadow is only transport metadata. Reject disagreement with
   // the typed canonical owner rather than copying the shadow into SQL.
-  if(!raw || !eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
+  if(!eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
   return {page,row,revision:after.updatedAt,
     notion:remote.errors.length || !Object.hasOwn(remote.values,key)
       ? {present:false as const} : {present:true as const,value:remoteValues[key]},
@@ -155,7 +193,8 @@ async function reserveControlledV2(database:D1Database,bindings:ControlledBreedB
   const identity={agenda:"breeds" as const,entityId:String(link.breed_id),
     pageId:link.work_notion_page_id,field:"controlled."+key};
   const receipt=await readUnifiedAdminEdit(database,identity,observed.revision);
-  const reservation=await reserveUnifiedField({database,identity,historicalBaseline:null,
+  const reservation=await reserveUnifiedField({database,identity,authorityBindings:bindings,
+    authorityProperty:observed.page.properties?.[BREED_CONTROLLED_FIELDS.find(field=>field.key===key)?.notion??""],historicalBaseline:null,
     notion:observed.notion,psipedia:observed.psipedia,psipediaEdit:receipt,direction});
   return {...observed,reservation};
 }
@@ -213,7 +252,7 @@ export async function getBreedControlledState(args:{
   const link=await activeLink(args.database,args.breedId);
   let row=await record(args.database,args.breedId);
   if (!row) {
-    if(args.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true")
+    if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"||args.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true")
       throw Error("BREED_CONTROLLED_V2_BASELINE_UNAVAILABLE");
     const page=await notionRequest<NotionPage>(args.bindings,
       "/pages/"+encodeURIComponent(link.work_notion_page_id));
@@ -233,6 +272,7 @@ export async function receiveBreedControlledNotionEdit(args:{
   page:NotionPage;changedProperties:readonly string[];
 }):Promise<{updated:boolean;invalidKeys:string[]}> {
   requireNewEngine(args.bindings);
+  if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&await readStandaloneReviewLock(args.database,"breeds",args.breedId))return {updated:false,invalidKeys:[]};
   const link=await activeLink(args.database,args.breedId);
   await verifyPage(args.page,link,args.bindings);
   const edited=touchedBreedControlledKeys(args.page,args.changedProperties);
@@ -257,8 +297,13 @@ export async function receiveBreedControlledNotionEdit(args:{
         const value=pilot.reservation.value;
         const values={...parseBreedControlledValues(pilot.row.values_json),[key]:value};
         const notion={...parseBreedControlledValues(pilot.row.notion_values_json),[key]:value};
+        if(pilot.reservation.profileAuthority){
+          const latest=await observeControlledV2(args.database,args.bindings,link,key);
+          if(latest.revision!==pilot.revision||latest.row.revision!==pilot.row.revision||!eq(latest.notion,pilot.notion)||latest.page.last_edited_time!==pilot.page.last_edited_time)throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
+          await assertUnifiedReservationCurrent(args.database,pilot.reservation);
+        }
         await commitControlledShadow({database:args.database,breedId:link.breed_id,row:pilot.row,
-          values,notion,changes:{[key]:value},incomingNotion:true,expectedBreedRevision:pilot.revision});
+          values,notion,changes:{[key]:value},incomingNotion:true,expectedBreedRevision:pilot.revision,authorityReservation:pilot.reservation});
         const fresh=await observeControlledV2(args.database,args.bindings,link,key);
         await confirmUnifiedField(args.database,pilot.reservation,fresh.notion,fresh.psipedia);
         updated=true;
@@ -358,6 +403,7 @@ export async function saveBreedControlledFromAdmin(args:{
       });
     }
   }
+  if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return {...state((await record(args.database,args.breedId))!),rejectedKeys};
   for (const key of [...new Set([...changed,...retry])]) {
     try {
       const pilot=args.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED==="true"
@@ -441,7 +487,7 @@ export async function recoverControlledBreedV2Field(database:D1Database,bindings
     if(fresh.revision!==planned.revision||fresh.row.revision!==planned.row.revision||!eq(fresh.notion,planned.notion))throw Error("BREED_CONTROLLED_V2_REVISION_CHANGED");
     await assertUnifiedReservationCurrent(database,planned.reservation);
     const value=planned.reservation.value;
-    await commitControlledShadow({database,breedId:id,row:planned.row,values:{...parseBreedControlledValues(planned.row.values_json),[key]:value},notion:{...parseBreedControlledValues(planned.row.notion_values_json),[key]:value},changes:{[key]:value},incomingNotion:true,expectedBreedRevision:planned.revision});
+    await commitControlledShadow({database,breedId:id,row:planned.row,values:{...parseBreedControlledValues(planned.row.values_json),[key]:value},notion:{...parseBreedControlledValues(planned.row.notion_values_json),[key]:value},changes:{[key]:value},incomingNotion:true,expectedBreedRevision:planned.revision,authorityReservation:planned.reservation});
     const verified=await observeControlledV2(database,bindings,link,key);
     await confirmUnifiedField(database,planned.reservation,verified.notion,verified.psipedia);
   }
@@ -461,4 +507,67 @@ export async function retryControlledBreedV2AdminField(database:D1Database,bindi
   const values=parseBreedControlledValues(row.values_json);
   // Existing exact controlled revision means this is a retry, not a new edit.
   await saveBreedControlledFromAdmin({database,bindings,breedId:id,expectedRevision:row.revision,changes:{[key]:values[key]}});
+}
+
+
+/** Export the existing SQL-owned controlled cells, never synthesized defaults
+ * or an unverified Notion observation. A stale shadow fails closed. */
+export async function readReviewedBreedControlledProjection(database:D1Database,id:number){
+  const row=await record(database,id);
+  if(!row)throw Error("BREED_CONTROLLED_CANONICAL_MISSING");
+  const shadow=JSON.parse(row.values_json) as Record<string,unknown>;
+  const properties:Record<string,unknown>={};
+  for(const key of breedControlledKeys){
+    if(!Object.hasOwn(shadow,key))throw Error("BREED_CONTROLLED_CANONICAL_INCOMPLETE");
+    const actual=await canonicalControlledValue(database,id,key);
+    if(!eq(actual,shadow[key]))throw Error("BREED_CONTROLLED_SQL_SHADOW_MISMATCH");
+    Object.assign(properties,breedControlledNotionPayload(key,actual));
+  }
+  if((await record(database,id))?.revision!==row.revision)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
+  return properties;
+}
+
+
+/** Prepare the typed portion of the combined Admin save. The caller must
+ * commit these statements with the exact parent CAS, never independently.
+ * Shared canonical aliases are reconciled in one place, not written twice. */
+export async function prepareCombinedBreedControlledEdit(input:{
+  database:D1Database;bindings:ControlledBreedBindings;breedId:number;
+  expectedRevision:unknown;changes:unknown;canonicalPatch:Record<string,unknown>;
+}){
+  requireNewEngine(input.bindings);
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")throw Error("BREED_COMBINED_MODE_DISABLED");
+  if(!input.changes||typeof input.changes!=="object"||Array.isArray(input.changes))throw Error("BREED_CONTROLLED_INPUT_INVALID");
+  const changes={...input.changes} as Record<string,unknown>;
+  const aliases={fciGroupSelect:"fciGroup",fciSectionSelect:"fciSectionNumber",sizeSelect:"size"} as const;
+  const canonicalPatch={...input.canonicalPatch};
+  for(const [key,field] of Object.entries(aliases)){
+    if(Object.hasOwn(canonicalPatch,field)){
+      const raw=canonicalPatch[field];
+      const value=validateBreedControlledValue(key,raw===""||raw===null||(key==="fciGroupSelect"&&raw===0)?null:String(raw));
+      if(Object.hasOwn(changes,key)&&!eq(validateBreedControlledValue(key,changes[key]),value))
+        throw Error("BREED_CONTROLLED_ALIAS_CONFLICT");
+      changes[key]=value;
+    }
+    if(Object.hasOwn(changes,key)){
+      const value=validateBreedControlledValue(key,changes[key]);
+      canonicalPatch[field]=key==="fciGroupSelect"?Number(value):value??"";
+    }
+  }
+  const edited=Object.keys(changes);
+  if(!edited.length)return {canonicalPatch,controlled:null,statements:(_revision:string):D1PreparedStatement[]=>[]};
+  if(!Number.isSafeInteger(input.expectedRevision)||Number(input.expectedRevision)<0)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
+  const row=await record(input.database,input.breedId);
+  if(!row||row.revision!==input.expectedRevision)throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
+  const values=parseBreedControlledValues(row.values_json) as Record<string,unknown>;
+  for(const key of edited)values[key]=validateBreedControlledValue(key,changes[key]);
+  const actualChanges=Object.fromEntries(edited.filter(key=>!Object.hasOwn(aliases,key)).map(key=>[key,values[key]]));
+  const db=input.database,id=input.breedId;
+  const controlled:ControlledBreedState={values,revision:row.revision+1,pendingKeys:[]};
+  return {canonicalPatch,controlled,statements:(revision:string):D1PreparedStatement[]=>[
+    db.prepare("UPDATE breed_notion_controlled_values SET values_json=?,revision=revision+1,updated_at=? WHERE breed_id=? AND revision=?")
+      .bind(JSON.stringify(values),revision,id,row.revision),
+    breedSqlV2CasGuard(db),
+    ...breedSqlV2ControlledStatements(db,id,actualChanges),
+  ]};
 }

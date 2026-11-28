@@ -171,7 +171,9 @@ test("Admin single-field SQL path excludes publication, image upload, relation t
   assert(!breedEventIsDirectField("image"));
   assert(!breedEventIsDirectField("relatedBreedIds"));
   const sql=read("lib/notion-breed-workcopy-direct-field.ts");
-  assert.match(sql,/WHERE id=\? AND updated_at=\? RETURNING id/);
+  assert.match(sql,/WHERE id=\? AND updated_at=\?"\+guard\+" RETURNING id/);
+  assert.match(sql,/NOT EXISTS\(SELECT 1 FROM admin_entity_reviews/);
+  assert.match(sql,/notion_unified_field_state/);
   assert.doesNotMatch(sql,/updateManagedBreed\(/);
   assert.doesNotMatch(sql,/breedRelationStatements/);
 });

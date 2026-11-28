@@ -32,10 +32,9 @@ export async function resolveArticleExplicit(
   ids: readonly number[],
 ): Promise<BulkResolvedRecord[]> {
   if (!ids.length) return [];
-  const placeholders = ids.map(() => "?").join(", ");
   const result = await database.prepare(`SELECT id, status, updated_at
-    FROM managed_articles WHERE id IN (${placeholders}) ORDER BY id`)
-    .bind(...ids).all<{ id: number; status: string; updated_at: string | null }>();
+    FROM managed_articles WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?)) ORDER BY id`)
+    .bind(JSON.stringify(ids)).all<{ id: number; status: string; updated_at: string | null }>();
   return result.results.map((row) => ({
     id: String(row.id),
     status: row.status,

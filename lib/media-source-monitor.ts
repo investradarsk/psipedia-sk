@@ -466,7 +466,7 @@ async function monitorOne(input: {
   if (sourceImageUrl && rejectedUrls.includes(sourceImageUrl)) sourceImageUrl = null;
   const hadTrackedSource = Boolean(sourceImageUrl);
 
-  if (!sourceImageUrl && row.sourcePageUrl) {
+  if (!sourceImageUrl && row.sourcePageUrl && input.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text") {
     try {
       sourceImageUrl = await discoverMediaCandidate(row.sourcePageUrl, {
         entityLabel: context.label,
@@ -693,6 +693,7 @@ async function writeAcceptedSourceBackToNotion(input: {
   sourceImageUrl: string;
 }) {
   if (!input.bindings.NOTION_API_TOKEN?.trim()) return;
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return;
   if (input.row.entityType === "DIRECTORY_PROFILE" &&
       await directoryProfileNotionSyncLocked(input.database, input.row.entityId)) return;
   const mappingTable = input.row.entityType === "MANAGED_EVENT"

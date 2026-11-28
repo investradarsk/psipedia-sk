@@ -43,13 +43,13 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     ).bind(type, id).first<{
       last_checked_at: string | null; source_url: string; canonical_url: string | null;
     }>();
-    if (!check || check.last_checked_at !== checkedAt
+    if (!check || !check.source_url.trim() || check.last_checked_at !== checkedAt
       || check.source_url !== (check.canonical_url ?? "").trim()) {
       throw new HelpSourceDecisionConflict();
     }
 
     if (body.action === "CONFIRM_ACTIVE") {
-      const confirmed = await confirmHelpSourceManually(db, type as HelpSourceEntityType, id);
+      const confirmed = await confirmHelpSourceManually(db, type as HelpSourceEntityType, id, new Date(), checkedAt);
       if (!confirmed) throw new HelpSourceDecisionConflict();
       const notionFieldSync = type === "ADOPTION"
         ? await syncSavedNotionRecord({

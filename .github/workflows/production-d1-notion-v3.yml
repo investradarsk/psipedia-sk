@@ -1,0 +1,95 @@
+name: Production D1 Notion V3 0182-0185 (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit first; apply only after isolated D1 rollback proof
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - rehearse
+          - apply
+      confirmation:
+        description: Exact AUDIT/APPLY confirmation or REHEARSE-0182-0185-psipedia-notion-v3-rehearsal
+        type: string
+        required: true
+      rehearsal_database_id:
+        description: UUID of a new empty D1 named psipedia-notion-v3-rehearsal (rehearse only)
+        type: string
+        required: false
+      audit_fingerprint:
+        description: Schema and ledger fingerprint from successful audit (apply only)
+        type: string
+        required: false
+      writers_paused:
+        description: Confirm all relevant Notion/Admin/Partner writers are quiesced (apply only)
+        type: boolean
+        default: false
+      isolated_d1_evidence:
+        description: Reference to isolated D1 successful migration and rollback proof (apply only)
+        type: string
+        required: false
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      NOTION_V3_MODE: ${{ inputs.mode }}
+      NOTION_V3_CONFIRMATION: ${{ inputs.confirmation }}
+      NOTION_V3_REHEARSAL_DATABASE_ID: ${{ inputs.rehearsal_database_id }}
+      NOTION_V3_AUDIT_FINGERPRINT: ${{ inputs.audit_fingerprint }}
+      NOTION_V3_WRITERS_PAUSED: ${{ inputs.writers_paused }}
+      NOTION_V3_ISOLATED_D1_EVIDENCE: ${{ inputs.isolated_d1_evidence }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require explicit protected main dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        run: |
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Validate numbered migration registry and script syntax
+        run: |
+          npm run db:check-migrations
+          node --check scripts/production-d1-notion-v3.mjs
+      - name: Bind canonical Cloudflare account
+        run: |
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Owner-selected audit or atomic schema import
+        run: node scripts/production-d1-notion-v3.mjs "$NOTION_V3_MODE"
+      - name: Save private migration receipt and recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-notion-v3-${{ github.run_id }}
+          path: .production-d1-notion-v3/report.json
+          if-no-files-found: ignore
+          retention-days: 30

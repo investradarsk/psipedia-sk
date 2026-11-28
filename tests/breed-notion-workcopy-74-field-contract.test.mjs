@@ -29,14 +29,17 @@ test("current 90-column Notion schema exactly matches the declared physical cont
     assert.ok(breedWorkcopyPropertyKind(name),"Unclassified column: "+name);
 });
 
-test("all 12 controlled fields have exactly the live names, types and select options",()=>{
+test("all 12 controlled fields match the captured schema plus the approved Kazakhstan option",()=>{
   assert.equal(BREED_CONTROLLED_FIELDS.length,12);
   const keys=new Set();
   for(const field of BREED_CONTROLLED_FIELDS){
     assert.ok(!keys.has(field.notion),"Duplicate typed field "+field.notion);
     keys.add(field.notion);
     assert.equal(notion[field.notion]?.type,field.type,field.notion);
-    if(field.options)assert.deepEqual(sorted(notion[field.notion].options),sorted(field.options));
+    if(field.options){
+      const expected=field.key==="originCountries"?[...new Set([...notion[field.notion].options,"Kazachstan"])]:notion[field.notion].options;
+      assert.deepEqual(sorted(expected),sorted(field.options));
+    }
   }
   assert.equal(BREED_CONTROLLED_FIELDS.find(x=>x.key==="fciGroupSelect").notion,"FCI skupina");
   assert.equal(BREED_CONTROLLED_FIELDS.find(x=>x.key==="originCountries").notion,"Krajiny pôvodu");
@@ -93,4 +96,97 @@ test("live event parser and Admin writer both use the same direct resolver",()=>
   assert.match(preview,/breedWorkcopyPhysicalProperty\(field.notion\)/);
   assert.doesNotMatch(event,/splitBreedWorkCopyField/);
   assert.doesNotMatch(writer,/splitBreedWorkCopyField|planBreedWorkCopyMergedFieldPatch/);
+});
+
+
+test("new breed properties are encoded against actual schema types without a remote page or baseline",async()=>{
+ const {encodeBreedWorkCopyCreateProperty:encode}=await import("../lib/notion-breed-workcopy-patch-bridge.mjs");
+ const schema=BREED_NOTION_SCHEMA;
+ const properties=Object.fromEntries(Object.entries(notion).map(([name,p])=>[name,{type:p.type==="text"?"rich_text":p.type}]));
+ const title=encode({schema,properties,fieldId:"name",value:"Nové plemeno"});
+ assert.equal(title.property,"Názov plemena");
+ assert.equal(title.desiredProperty.title[0].text.content,"Nové plemeno");
+ const empty=encode({schema,properties,fieldId:"seo.title",value:""});
+ assert.deepEqual(empty.desiredProperty,{rich_text:[]});
+ assert.throws(()=>encode({schema,properties:{},fieldId:"name",value:"Nové plemeno"}),/PROPERTY_TYPE_MISMATCH/);
+ assert.throws(()=>encode({schema,properties,fieldId:"status",value:"published"}),/FIELD_NOT_EDITABLE/);
+ assert.throws(()=>encode({schema,properties,fieldId:"name",value:null}),/TEXT_REQUIRED/);
+});
+
+
+test("a new Notion breed can be an incomplete private draft without fabricated ratings",async()=>{
+  const {readInboundBreedDraft,readInboundBreedIdentity}=await import("../lib/notion-breed-inbound-draft.mjs");
+  const page={properties:Object.fromEntries(Object.entries(notion).map(([name,definition])=>{
+    const type=definition.type==="text"?"rich_text":definition.type;
+    return [name,{type,[type]:["title","rich_text","multi_select"].includes(type)?[]:type==="checkbox"?false:null}];
+  }))};
+  page.properties["Odkontrolované"]={type:"checkbox",checkbox:false};
+  const rich=(value,type="rich_text")=>({type,[type]:[{type:"text",plain_text:value,text:{content:value}}]});
+  page.properties["Názov plemena"]=rich("Nové skúšobné plemeno","title");
+  page.properties["Energia"]={type:"number",number:4};
+  page.properties["Krajiny pôvodu"]={type:"multi_select",multi_select:[{name:"Kazachstan"}]};
+  const draft=readInboundBreedDraft(page,BREED_NOTION_SCHEMA);
+  assert.equal(draft.payload.slug,"nove-skusobne-plemeno");
+  assert.equal(draft.payload.status,"draft");
+  assert.equal(draft.payload.editorialComplete,false);
+  assert.equal(draft.payload.fciNumber,null);
+  assert.equal(draft.payload.fciGroup,0);
+  assert.equal(draft.payload.energy,4);
+  assert.equal(draft.payload.trainability,0);
+  assert.equal(draft.payload.children,0);
+  assert.equal(draft.payload.family,0);
+  assert.equal(draft.controlled.fciGroupSelect,null);
+  assert.deepEqual(draft.controlled.originCountries,["Kazachstan"]);
+  assert.deepEqual(readInboundBreedIdentity(page),{id:"",source:null,reviewed:false});
+  const missing=structuredClone(page);
+  delete missing.properties["Energia"].number;
+  assert.throws(()=>readInboundBreedDraft(missing,BREED_NOTION_SCHEMA),/PROPERTY_MISSING/);
+  const invalid=structuredClone(page);
+  invalid.properties["Energia"].number=6;
+  assert.throws(()=>readInboundBreedDraft(invalid,BREED_NOTION_SCHEMA),/RATING_INVALID/);
+  const old=structuredClone(page);
+  old.properties["Psipedia ID"]=rich("42");
+  assert.throws(()=>readInboundBreedDraft(old,BREED_NOTION_SCHEMA),/IDENTITY_REVIEW/);
+  const original=structuredClone(page);
+  original.properties["Zdrojový profil Notion"]={type:"url",url:"https://www.notion.so/old"};
+  assert.throws(()=>readInboundBreedDraft(original,BREED_NOTION_SCHEMA),/IDENTITY_REVIEW/);
+  const checked=structuredClone(page);
+  checked.properties["Odkontrolované"].checkbox=true;
+  assert.throws(()=>readInboundBreedDraft(checked,BREED_NOTION_SCHEMA),/IDENTITY_REVIEW/);
+  const badSlug=structuredClone(page);
+  badSlug.properties["URL profil / slug"]=rich("../old");
+  assert.throws(()=>readInboundBreedDraft(badSlug,BREED_NOTION_SCHEMA),/SLUG_INVALID/);
+  const untitled=structuredClone(page);
+  untitled.properties["Názov plemena"]={type:"title",title:[]};
+  assert.equal(readInboundBreedDraft(untitled,BREED_NOTION_SCHEMA),null);
+});
+
+
+test("structured breed authority rejects malformed or truncated lists and accepts explicit blank",async()=>{
+  const {verifiedBreedStructuredProperty:verify,breedOwnedMediaKey,validateBreedStructuredValue}=await import("../lib/notion-breed-structured-authority.mjs");
+  const cell=value=>({type:"rich_text",rich_text:value===""?[]:[{type:"text",plain_text:value}]});
+  const present=value=>({present:true,value});
+  const sport=[{key:"aport",label:"Aportovanie",rating:null,note:""}];
+  assert.equal(verify("sports",cell(JSON.stringify(sport)),present(sport),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("sports",cell(""),present([]),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("sports",cell("{bad"),present([]),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("sports",undefined,present([]),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("sports",{...cell(""),has_more:true},present([]),BREED_NOTION_SCHEMA),false);
+  const badSport=[{...sport[0],rating:8}];
+  assert.equal(verify("sports",cell(JSON.stringify(badSport)),present(badSport),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("sports",cell(JSON.stringify(sport)),present([]),BREED_NOTION_SCHEMA),false);
+  assert.equal(verify("goodFor",cell(""),present([]),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("sources",cell("FCI"),present([{label:"FCI",url:""}]),BREED_NOTION_SCHEMA),true);
+  const gallery=[{imageUrl:"/media/breeds/test.webp",imageKey:"breeds/test.webp",alt:"Pes",caption:"",credit:""}];
+  assert.equal(verify("gallery",cell(JSON.stringify(gallery)),present(gallery),BREED_NOTION_SCHEMA),true);
+  assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageKey:"articles/unrelated.webp"}]),false);
+  assert.equal(breedOwnedMediaKey("https://psipedia.sk/media/breeds/test.webp"),"breeds/test.webp");
+  assert.equal(breedOwnedMediaKey("https://example.com/media/breeds/test.webp"),null);
+  assert.equal(validateBreedStructuredValue("image","https://example.com/photo.jpg"),true);
+  assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageUrl:"https://example.com/photo.jpg",imageKey:null}]),true);
+  assert.equal(validateBreedStructuredValue("gallery",[{...gallery[0],imageUrl:"https://example.com/photo.jpg"}]),false);
+  assert.equal(validateBreedStructuredValue("image","https://psipedia.sk/media/safe/file.jpg"),false);
+  assert.equal(breedOwnedMediaKey("/media/breeds/../secret.webp"),null);
+  assert.equal(verify("image",{type:"url",url:null},present(""),BREED_NOTION_SCHEMA),true);
+  assert.equal(verify("image",{type:"url"},present(""),BREED_NOTION_SCHEMA),false);
 });

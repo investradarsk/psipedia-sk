@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { notFound } from "next/navigation";
 import { AdminBreedEditor } from "@/components/admin-breed-editor";
 import { AdminShell } from "@/components/admin-shell";
@@ -18,10 +20,11 @@ export default async function EditBreedPage({ params, searchParams }: Props) {
   const breed = await getManagedBreed(numeric);
   if (!breed) notFound();
   const options = await getBreedEditorOptions(breed);
+  const review=(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?await getAdminEntityReview("BREED",numeric):null;
   return (
     <AdminShell recordId={numeric} user={user} eyebrow={breed.status === "published" ? "Publikované plemeno" : "Koncept"}
       title={`Upraviť: ${breed.name}`} description="Zmeny sa na verejnom atlase ukážu po publikovaní.">
-      <AdminBreedEditor breed={breed} options={options} returnHref={returnHref} />
+      <AdminBreedEditor breed={breed} initialReview={review} options={options} returnHref={returnHref} />
     </AdminShell>
   );
 }

@@ -92,8 +92,8 @@ test("e-shop inline API is a narrow CAS mutation; slug, Lexical description, sta
   assert.match(ui, /<AdminInlineRowActions/);
   assert.match(ui, /method: "PATCH"/);
   assert.match(ui, /expectedUpdatedAt: saved\.updatedAt/);
-  assert.match(page, /<AdminEshopTable shops=\{shops\} \/>/);
-  assert.match(read("app/admin/recenzie/eshopy/eshops-admin-table.tsx"), /<AdminEshopListInline key=\{shop.id\} shop=\{shop\}/);
+  assert.match(page, /<AdminEshopTable shops=\{shops\} bulkStatusEnabled=\{publicationV3Enabled\(\)\} \/>/);
+  assert.match(read("app/admin/recenzie/eshopy/eshops-admin-table.tsx"), /<AdminEshopListInline key=\{shop.id\} shop=\{shop\} onEditingChange=\{setEditing\} \/>/);
   assert.match(css, /max-width:899px/);
 
   const sqlite = new DatabaseSync(":memory:");

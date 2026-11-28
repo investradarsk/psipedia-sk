@@ -1,3 +1,5 @@
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
+import { prepareCombinedBreedControlledEdit, type ControlledBreedState } from "@/lib/notion-breed-workcopy-controlled";
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -5,6 +7,7 @@ import {
   deleteManagedBreed,
   getManagedBreed,
   updateManagedBreed,
+  saveManagedBreedCombined,
   updateManagedBreedInlineIntro,
   BreedUpdateConflictError,
   type ManagedBreedInput,
@@ -23,7 +26,7 @@ import {
 export const dynamic = "force-dynamic";
 
 type RouteProps = { params: Promise<{ id: string }> };
-type BreedRouteBindings = NotionBreedSyncBindings & { DB?: D1Database };
+type BreedRouteBindings = NotionBreedSyncBindings & { DB?: D1Database; NOTION_UNIFIED_FIELD_SYNC_ENABLED?:string };
 
 async function parsedId(params: RouteProps["params"]) {
   const { id } = await params;
@@ -42,8 +45,8 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const before = await getManagedBreed(id);
     if (!before) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
 
-    const { expectedUpdatedAt, changedFieldKeys, ...patch } = await request.json() as ManagedBreedInput & {
-      expectedUpdatedAt?: unknown; changedFieldKeys?: unknown;
+    const { expectedUpdatedAt, changedFieldKeys, reviewOnSave, controlledChanges, expectedControlledRevision, ...patch } = await request.json() as ManagedBreedInput & {
+      expectedUpdatedAt?: unknown; changedFieldKeys?: unknown; reviewOnSave?:unknown;controlledChanges?:unknown;expectedControlledRevision?:unknown;
     };
     if (typeof expectedUpdatedAt !== "string" || !expectedUpdatedAt.trim()) {
       return Response.json({ code:"BREED_VERSION_REQUIRED", error:"Chýba verzia plemena. Obnov editor." }, {status:428});
@@ -56,7 +59,21 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const selected = sparse ? breedAdminSparseEdit(patch, dirty) : patch;
     let breed = before;
     const rejectedDirtyFields:string[]=[];
-    if (dirty) {
+    const authorityBindings=env as unknown as BreedRouteBindings;
+    const authority=authorityBindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+    let controlled:ControlledBreedState|null=null;
+    if(authority){
+      if(!authorityBindings.DB||authorityBindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")
+        return Response.json({error:"Kontrola vyžaduje zapnutú synchronizáciu V2."},{status:409});
+      if(!dirty||before.updatedAt!==expectedUpdatedAt)throw new BreedUpdateConflictError();
+      const prepared=await prepareCombinedBreedControlledEdit({database:authorityBindings.DB,bindings:authorityBindings,
+        breedId:id,expectedRevision:expectedControlledRevision,changes:controlledChanges??{},canonicalPatch:selected as Record<string,unknown>});
+      const aliases=["fciGroup","fciSectionNumber","size"].filter(field=>Object.hasOwn(prepared.canonicalPatch,field));
+      breed=await saveManagedBreedCombined({database:authorityBindings.DB,before,patch:prepared.canonicalPatch as ManagedBreedInput,
+        fields:[...new Set([...dirty,...aliases])],actor:user.email,expectedRevision:expectedUpdatedAt,
+        reviewOnSave:reviewOnSave===true,controlledStatements:prepared.statements});
+      controlled=prepared.controlled;
+    } else if (dirty) {
       // The salon/club contract: every submitted field is its own operation.
       // Even a structural/media field must not push unrelated text fields
       // through a stale whole-profile update or veto a valid sibling edit.
@@ -143,6 +160,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"breeds",id,breed.status);
     return Response.json({
       breed,
+      ...(authority?{review:await getAdminEntityReview("BREED",id).catch(()=>null),controlled}:{}),
       ...(rejectedDirtyFields.length?{rejectedDirtyFields}:{}),
       ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}),
     });

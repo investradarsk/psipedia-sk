@@ -1,3 +1,7 @@
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
+import type { FieldReservation } from "./notion-unified-field-transfer.ts";
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitAdoptionV2AdminEdit, ADOPTION_V2_FIELDS, isAdoptionV2Field, adoptionV2Value } from "./notion-adoption-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
@@ -105,6 +109,7 @@ export async function updateAdoptionFromAdmin(
   expectedUpdatedAt: string,
   database?: AdoptionD1Database,
   recordUnifiedReceipt = false,
+  reviewOnSave=false,
 ) {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   if (!expectedUpdatedAt?.trim()) throw new AdoptionConcurrentEditError();
@@ -118,8 +123,10 @@ export async function updateAdoptionFromAdmin(
   const statement = db.prepare(
     `UPDATE adoption_dogs SET ${MUTABLE_COLUMNS.map((column) => `${column} = ?`).join(", ")} WHERE id = ? AND updated_at = ?`,
   ).bind(...writeValues(prepared), id, expectedUpdatedAt);
+  if(reviewOnSave&&!recordUnifiedReceipt)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   const result = (recordUnifiedReceipt ? await commitAdoptionV2AdminEdit(db,statement,{
     id,expectedRevision:expectedUpdatedAt,nextRevision:prepared.updatedAt,editor:prepared.updatedBy,
+    companionStatements:reviewOnSave?reviewOnSaveStatements(db as unknown as D1Database,{type:"ADOPTION",id,revision:prepared.updatedAt,actor:prepared.updatedBy}):[],
   }) : await statement.run()) as RunResult;
   const changes = Number(result.meta?.changes ?? result.changes ?? 0);
   if (changes !== 1) throw new AdoptionConcurrentEditError();
@@ -130,9 +137,10 @@ export async function updateAdoptionFromAdmin(
  * field, but the SQL write cannot change unrelated content, lifecycle,
  * gallery or freshness metadata. All identity/lock predicates are atomic. */
 export async function updateAdoptionV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;media?:VerifiedProfileMedia;
 }) {
   const {database,id,pageId,field,value,revision}=input;
+  const authority=helpAuthorityWriteGuard(input.reservation,"adoptions",id,pageId,field);
   if(!isAdoptionV2Field(field))throw Error("ADOPTION_V2_FIELD_PROTECTED");
   const existing=await getAdoptionById(id,database);
   if(!existing || existing.updatedAt!==revision || existing.status==="ARCHIVED")
@@ -140,21 +148,21 @@ export async function updateAdoptionV2NotionField(input:{
   const [column,key]=ADOPTION_V2_FIELDS[field];
   const patch:ManagedAdoptionInput={};
   if(field==="Plemeno" || field==="Organizácia"){
-    if(typeof value!=="string" || !value.trim())throw Error("ADOPTION_V2_RELATION_INVALID");
+    if(typeof value!=="string" || (!value.trim()&&!input.reservation?.profileAuthority))throw Error("ADOPTION_V2_RELATION_INVALID");
     const table=field==="Plemeno"?"managed_breeds":"help_organizations";
     const rows=await database.prepare("SELECT id,name,slug FROM "+table+" WHERE lower(trim(name))=lower(trim(?))"+
-      (field==="Organizácia"?" AND archived_at IS NULL":"")+" ORDER BY id LIMIT 2").bind(value).all<{id:number;name:string;slug:string}>();
+      (field==="Organizácia"?" AND archived_at IS NULL AND status<>'ARCHIVED'":input.reservation?.profileAuthority?" AND status='published'":"")+" ORDER BY id LIMIT 2").bind(value).all<{id:number;name:string;slug:string}>();
     if(rows.results.length>1)throw Error("ADOPTION_V2_RELATION_AMBIGUOUS");
     const target=rows.results[0];
     // A typed Notion name must not silently unlink an existing canonical
     // relationship just because its new label cannot be resolved.
-    if(!target && (field==="Plemeno"?existing.breedId:existing.organizationId))
+    if(!target && (input.reservation?.profileAuthority?Boolean(value.trim()):(field==="Plemeno"?existing.breedId:existing.organizationId)))
       throw Error("ADOPTION_V2_RELATION_UNRESOLVED");
     if(field==="Plemeno"){patch.breedId=target?.id??null;patch.breedName=value;}
     else{patch.organizationId=target?.id??null;patch.organizationName=value;patch.organizationSlug=target?.slug??null;}
   }else if(field==="Hlavný obrázok URL"){
     if(typeof value!=="string")throw Error("ADOPTION_V2_IMAGE_INVALID");
-    patch.mainImage=value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
+    patch.mainImage=input.reservation?.profileAuthority?requireProfileMediaProof("adoptions",value,input.media).url:value.startsWith("https://psipedia.sk/")?value.slice("https://psipedia.sk".length):value;
   }else{
     // The canonical normalizer validates enums, URL, date and numeric ranges.
     Object.assign(patch,{[key]:value});
@@ -162,7 +170,8 @@ export async function updateAdoptionV2NotionField(input:{
   const prepared=await prepareAdoptionWritePayload(database,patch,"notion-events-help-sync@psipedia.sk",existing,new Date(nextHelpV2Revision(revision)));
   const preparedValues=writeValues(prepared);
   const values:Record<string,unknown>=Object.fromEntries(MUTABLE_COLUMNS.map((name,index)=>[name,preparedValues[index]]));
-  if(adoptionV2Value(field,values[column])!==value)throw Error("ADOPTION_V2_NORMALIZATION_REVIEW");
+  const expected=field==="Hlavný obrázok URL"&&input.reservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("adoptions",value,input.media)):value;
+  if(adoptionV2Value(field,values[column])!==expected)throw Error("ADOPTION_V2_NORMALIZATION_REVIEW");
   const columns:string[]=[column];
   if(field==="Plemeno")columns.push("breed_id");
   if(field==="Organizácia")columns.push("organization_id","organization_slug");
@@ -192,7 +201,7 @@ export async function updateAdoptionV2NotionField(input:{
     "AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='ADOPTION' AND entity_id=adoption_dogs.id) "+
     "AND NOT "+partnerReviewOwnerSql("ADOPTION","adoption_dogs.id")+" "+
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='adoptions' AND record_id=adoption_dogs.id) "+
-    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='adoptions' AND entity_id=adoption_dogs.id AND notion_page_id=?)"+relationGuard)
-    .bind(...columns.map(c=>values[c]),id,revision,pageId,...relationArgs).run();
+    "AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='adoptions' AND entity_id=adoption_dogs.id AND notion_page_id=?)"+relationGuard+authority.sql)
+    .bind(...columns.map(c=>values[c]),id,revision,pageId,...relationArgs,...authority.params).run();
   if(result.meta.changes!==1)throw Error("ADOPTION_V2_WRITE_CONFLICT");
 }

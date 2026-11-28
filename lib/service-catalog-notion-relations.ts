@@ -1,3 +1,5 @@
+import { reserveUnifiedField, assertUnifiedReservationCurrent, confirmUnifiedField, isVerifiedAuthorityProperty } from "./notion-unified-field-transfer.ts";
+import { profileAuthorityEnabled } from "./notion-profile-authority.ts";
 /**
  * Notion "Služby z katalógu" ↔ canonical Psipedia service selections.
  *
@@ -13,7 +15,7 @@ import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock
 import {planCatalogRelationSync,planSignedCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
 import {loadServiceProfileMembership} from "./service-catalog-profile-membership";
-import {importNotionServiceIds} from "./service-profile-notion-bridge";
+import {importNotionServiceIds,importAuthoritativeNotionServiceIds} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
 
@@ -28,7 +30,7 @@ export type CatalogRelationLookup={
 };
 type Item={id:string;label:string;categories:readonly string[]};
 type Page={id:string;parent?:{type?:string;data_source_id?:string};
-  properties?:Record<string,unknown>;archived?:boolean;in_trash?:boolean};
+  properties?:Record<string,unknown>;archived?:boolean;in_trash?:boolean;last_edited_time?:string};
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
 type D1Row={option_id:string;choice:string;version:number};
 type Baseline={notion_page_id:string;confirmed_ids_json:string};
@@ -93,7 +95,8 @@ async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item
   ).bind(profileId).all<D1Row>();
   // Only service IDs belong to the Notion relation. Tri-state attributes
   // are independent V3 choices and must never be treated as invalid services.
-  const selected=(result.results??[]).map(x=>x.option_id).filter(id=>id.startsWith("svc."));
+  if(!result.success||!Array.isArray(result.results))throw Error("SERVICES_RELATION_LOCAL_READ_FAILED");
+  const selected=result.results.map(x=>x.option_id).filter(id=>id.startsWith("svc."));
   // A category removal cannot implicitly deselect a historical YES.
   // Review it explicitly instead of silently deleting a Notion relation.
   if(selected.some(id=>!known.has(id)))throw Error("SERVICES_RELATION_CATEGORY_CHANGED_REVIEW");
@@ -123,6 +126,7 @@ export async function syncProfileCatalogRelation(input:{
  unifiedFieldPolicy?:boolean;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
+ if(profileAuthorityEnabled(bindings))return syncAuthoritativeCatalogRelation(input);
  if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
  const membership=await loadServiceProfileMembership(db,profileId);
@@ -231,4 +235,66 @@ export async function syncProfileCatalogRelation(input:{
    "WHERE notion_page_id=excluded.notion_page_id"
  ).bind(profileId,pageId,JSON.stringify([...plan.target].sort()),now).run();
  return plan.action==="pull"?"pulled":plan.action==="push"?"pushed":plan.action==="merge"?"merged":"unchanged";
+}
+
+/** Staged Notion-owned mode never merges or PATCHes a profile relation. */
+async function syncAuthoritativeCatalogRelation(input:Parameters<typeof syncProfileCatalogRelation>[0]):Promise<"skipped"|"unchanged"|"pulled">{
+  const {db,bindings,pageId,profileId,category,directoryDataSourceId}=input;
+  if(input.adminChoiceSave||await directoryProfileNotionSyncLocked(db,profileId))return "skipped";
+  if(!await schemaExists(db))throw Error("SERVICES_RELATION_SCHEMA_MISSING");
+  const identity={agenda:"directory" as const,entityId:String(profileId),pageId,field:"serviceIds"};
+  async function observe(lookup:CatalogRelationLookup){
+    const membership=await loadServiceProfileMembership(db,profileId);
+    if(!membership||membership.primary!==category||membership.status==="archived")throw Error("SERVICES_RELATION_PROFILE_CATEGORY_CHANGED");
+    const page=await readRemote(bindings,pageId,directoryDataSourceId);
+    if(!isVerifiedAuthorityProperty(page.properties?.["Psipedia ID"],{present:true,value:String(profileId)})&&!isVerifiedAuthorityProperty(page.properties?.["Psipedia ID"],{present:true,value:profileId}))
+      throw Error("SERVICES_RELATION_PROFILE_ID_CHANGED");
+    const raw=relationIds(page);
+    if(raw===null)throw Error("SERVICES_RELATION_SCHEMA_MISSING");
+    const available=await canonicalItems(db,membership.categories);
+    const mapping=raw.map(pageId=>{
+      const serviceId=lookup.pageToService.get(pageId);
+      if(!serviceId||lookup.serviceToPage.get(serviceId)!==pageId||!available.has(serviceId))throw Error("SERVICES_RELATION_UNKNOWN_OR_WRONG_CATEGORY");
+      return {pageId,serviceId};
+    });
+    const local=await canonicalYes(db,profileId,available);
+    return {page,membership,authorityProperty:{property:page.properties?.[PROPERTY],mapping},
+      notion:{present:true as const,value:mapping.map(item=>item.serviceId).sort()},
+      psipedia:{present:true as const,value:local}};
+  }
+  const observed=await observe(input.lookup);
+  const reservation=await reserveUnifiedField({database:db,identity,authorityBindings:bindings,
+    authorityProperty:observed.authorityProperty,historicalBaseline:null,notion:observed.notion,psipedia:observed.psipedia,direction:"pull"});
+  if(!reservation)return "unchanged";
+  // Reload both provider catalog identities and the profile relation, not
+  // merely the cached hourly catalog lookup.
+  const freshLookup=await loadNotionCatalogRelationLookup(bindings);
+  const live=await observe(freshLookup);
+  if(live.page.last_edited_time!==observed.page.last_edited_time||
+    JSON.stringify(live.authorityProperty)!==JSON.stringify(observed.authorityProperty)||
+    JSON.stringify(live.membership)!==JSON.stringify(observed.membership)||
+    JSON.stringify(live.psipedia)!==JSON.stringify(observed.psipedia))throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
+  await assertUnifiedReservationCurrent(db,reservation);
+  await importAuthoritativeNotionServiceIds(db,{profileId,category,categories:live.membership.categories,
+    ids:live.notion.value,expectedYes:live.psipedia.value,reservation});
+  const final=await observe(await loadNotionCatalogRelationLookup(bindings));
+  if(JSON.stringify(final.membership)!==JSON.stringify(live.membership)||
+    JSON.stringify(final.authorityProperty)!==JSON.stringify(live.authorityProperty))throw Error("SERVICES_RELATION_CHANGED_BEFORE_BASELINE");
+  await confirmUnifiedField(db,reservation,final.notion,final.psipedia);
+  return "pulled";
+}
+
+/** Read-only exact projection shared by first-copy and reviewed owner unlock. */
+export async function projectCanonicalServiceRelation(db:D1Database,bindings:NotionSyncBindings,profileId:number,category:string){
+  const membership=await loadServiceProfileMembership(db,profileId);
+  if(!membership||membership.primary!==category||membership.status==="archived")throw Error("SERVICES_RELATION_PROFILE_CATEGORY_CHANGED");
+  const selected=await canonicalYes(db,profileId,await canonicalItems(db,membership.categories));
+  if(selected.length>=25||new Set(selected).size!==selected.length)throw Error("SERVICES_RELATION_COMPLETE_READ_REQUIRED");
+  const lookup=selected.length?await loadNotionCatalogRelationLookup(bindings):null;
+  const relation=selected.map(id=>{
+    const page=lookup?.serviceToPage.get(id);
+    if(!page||lookup?.pageToService.get(page)!==id)throw Error("SERVICES_RELATION_UNKNOWN_ID");
+    return {id:page};
+  });
+  return {[PROPERTY]:{relation}};
 }

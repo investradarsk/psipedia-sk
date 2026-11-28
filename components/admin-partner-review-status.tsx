@@ -32,7 +32,7 @@ export async function AdminPartnerReviewStatus({entityType,entityId}:{
     return <span role="alert">Správcu a stav kontroly sa nepodarilo overiť. Odomknutie je nedostupné.</span>;
   }
   return <div style={{display:"grid",gap:"0.35rem",maxWidth:"30rem"}}>
-    <AdminReviewCheckbox entityType={entityType} entityId={entityId}
+    <AdminReviewCheckbox key={String(review.reviewed)+review.reviewedAt+String(Boolean(owner))} entityType={entityType} entityId={entityId}
       initialReviewed={review.reviewed||Boolean(owner)}
       initialReviewedAt={review.reviewedAt||owner?.grantedAt}
       lockedByPartner={Boolean(owner)} showDate />

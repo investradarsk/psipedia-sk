@@ -7,6 +7,8 @@ export const adminReviewEntityTypes = [
   "ADOPTION",
   "LOST_FOUND",
   "ORGANIZATION",
+  "BREED",
+  "ESHOP",
 ] as const;
 
 export type AdminReviewEntityType = (typeof adminReviewEntityTypes)[number];
@@ -31,6 +33,8 @@ const entityTable: Record<AdminReviewEntityType, string> = {
   ADOPTION: "adoption_dogs",
   LOST_FOUND: "lost_found_dog_reports",
   ORGANIZATION: "help_organizations",
+  BREED: "managed_breeds",
+  ESHOP: "managed_eshops",
 };
 
 function getDatabase(database?: D1Database) {
@@ -126,6 +130,7 @@ export async function setAdminEntityReviewed(
   if (!(await adminReviewEntityExists(entityType, entityId, db))) throw new Error("Záznam sa nenašiel.");
 
   if (!reviewed) {
+    if(entityType==="BREED"||entityType==="ESHOP")throw Error("Odomknutie vyžaduje overený prenos do Notionu.");
     if(await isActiveAdminPartnerOwner(db, entityType, entityId))
       throw new Error("Tento záznam spravuje partner. Notion možno odomknúť až po odobratí správy.");
     try {

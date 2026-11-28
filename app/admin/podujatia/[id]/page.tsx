@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { AdminPartnerCanonicalAudit } from "@/components/admin-partner-canonical-audit";
 import Link from "next/link";
 import { adminReturnHref } from "@/lib/admin-return-navigation";
@@ -38,6 +40,7 @@ export default async function EditEventPage({ params, searchParams }: Props) {
   // Review state, duplicate detection and automation proposals are auxiliary.
   const event = await getManagedEventById(numericId);
   if (!event) notFound();
+  const review=(env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?await getAdminEntityReview("EVENT",event.id):null;
 
   return <AdminShell recordId={event.id} user={user}
     eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"}
@@ -49,7 +52,7 @@ export default async function EditEventPage({ params, searchParams }: Props) {
     </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="MANAGED_EVENT" canonicalId={event.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="MANAGED_EVENT" canonicalId={event.id} /></Suspense><AdminGeminiOriginBadge agenda="events" entityId={event.id} />
     <Suspense fallback={null}><EventDuplicateWarning id={event.id} /></Suspense>
-    <AdminEventEditor event={event} initialInternalNotes={await getManagedEventInternalNotesById(event.id)} returnHref={returnHref} />
+    <AdminEventEditor event={event} initialReview={review} initialInternalNotes={await getManagedEventInternalNotesById(event.id)} returnHref={returnHref} />
     {event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref={returnHref} />}
   </AdminShell>;
 }

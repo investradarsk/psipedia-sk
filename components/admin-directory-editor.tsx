@@ -166,7 +166,7 @@ function QualityResolutionField({
 
 export function AdminDirectoryEditor({
   profile, notionDraft, onNotionSaved, automationSuggestions = [], returnHref = "/admin/adresar",
-  partnerOwner = null, partnerOwnershipUnavailable = false,
+  partnerOwner = null, partnerOwnershipUnavailable = false, profileAuthority = false,
 }: {
   profile?: ManagedDirectoryProfile;
   notionDraft?: GeminiDirectoryDraft;
@@ -175,6 +175,7 @@ export function AdminDirectoryEditor({
   returnHref?: string;
   partnerOwner?: { accountId: string; email: string; grantedAt: string; accountStatus: string } | null;
   partnerOwnershipUnavailable?: boolean;
+  profileAuthority?: boolean;
 }) {
   // Last saved D1 projection; supports one-field saves from a long-open editor.
   const breederSaveBaselineRef = useRef(profile);
@@ -460,6 +461,11 @@ export function AdminDirectoryEditor({
     // Match Events: controlled native text fields own their value.
     // Compare the current React form against the last confirmed D1 snapshot.
     // No Lexical hydration, blur race, or auxiliary "edited" flag.
+    let reviewOnSave = false;
+    if (profileAuthority && profile && !notionDraft && !reviewed && !partnerOwner) {
+      reviewOnSave = window.confirm("Profil ešte nie je odkontrolovaný. Notion môže tvoje úpravy neskôr prepísať. Chceš uložiť a zároveň označiť profil ako Odkontrolované?");
+      if (!reviewOnSave && !window.confirm("Uložiť bez uzamknutia? Notion zostane autoritou tohto profilu.")) return;
+    }
     const submittedExcerpt = excerpt;
     const submittedDescription = description;
     const submittedRevision = formEditRevisionRef.current;
@@ -516,8 +522,8 @@ export function AdminDirectoryEditor({
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
       // For legacy clients, a Contacts-tab save may explicitly reconfirm contacts.
-      // Every canonical Admin save independently sends fullProfileSave and all
-      // currently displayed values; the server reconfirms all five contacts.
+      // Contact writes require their own interaction receipt, even on full saves.
+      // An explicit Contacts-tab reconfirmation may mirror non-empty values.
       const confirmContactSync = Boolean(profile && category === profile.category &&
         currentDirectorySection === "directory-contacts" && editedContactsRef.current.size === 0);
       const breederBaseline = breederSaveBaselineRef.current;
@@ -624,7 +630,10 @@ export function AdminDirectoryEditor({
           // overwriting changes made in D1 while this editor was open.
           ...(profile ? {
             fullProfileSave: true,
+            reviewOnSave,
             expectedUpdatedAt: breederBaseline?.updatedAt ?? profile.updatedAt,
+            contactEditedFields,
+            contactOriginalValues,
           } : {}),
           ...(breederChangedPaths ? {
             breederEditedPaths: breederChangedPaths,
@@ -636,8 +645,6 @@ export function AdminDirectoryEditor({
               description: breederBaseline?.description ?? "",
             },
             explicitlyClearedContacts,
-              contactEditedFields,
-              contactOriginalValues,
           } : {}),
           ...(confirmContactSync ? { confirmContactSync: true } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
@@ -849,6 +856,8 @@ export function AdminDirectoryEditor({
       }
       setLastNotionReceipt(pendingNotionFields ? "pending" : undefined);
       setStatus(savedProfile.status);
+      setReviewed(Boolean(savedProfile.reviewed || partnerOwner));
+      setReviewedAt(savedProfile.reviewedAt ?? "");
       setMessage(hasNewerEdits
         ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
         : (nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.") +

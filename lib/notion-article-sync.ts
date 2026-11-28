@@ -1,3 +1,6 @@
+import { findSimilarArticles, strongArticleDuplicate } from "./article-similarity-review.ts";
+import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
+import { sameNotionProperty } from "./notion-selective-property-patch";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { effectiveArticleStatus } from "@/lib/article-effective-status";
 import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, articleSeoSignedChangedFields, type ArticleSeoRemoteValues, type ArticleNotionSeoKey } from "./notion-article-seo-properties";
@@ -30,6 +33,7 @@ import { notionArticleMainImageSource } from "@/lib/notion-article-image-source"
 import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
 import {
   EDITORIAL_RICH_TEXT_LEGACY_VERSION,
+  EDITORIAL_RICH_TEXT_VERSION,
   sanitizeEditorialHref,
   type EditorialRichTextDocument,
   type EditorialRichTextInline,
@@ -39,6 +43,8 @@ import { articleHref } from "@/lib/portal";
 import { isBreedArticlePlacementChange, isBreedArticleNotionChange, notionArticleBreedPlacement, type NotionArticleBreedPlacement } from "@/lib/notion-article-breed-placement";
 import {
   buildNotionEditorialPlan,
+  buildEditorialStructure, observeEditorialStructure, editorialInsertionIds,
+  articleFirstCopyBody, verifyArticleFirstCopyBody,
   notionEditorialBlockShape,
   notionEditorialPropertyText,
   type NotionEditorialPlan,
@@ -53,6 +59,7 @@ import { SITE_URL } from "@/config/public-site";
 export type NotionSyncBindings = {
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED?: string;
+  NOTION_PROFILE_AUTHORITY_MODE?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
@@ -101,6 +108,7 @@ export type NotionArticleSyncSummary = {
   updated: number;
   unchanged: number;
   failed: number;
+  reviewRequired?: number;
 };
 
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
@@ -122,6 +130,34 @@ function flagEnabled(value: unknown) {
   return typeof value === "string" && (value === "1" || value.toLowerCase() === "true");
 }
 
+/** Rollout gate only: articles do not consult profile ownership or review locks. */
+export function articleEditorialWritebackEligible(bindings:NotionSyncBindings,status:string){
+  return status==="draft"||bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&(status==="scheduled"||status==="published");
+}
+function articleEditorialPageApproved(bindings:NotionSyncBindings,status:string,page:NotionPage){
+  const state=selectProperty(page,"Stav"),ready=state==="Ready"&&checkboxProperty(page,"Odoslať na Psipedia");
+  return status==="draft"?ready:articleEditorialWritebackEligible(bindings,status)&&
+    (ready||state==="Publikované"||status==="published"&&state==="Na kontrolu");
+}
+function stagedArticlePageOwned(bindings:NotionSyncBindings,page:NotionPage){
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")return true;
+  const norm=(id:string)=>id.replaceAll("-","").toLowerCase();
+  return Boolean(bindings.NOTION_ARTICLES_DATA_SOURCE_ID&&page.parent?.type==="data_source_id"&&
+    page.parent.data_source_id&&norm(page.parent.data_source_id)===norm(bindings.NOTION_ARTICLES_DATA_SOURCE_ID));
+}
+function articleEditorialScope(before:ManagedArticle,after:ManagedArticle){
+  const fields:[string,unknown,unknown][]=[
+    ["Názov",before.title,after.title],["Perex",before.excerpt,after.excerpt],
+    ["Popis na sociálne siete",before.socialCaption??"",after.socialCaption??""],
+    ["Hlavný obrázok URL",before.image??"",after.image??""],
+    ["Alt text obrázka",before.imageAlt??"",after.imageAlt??""],
+    ["Kredit fotografie",before.imageCredit??"",after.imageCredit??""],
+    ["Zdroj obrázka",before.imageCreditUrl??"",after.imageCreditUrl??""],
+  ];
+  const changed=(a:unknown,b:unknown)=>JSON.stringify(a)!==JSON.stringify(b);
+  return {properties:fields.filter(([,a,b])=>changed(a,b)).map(([name])=>name),
+    body:changed([before.intro,before.introRichText,before.blocks],[after.intro,after.introRichText,after.blocks])};
+}
 function normalizeText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -160,6 +196,7 @@ function notionRichTextInline(value: unknown): EditorialRichTextInline[] {
     const marks: EditorialRichTextMark[] = [];
     if (annotations.bold === true) marks.push({ type: "bold" });
     if (annotations.italic === true) marks.push({ type: "italic" });
+    if (annotations.underline === true) marks.push({ type: "underline" });
     const href = richTextHref(record);
     if (href) marks.push({ type: "link", href });
 
@@ -184,7 +221,8 @@ function notionRichTextDocument(
     : type === "blockquote"
       ? { type: "blockquote" as const, content }
       : { type: "callout" as const, tone, content };
-  return { version: EDITORIAL_RICH_TEXT_LEGACY_VERSION, type: "doc", content: [block] };
+  const version=content.some(node=>node.type==="text"&&node.marks?.some(mark=>mark.type==="underline"))?EDITORIAL_RICH_TEXT_VERSION:EDITORIAL_RICH_TEXT_LEGACY_VERSION;
+  return { version, type: "doc", content: [block] };
 }
 
 function notionRichTextMarkdown(value: unknown) {
@@ -820,6 +858,7 @@ type NotionManifestDirective = {
   afterSection?: string;
   beforeHeading?: string;
   position?: "start" | "end";
+  beforeBlockIndex?:number;
 };
 
 function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
@@ -842,7 +881,9 @@ function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(blockText(manifest));
+    const raw=blockRichText(manifest);
+    if(!Array.isArray(raw)||raw.some(node=>!node||typeof node.plain_text!=="string"))throw Error("NOTION_ARTICLE_MANIFEST_INCOMPLETE");
+    parsed = JSON.parse(raw.map(node=>node.plain_text).join(""));
   } catch {
     throw new Error("Sekcia „Psipedia bloky“ obsahuje neplatný JSON manifest.");
   }
@@ -856,7 +897,10 @@ function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
     const afterSection = typeof record.afterSection === "string" ? normalizeText(record.afterSection) : "";
     const beforeHeading = typeof record.beforeHeading === "string" ? normalizeText(record.beforeHeading) : "";
     const position = record.position === "start" ? "start" : record.position === "end" ? "end" : undefined;
+    const beforeBlockIndex=record.beforeBlockIndex;
+    if(beforeBlockIndex!==undefined&&(!Number.isSafeInteger(beforeBlockIndex)||Number(beforeBlockIndex)<0||afterSection||beforeHeading||position))throw Error("NOTION_ARTICLE_MANIFEST_POSITION_INVALID");
     const input = { ...record };
+    delete input.beforeBlockIndex;
     delete input.afterSection;
     delete input.beforeHeading;
     delete input.position;
@@ -865,10 +909,11 @@ function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
       ...input,
       id: `notion-manifest-${manifest.id || "blocks"}-${index + 1}`,
     }]);
-    if (!block) return [];
+    if (!block){if(beforeBlockIndex!==undefined)throw Error("NOTION_ARTICLE_MANIFEST_BLOCK_INVALID");return [];}
 
     return [{
       block,
+      ...(beforeBlockIndex!==undefined?{beforeBlockIndex:Number(beforeBlockIndex)}:{}),
       ...(afterSection ? { afterSection } : {}),
       ...(beforeHeading ? { beforeHeading } : {}),
       ...(position ? { position } : {}),
@@ -888,7 +933,12 @@ function placeManifestBlocks(articleBlocks: ArticleBlock[], directives: NotionMa
   for (const directive of directives) {
     let insertAt = result.length;
 
-    if (directive.position === "start") {
+    if(directive.beforeBlockIndex!==undefined){
+      if(directive.beforeBlockIndex>articleBlocks.length)throw Error("NOTION_ARTICLE_MANIFEST_POSITION_INVALID");
+      const anchor=articleBlocks[directive.beforeBlockIndex];
+      insertAt=anchor?result.indexOf(anchor):result.length;
+      if(insertAt<0)throw Error("NOTION_ARTICLE_MANIFEST_POSITION_INVALID");
+    }else if (directive.position === "start") {
       insertAt = 0;
     } else if (directive.beforeHeading) {
       const target = directive.beforeHeading.toLocaleLowerCase("sk");
@@ -1239,10 +1289,12 @@ async function getBlockChildren(bindings: NotionSyncBindings, blockId: string) {
       bindings,
       `/blocks/${encodeURIComponent(blockId)}/children?${query.toString()}`,
     );
-    results.push(...(response.results ?? []));
+    if(!Array.isArray(response.results)||response.has_more&&!response.next_cursor)throw Error("NOTION_ARTICLE_BLOCK_READ_INCOMPLETE");
+    results.push(...response.results);
     cursor = response.has_more && response.next_cursor ? response.next_cursor : null;
   } while (cursor && results.length < 500);
-  return results.slice(0, 500);
+  if(cursor||results.length>500)throw Error("NOTION_ARTICLE_BLOCK_READ_INCOMPLETE");
+  return results;
 }
 
 async function getPageBlocks(bindings: NotionSyncBindings, pageId: string) {
@@ -1397,7 +1449,8 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   if (before.id !== article.id || before.slug !== article.slug) {
     throw new Error("NOTION_ARTICLE_CATEGORY_IDENTITY_CONFLICT");
   }
-  if (article.status !== "draft" && article.status !== "published") {
+  const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  if (article.status !== "draft" && article.status !== "published" && !articleEditorialWritebackEligible(bindings,article.status)) {
     throw new Error("NOTION_ARTICLE_CATEGORY_STATUS_REVIEW_REQUIRED");
   }
   const originalPlacement = notionArticleBreedPlacement(before);
@@ -1406,9 +1459,10 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
     throw new Error("NOTION_ARTICLE_CATEGORY_DESTINATION_UNSUPPORTED");
   }
   const mapping = await database.prepare(
-    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
-  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+    "SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
   const receipt = decodeArticleSeoReceipt(mapping.content_hash);
   const readPage = () => notionRequest<NotionPage>(
     bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
@@ -1421,6 +1475,7 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
           page.parent.data_source_id !== bindings.NOTION_ARTICLES_DATA_SOURCE_ID)) {
       throw new Error("NOTION_ARTICLE_CATEGORY_IDENTITY_CONFLICT");
     }
+    if(staged&&(!stagedArticlePageOwned(bindings,page)||!articleEditorialPageApproved(bindings,article.status,page)))throw Error("NOTION_ARTICLE_CATEGORY_NOT_APPROVED");
     const state = selectProperty(page, "Stav");
     if (article.status === "draft"
       ? state !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia")
@@ -1536,11 +1591,11 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
     "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? " +
     "AND content_hash = ?",
   ).bind(encodeArticleSeoReceipt(finalHash, verified), verified.last_edited_time ?? null,
-    now, now, verified.id, article.id, mapping.content_hash).run();
+    staged?mapping.last_synced_at:now, now, verified.id, article.id, mapping.content_hash).run();
   if (receiptWrite.meta?.changes !== 1) {
     throw new Error("NOTION_ARTICLE_CATEGORY_MAPPING_CONFLICT");
   }
-  await updateNotionSyncState(bindings, verified.id, {
+  if(!staged)await updateNotionSyncState(bindings, verified.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: now,
   });
   return { linked: true, updated: !alreadyNew || !newRelationMatches };
@@ -1570,6 +1625,7 @@ export async function writeBackPublishedArticleToNotion(args: {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" as const };
   }
+  const staged=args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
   const now = args.now ?? new Date().toISOString();
   const dueScheduled = args.article.status === "scheduled"
     && Boolean(args.article.publishedAt)
@@ -1594,6 +1650,7 @@ export async function writeBackPublishedArticleToNotion(args: {
     return { linked: false, updated: false, reason: "not-linked" as const };
   }
 
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
   const publicUrl = SITE_URL + articleHref({
     slug: args.article.slug,
     portalSection: args.article.portalSection,
@@ -1609,6 +1666,8 @@ export async function writeBackPublishedArticleToNotion(args: {
       && richTextProperty(page, "Psipedia ID") !== String(args.article.id))) {
     throw new Error("NOTION_ARTICLE_PUBLICATION_IDENTITY_CONFLICT");
   }
+  if(staged&&(!stagedArticlePageOwned(args.bindings,page)||richTextProperty(page,"Psipedia ID")!==String(args.article.id)||richTextProperty(page,"Slug")!==args.article.slug))throw Error("NOTION_ARTICLE_PUBLICATION_IDENTITY_CONFLICT");
+  if(staged){const pending=await args.database.prepare("SELECT article_id FROM article_notion_editorial_outbox WHERE notion_page_id=? LIMIT 1").bind(page.id).first<{article_id:number}>();if(pending)throw Error("NOTION_EDITORIAL_WRITEBACK_PENDING");}
   const notionState = selectProperty(page, "Stav");
   const remoteUrl = urlProperty(page, "URL Psipedia");
   const date = propertyRecord(page, "Dátum publikácie")?.date;
@@ -1646,8 +1705,8 @@ export async function writeBackPublishedArticleToNotion(args: {
   }
 
   const alreadySynced = publishedMatches
-    && selectProperty(page, "Sync stav") === "Synchronizované"
-    && !richTextProperty(page, "Sync chyba");
+    && (staged||(selectProperty(page, "Sync stav") === "Synchronizované"
+    && !richTextProperty(page, "Sync chyba")));
   if (!alreadySynced) {
     // Read-before-write alone cannot prove the remote PATCH completed.
     // Verify the returned page ID and exact canonical publication properties
@@ -1662,9 +1721,9 @@ export async function writeBackPublishedArticleToNotion(args: {
             "Stav": { select: { name: "Publikované" } },
             "Dátum publikácie": { date: { start: publishedAt } },
             "URL Psipedia": { url: publicUrl },
-            "Sync stav": { select: { name: "Synchronizované" } },
+            ...(staged?{}:{"Sync stav": { select: { name: "Synchronizované" } },
             "Sync chyba": notionTextValue(""),
-            "Posledný sync": { date: { start: now } },
+            "Posledný sync": { date: { start: now } }}),
           },
         }),
       },
@@ -1676,6 +1735,7 @@ export async function writeBackPublishedArticleToNotion(args: {
       || !echoed.properties
       || (richTextProperty(echoed, "Psipedia ID")
         && richTextProperty(echoed, "Psipedia ID") !== String(args.article.id))
+      || (staged&&(!stagedArticlePageOwned(args.bindings,echoed)||richTextProperty(echoed,"Psipedia ID")!==String(args.article.id)||richTextProperty(echoed,"Slug")!==args.article.slug))
       || selectProperty(echoed, "Stav") !== "Publikované"
       || urlProperty(echoed, "URL Psipedia") !== publicUrl
       || typeof echoedPublishedAt !== "string"
@@ -1686,7 +1746,10 @@ export async function writeBackPublishedArticleToNotion(args: {
 
   // Mark only a successfully repaired/already correct mapping. This timestamp
   // also rotates the bounded Cron scan instead of repeatedly checking page 1.
-  await args.database.prepare(
+  if(staged){
+    // Publication is not evidence that editorial content matches D1.
+    await args.database.prepare("UPDATE article_notion_sync SET updated_at = ? WHERE notion_page_id = ? AND article_id = ?").bind(now,mapping.notion_page_id,args.article.id).run();
+  }else await args.database.prepare(
     "UPDATE article_notion_sync SET last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ?",
   ).bind(now, now, mapping.notion_page_id, args.article.id).run();
 
@@ -1715,18 +1778,20 @@ export async function writeBackArticleSeoToNotion(args: {
     return { linked: false, updated: false, reason: "disabled" };
   }
   const { before, article } = args;
+  const staged=args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
   if (before.id !== article.id || before.slug !== article.slug) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   }
-  if (article.status !== "draft" && article.status !== "published") {
+  if (article.status !== "draft" && article.status !== "published" && !articleEditorialWritebackEligible(args.bindings,article.status)) {
     return { linked: false, updated: false, reason: "not-editable" };
   }
   const changed = articleSeoChangedFields(before, article);
   if (!changed.length) return { linked: true, updated: false, reason: "unchanged" };
   const mapping = await args.database.prepare(
-    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
-  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+    "SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
   const receipt = decodeArticleSeoReceipt(mapping.content_hash);
   const confirmedSeo = receipt.seo;
 
@@ -1759,7 +1824,8 @@ export async function writeBackArticleSeoToNotion(args: {
     (!page.parent?.data_source_id ||
       page.parent.data_source_id === args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID);
   const assertApproved = (page: NotionPage) => {
-    if (!sameArticle(page)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+    if (!sameArticle(page)||!stagedArticlePageOwned(args.bindings,page)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+    if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!articleEditorialPageApproved(args.bindings,article.status,page))throw Error("NOTION_EDITORIAL_STATUS_CONFLICT");
     if (article.status === "draft" &&
         (selectProperty(page, "Stav") !== "Ready" ||
          !checkboxProperty(page, "Odoslať na Psipedia"))) {
@@ -1901,9 +1967,9 @@ export async function writeBackArticleSeoToNotion(args: {
     "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, " +
     "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? AND content_hash = ?",
   ).bind(encodeArticleSeoReceipt(finalHash, verifiedPage), verifiedPage.last_edited_time ?? null,
-    now, now, verifiedPage.id, article.id, mapping.content_hash).run();
+    staged?mapping.last_synced_at:now, now, verifiedPage.id, article.id, mapping.content_hash).run();
   if (saved.meta?.changes !== 1) throw new Error("NOTION_ARTICLE_SEO_MAPPING_CONFLICT");
-  await updateNotionSyncState(args.bindings, verifiedPage.id, {
+  if(!staged)await updateNotionSyncState(args.bindings, verifiedPage.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: now,
   });
   return { linked: true, updated: written > 0 };
@@ -1920,19 +1986,24 @@ export async function writeBackDraftArticleContentToNotion(args: {
   bindings: NotionSyncBindings;
   article: ManagedArticle;
   previousExcerpt?: string;
+  before?: ManagedArticle;
 }): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" };
   }
   const article = args.article;
-  if (article.status !== "draft") return { linked: false, updated: false, reason: "not-draft" };
+  const staged=args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  if (article.status !== "draft") {
+    if(!articleEditorialWritebackEligible(args.bindings,article.status))return {linked:false,updated:false,reason:"not-editable"};
+  }
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED)) {
     return { linked: false, updated: false, reason: "import-disabled" };
   }
   const mapping = await args.database.prepare(
-    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
-  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+    staged?"SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1":"SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at?:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
 
   type Journal = {
     notion_page_id: string; article_id: number; article_updated_at: string;
@@ -1942,7 +2013,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     const current = await args.database.prepare(
       "SELECT status, updated_at FROM managed_articles WHERE id = ? LIMIT 1",
     ).bind(article.id).first<{ status: string; updated_at: string }>();
-    if (!current || current.status !== "draft" || current.updated_at !== article.updatedAt) {
+    if (!current || current.status !== article.status || current.updated_at !== article.updatedAt) {
       throw new Error("ADMIN_ARTICLE_REVISION_CONFLICT");
     }
   }
@@ -1953,8 +2024,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const page = await notionRequest<NotionPage>(
     args.bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
   );
-  if (page.id !== mapping.notion_page_id || selectProperty(page, "Stav") !== "Ready" ||
-    !checkboxProperty(page, "Odoslať na Psipedia")) {
+  if (page.id !== mapping.notion_page_id || !articleEditorialPageApproved(args.bindings,article.status,page)) {
     throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
   }
   // Keep file-backed heroes in Notion Files during text-only writeback.
@@ -1991,6 +2061,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const matchesEditorialIdentity = (value: NotionPage) =>
     value.archived !== true && value.in_trash !== true &&
     value.id === mapping.notion_page_id &&
+    (!staged||(stagedArticlePageOwned(args.bindings,value)&&richTextProperty(value,"Slug")===article.slug))&&
     richTextProperty(value, "Psipedia ID") === String(article.id);
   if (!matchesEditorialIdentity(page)) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
@@ -2004,6 +2075,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const pageGuard = (value: NotionPage) => JSON.stringify(
     protectedPropertyNames.map((name) => [name, value.properties?.[name] ?? null]),
   );
+  const untouchedProperties=(value:NotionPage,names:readonly string[])=>JSON.stringify(Object.entries(value.properties??{}).filter(([name])=>!names.includes(name)&&!["Sync stav","Sync chyba","Posledný sync"].includes(name)).sort(([a],[b])=>a.localeCompare(b)));
   let plan: NotionEditorialPlan;
   if (journal) {
     if (journal.article_id !== article.id || journal.article_updated_at !== article.updatedAt) {
@@ -2013,10 +2085,12 @@ export async function writeBackDraftArticleContentToNotion(args: {
     plan = JSON.parse(journal.operations_json) as NotionEditorialPlan;
   } else {
     const remoteBlocks = await getPageBlocks(args.bindings, page.id);
-    const current = notionPageToManagedArticleInput(page, remoteBlocks, article,
+    if(staged&&(!args.before||args.before.id!==article.id||args.before.slug!==article.slug||args.before.updatedAt===article.updatedAt))throw Error("NOTION_ARTICLE_EDITOR_PREIMAGE_REQUIRED");
+    if(staged&&args.before!.updatedBy!==SYNC_ACTOR&&(!mapping.last_synced_at||!Number.isFinite(Date.parse(mapping.last_synced_at))||!Number.isFinite(Date.parse(args.before!.updatedAt))||Date.parse(args.before!.updatedAt)>Date.parse(mapping.last_synced_at)))throw Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
+    const current = notionPageToManagedArticleInput(page, remoteBlocks, staged?args.before:article,
       decodeArticleSeoReceipt(mapping.content_hash).seo);
     const currentContentHash = await sha256(JSON.stringify({
-      payload: current,
+      payload: { ...current, relatedBreedIds: [] },
       ...notionArticleBreedFingerprint(page),
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
       // Keep the previous hash shape for pages without a Files hero.
@@ -2039,16 +2113,41 @@ export async function writeBackDraftArticleContentToNotion(args: {
         throw new Error("NOTION_EDITORIAL_PEREX_CONFLICT");
       }
     }
-    plan = buildNotionEditorialPlan({
-      article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
+    const scope=staged?articleEditorialScope(args.before!,article):undefined;
+    if(scope?.properties.includes("Perex")&&!writeExcerpt)throw Error("NOTION_ARTICLE_PEREX_REVIEW_REQUIRED");
+    const bodyProjection=scope?.body?stagedNativeArticleProjection(editorProjection):editorProjection;
+    const manifestPlan=scope?.body?planStagedArticleManifest(args.before!,article,remoteBlocks,current.blocks??[]):undefined;
+    const build=(body:boolean)=>buildNotionEditorialPlan({
+      article: bodyProjection,
+      ...(scope?{scope:{...scope,body},allowNonDraft:true}:{}), remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
       perex: writeExcerpt ? article.excerpt : undefined,
       seoFields: [], // SEO-only changed-field writer handles all eight properties.
     });
+    try{plan=build(scope?.body??true);}catch(error){
+      if(!scope?.body||!(error instanceof Error)||!["UNSUPPORTED_BLOCK_INSERT_DELETE","UNSUPPORTED_BLOCK_REORDER_OR_TYPE","UNSUPPORTED_TABLE_CHANGE"].includes(error.message))throw error;
+      const structure=buildEditorialStructure(bodyProjection,selected,remoteBlocks,SITE_URL);
+      if(!structure)throw error;
+      plan=build(false);plan.structure=structure;
+    }
     plan.pageGuard = pageGuard(page);
+    if(manifestPlan)Object.assign(plan,manifestPlan);
+    if(scope?.body&&!plan.structure)plan.otherBlocks=JSON.stringify(remoteBlocks.filter(block=>!selected.some(item=>item.id===block.id)));
+    if(scope){plan.scope=scope;plan.untouchedProperties=untouchedProperties(page,scope.properties);if(!scope.body)plan.untouchedBlocks=JSON.stringify(remoteBlocks);}
     plan.fullBlockOrder = remoteBlocks.map((block) => block.id + ":" + block.type);
-    const changed = plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
-    if (!changed) return { linked: true, updated: false, reason: "unchanged" };
+    const changed = Boolean(plan.structure||plan.manifest||plan.manifestCreate)||plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
+    if (!changed){
+      if(staged){
+        // A completed SEO/placement-only save can acknowledge the editor revision
+        // only after the same verified source hash and scoped no-op checks.
+        await assertCurrentDraft();
+        const now=new Date().toISOString();
+        const receipt=await args.database.prepare("UPDATE article_notion_sync SET last_synced_at=?,updated_at=? WHERE notion_page_id=? AND article_id=? AND content_hash=? AND EXISTS(SELECT 1 FROM managed_articles WHERE id=? AND status=? AND updated_at=?) AND NOT EXISTS(SELECT 1 FROM article_notion_editorial_outbox WHERE article_id=?)").bind(now,now,page.id,article.id,mapping.content_hash,article.id,article.status,article.updatedAt,article.id).run();
+        if(receipt.meta?.changes!==1)throw Error("NOTION_EDITORIAL_MAPPING_CONFLICT");
+        await updateNotionSyncState(args.bindings,page.id,{state:"Synchronizované",articleId:article.id,syncedAt:now});
+      }
+      return { linked: true, updated: false, reason: "unchanged" };
+    }
     const now = new Date().toISOString();
     // INSERT OR IGNORE arbitrates simultaneous retries. The winner's revision
     // and immutable operation preimages are always read back and checked.
@@ -2090,17 +2189,35 @@ export async function writeBackDraftArticleContentToNotion(args: {
       page.id, article.id, article.updatedAt, leaseOwner, now).run();
     if (renewal.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
   }
+  function normalizedManifestBlocks(blocks:NotionBlock[]):NotionBlock[]{
+    if(plan.manifestCreate?.ids){
+      const created=plan.manifestCreate,ids=created.ids!;
+      const tail=blocks.slice(-2);
+      if(ids.length!==2||tail[0]?.id!==ids[0]||tail[1]?.id!==ids[1]||blocks.at(-3)?.id!==created.anchor||tail[0]?.type!=="heading_2"||blockText(tail[0])!=="Psipedia bloky"||manifestCodeText(tail[1])!==created.after)throw Error("NOTION_ARTICLE_MANIFEST_VERIFICATION_FAILED");
+      blocks=blocks.slice(0,-2);
+    }
+    if(!plan.manifest)return blocks;
+    const current=blocks.filter(block=>block.id===plan.manifest!.id);
+    if(current.length!==1)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+    const value=manifestCodeText(current[0]);
+    if(value!==plan.manifest.before&&value!==plan.manifest.after||manifestCodeGuard(current[0])!==manifestCodeGuard(plan.manifest.original))throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+    return blocks.map(block=>block.id===plan.manifest!.id?plan.manifest!.original as NotionBlock:block);
+  }
   function verifySnapshot(blocks: NotionBlock[]) {
+    blocks=normalizedManifestBlocks(blocks);
+    if(plan.structure){observeEditorialStructure(plan.structure,blocks);return;}
     if (!plan.pageGuard || !Array.isArray(plan.fullBlockOrder) ||
-      !Array.isArray(plan.blockSnapshots) || plan.blockSnapshots.length === 0) {
+      !Array.isArray(plan.blockSnapshots) || (plan.scope?.body!==false&&plan.blockSnapshots.length === 0)) {
       throw new Error("NOTION_EDITORIAL_JOURNAL_INCOMPATIBLE");
     }
     const identities = blocks.map((block) => block.id + ":" + block.type);
     if (JSON.stringify(identities) !== JSON.stringify(plan.fullBlockOrder)) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
+    if(plan.scope?.body===false){if(plan.untouchedBlocks!==JSON.stringify(blocks))throw Error("NOTION_EDITORIAL_BLOCK_CONFLICT");return;}
     const selected = selectNotionArticleBodyBlocks(blocks,
       hasCompletePublicPhotoCredit(editorProjection.imageCredit, editorProjection.imageCreditUrl));
+    if(plan.otherBlocks!==undefined&&plan.otherBlocks!==JSON.stringify(blocks.filter(block=>!selected.some(item=>item.id===block.id))))throw Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     if (selected.length !== plan.blockSnapshots.length) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
@@ -2126,8 +2243,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
   );
   if (!matchesEditorialIdentity(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (pageGuard(latest) !== plan.pageGuard) throw new Error("NOTION_EDITORIAL_METADATA_CONFLICT");
-  if (selectProperty(latest, "Stav") !== "Ready" ||
-    !checkboxProperty(latest, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if (!articleEditorialPageApproved(args.bindings,article.status,latest)) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if(plan.scope&&plan.untouchedProperties!==untouchedProperties(latest,plan.scope.properties))throw Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
   // Inspect every planned block before the FIRST mutating request. A
   // conflict discovered in a later block must not first modify SEO fields
   // or earlier blocks. The per-block GET below still checks the latest
@@ -2180,6 +2297,39 @@ export async function writeBackDraftArticleContentToNotion(args: {
       method: "PATCH", body: JSON.stringify({ properties: fields }),
     });
   }
+  const persistProgress=async()=>{
+      await assertCurrentDraft();await renewLease();
+      const stored=await args.database.prepare("UPDATE article_notion_editorial_outbox SET operations_json=?,updated_at=? WHERE notion_page_id=? AND article_id=? AND article_updated_at=? AND lease_owner=?").bind(JSON.stringify(plan),new Date().toISOString(),page.id,article.id,article.updatedAt,leaseOwner).run();
+      if(stored.meta?.changes!==1)throw Error("NOTION_EDITORIAL_LEASE_LOST");
+  };
+  if(plan.structure){
+    const structure=plan.structure;
+    const readStructure=async()=>{
+      await assertCurrentDraft();
+      const freshPage=await notionRequest<NotionPage>(args.bindings,"/pages/"+encodeURIComponent(page.id));
+      if(!matchesEditorialIdentity(freshPage)||pageGuard(freshPage)!==plan.pageGuard||plan.untouchedProperties!==untouchedProperties(freshPage,plan.scope!.properties))throw Error("NOTION_EDITORIAL_METADATA_CONFLICT");
+      return observeEditorialStructure(structure,normalizedManifestBlocks(await getPageBlocks(args.bindings,page.id)));
+    };
+    let progress=await readStructure();
+    if(structure.insert.length&&!structure.insertedIds?.length){
+      if(structure.appendStarted)throw Error("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+      const anchor=structure.remove.at(-1)?.id??structure.prefix.at(-1)?.id;
+      if(!anchor)throw Error("NOTION_EDITORIAL_STRUCTURE_LIMIT");
+      structure.appendStarted=true;await persistProgress();
+      // Append is not idempotent. Never retry an unknown HTTP outcome.
+      const result=await notionSharedRequest<NotionBlocksResponse>(args.bindings,"/blocks/"+encodeURIComponent(page.id)+"/children",{method:"PATCH",body:JSON.stringify({after:anchor,children:structure.insert.map(item=>item.payload)})},{retryTransient:false});
+      structure.insertedIds=editorialInsertionIds(structure,result.results??[]);
+      await persistProgress();progress=await readStructure();
+    }
+    for(const id of progress.remaining){
+      const current=await readStructure();
+      if(!current.remaining.includes(id))continue;
+      if(current.remaining[0]!==id)throw Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+      structure.deleteStartedIds=[...new Set([...(structure.deleteStartedIds??[]),id])];await persistProgress();
+      await notionSharedRequest(args.bindings,"/blocks/"+encodeURIComponent(id),{method:"DELETE"},{retryTransient:false});
+    }
+    if(!(await readStructure()).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
+  }
   for (const op of plan.blocks) {
     await assertCurrentDraft();
     const remote = await notionRequest<RemoteArticleBlock>(
@@ -2196,18 +2346,49 @@ export async function writeBackDraftArticleContentToNotion(args: {
     });
   }
 
+  if(plan.manifestCreate){
+    await assertCurrentDraft();
+    const fresh=await getPageBlocks(args.bindings,page.id);verifySnapshot(fresh);
+    const created=plan.manifestCreate;
+    if(!created.ids){
+      if(created.started)throw Error("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+      const anchor=fresh.at(-1)?.id;
+      if(!anchor)throw Error("NOTION_ARTICLE_MANIFEST_SECTION_REQUIRED");
+      created.anchor=anchor;created.started=true;await persistProgress();
+      const rich_text=manifestRichText(created.after);
+      const children=[{object:"block",type:"heading_2",heading_2:{rich_text:[{type:"text",text:{content:"Psipedia bloky"}}]}},{object:"block",type:"code",code:{language:"json",rich_text}}];
+      const result=await notionSharedRequest<NotionBlocksResponse>(args.bindings,"/blocks/"+encodeURIComponent(page.id)+"/children",{method:"PATCH",body:JSON.stringify({after:anchor,children})},{retryTransient:false});
+      const ids=result.results?.map(block=>block.id)??[];
+      if(ids.length!==2||new Set(ids).size!==2||ids.some(id=>!id||fresh.some(block=>block.id===id)))throw Error("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+      created.ids=ids;await persistProgress();verifySnapshot(await getPageBlocks(args.bindings,page.id));
+    }
+  }
+  if(plan.manifest){
+    await assertCurrentDraft();
+    const fresh=await getPageBlocks(args.bindings,page.id);verifySnapshot(fresh);
+    const current=fresh.find(block=>block.id===plan.manifest!.id)!;
+    if(manifestCodeText(current)!==plan.manifest.after){
+      await renewLease();
+      const rich_text=manifestRichText(plan.manifest.after);
+      await notionRequest(args.bindings,"/blocks/"+encodeURIComponent(current.id),{method:"PATCH",body:JSON.stringify({code:{rich_text,language:blockPayload(current)?.language}})});
+    }
+  }
   await assertCurrentDraft();
   const verifiedPage = await notionRequest<NotionPage>(
     args.bindings, "/pages/" + encodeURIComponent(page.id),
   );
   if (!matchesEditorialIdentity(verifiedPage)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (pageGuard(verifiedPage) !== plan.pageGuard) throw new Error("NOTION_EDITORIAL_METADATA_CONFLICT");
-  if (selectProperty(verifiedPage, "Stav") !== "Ready" ||
-    !checkboxProperty(verifiedPage, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if (!articleEditorialPageApproved(args.bindings,article.status,verifiedPage)) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  if(plan.scope&&plan.untouchedProperties!==untouchedProperties(verifiedPage,plan.scope.properties))throw Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
   verifySnapshot(verifiedBlocks);
+  if(plan.structure&&!observeEditorialStructure(plan.structure,normalizedManifestBlocks(verifiedBlocks)).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
+  if(plan.manifest&&manifestCodeText(verifiedBlocks.find(block=>block.id===plan.manifest!.id)!)!==plan.manifest.after)throw Error("NOTION_ARTICLE_MANIFEST_VERIFICATION_FAILED");
+  if(plan.manifestCreate&&!plan.manifestCreate.ids)throw Error("NOTION_ARTICLE_MANIFEST_VERIFICATION_FAILED");
+  const verifiedProjection=plan.scope?.body&&!plan.structure?stagedNativeArticleProjection(editorProjection):editorProjection;
   const verified = buildNotionEditorialPlan({
-    article: editorProjection, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
+    article: verifiedProjection, ...(plan.scope?{scope:{...plan.scope,body:plan.structure?false:plan.scope.body},allowNonDraft:staged}:{}), remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks,hasCompletePublicPhotoCredit(editorProjection.imageCredit,editorProjection.imageCreditUrl)) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
     seoFields: [],
     perex: plan.propertyAfter.Perex,
@@ -2217,8 +2398,9 @@ export async function writeBackDraftArticleContentToNotion(args: {
   }
   const newPayload = notionPageToManagedArticleInput(verifiedPage, verifiedBlocks, article,
     decodeArticleSeoReceipt(mapping.content_hash).seo);
+  if((plan.manifest||plan.manifestCreate)&&JSON.stringify(manifestLayout(newPayload.blocks??[]))!==JSON.stringify(manifestLayout(article.blocks??[])))throw Error("NOTION_ARTICLE_MANIFEST_VERIFICATION_FAILED");
   const finalHash = await sha256(JSON.stringify({
-    payload: newPayload,
+    payload: { ...newPayload, relatedBreedIds: [] },
     ...notionArticleBreedFingerprint(verifiedPage),
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
     ...(notionArticleMainImageSource(verifiedPage).fileIdentity
@@ -2246,6 +2428,9 @@ export async function writeBackDraftArticleContentToNotion(args: {
   ).bind(page.id, article.id, article.updatedAt, leaseOwner).run();
   if (deleted.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
   return { linked: true, updated: true };
+  } catch(error){
+    if(staged&&error instanceof Error){const http=/^Notion API (\d{3}):/.exec(error.message);if(http)throw Error("NOTION_ARTICLE_HTTP_"+http[1]);}
+    throw error;
   } finally {
     // Failure retains immutable operations and preimages, but releases the
     // claim for safe immediate retry. A crash is recovered by lease expiry.
@@ -2258,6 +2443,175 @@ export async function writeBackDraftArticleContentToNotion(args: {
       // Preserve the original conflict/Notion error without exposing content.
     }
   }
+}
+
+/** The existing manifest is the lossless representation of special article
+ * blocks, not a second database model. The positional directive references
+ * the native canonical block index; legacy heading anchors remain readable. */
+function manifestOwned(block:ArticleBlock){
+  return block.id.startsWith("notion-manifest-")||["cta","source","related","gallery"].includes(block.type);
+}
+function localPromo(block:ArticleBlock){return block.type==="psipedia-promo"&&!block.id.startsWith("notion-");}
+function stagedNativeArticleProjection(article:Parameters<typeof buildNotionEditorialPlan>[0]["article"]){
+  return {...article,blocks:article.blocks.filter(block=>!manifestOwned(block)&&!localPromo(block))};
+}
+function manifestCodeText(block:RemoteArticleBlock){
+  if(!block||block.type!=="code"||block.has_children)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  const body=blockPayload(block as NotionBlock),rich=body?.rich_text;
+  if(!["json","javascript","plain text"].includes(String(body?.language))||!Array.isArray(rich)||rich.some(node=>!node||node.type!=="text"||typeof node.plain_text!=="string"||node.href||node.text?.link||Object.entries(node.annotations??{}).some(([key,value])=>key==="color"?value!=="default":value===true)))throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  return rich.map(node=>node.plain_text).join("");
+}
+function manifestCodeGuard(block:RemoteArticleBlock){
+  const body=blockPayload(block as NotionBlock);
+  const {rich_text,...rest}=body??{};
+  return JSON.stringify([block.id,block.type,block.has_children===true,rest]);
+}
+function manifestComparable(block:ArticleBlock){
+  const {id,...content}=block;
+  return content;
+}
+function manifestLayout(blocks:readonly ArticleBlock[]){
+  let index=0;const result:Array<ReturnType<typeof manifestComparable>&{beforeBlockIndex:number}>=[];
+  for(const block of blocks){
+    if(localPromo(block))continue;
+    if(manifestOwned(block))result.push({...manifestComparable(block),beforeBlockIndex:index});
+    else index++;
+  }
+  return result;
+}
+function manifestRichText(value:string){
+  const chars=Array.from(value),rich=[];for(let i=0;i<chars.length;i+=900)rich.push({type:"text",text:{content:chars.slice(i,i+900).join("")}});
+  if(rich.length>100)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");return rich;
+}
+function planStagedArticleManifest(before:ManagedArticle,after:ManagedArticle,remote:NotionBlock[],canonicalRemote:ArticleBlock[]):Pick<NotionEditorialPlan,"manifest"|"manifestCreate">|undefined{
+  const old=manifestLayout(before.blocks??[]),next=manifestLayout(after.blocks??[]);
+  // Locally inserted promos are intentionally Admin-only (preserveArticlePromoBlocks).
+  // Their changes do not belong to the Notion manifest or block a mapped edit.
+  const remoteLayout=manifestLayout(canonicalRemote);
+  // Do not overwrite a separately edited manifest, even if another field is
+  // the cause of this Admin save. Compare content and native position.
+  if(JSON.stringify(remoteLayout)!==JSON.stringify(old))throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  if(JSON.stringify(old)===JSON.stringify(next))return undefined;
+  const headings=remote.filter(block=>block.type==="heading_2"&&isAdminManifestHeading(blockText(block)));
+  if(headings.length>1||next.length>100)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  // Validate every new element through the same import normalizer. Never
+  // encode an invalid item that the importer would silently discard.
+  const normalized=next.map((item,index)=>{
+    const {beforeBlockIndex,...content}=item;
+    const [block]=normalizeArticleBlocks([{...content,id:"verify-"+index}]);
+    if(!block||JSON.stringify(manifestComparable(block))!==JSON.stringify(content))throw Error("NOTION_ARTICLE_MANIFEST_BLOCK_INVALID");
+    return item;
+  });
+  const desired=JSON.stringify(normalized);
+  if(Array.from(desired).length>90000)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");
+  if(!headings.length){if(old.length)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");return {manifestCreate:{after:desired}};}
+  const start=remote.indexOf(headings[0]),end=remote.findIndex((block,index)=>index>start&&block.type==="heading_2");
+  const candidates=remote.slice(start+1,end<0?undefined:end).filter(block=>block.type==="code");
+  if(candidates.length!==1)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  const original=candidates[0],raw=manifestCodeText(original);
+  return {manifest:{id:original.id,original,before:raw,after:desired}};
+}
+/** The unique article mapping also provides a durable first-copy reservation.
+ * A first-copy: prefix is NOT a remote ID. An ambiguous POST is never replayed. */
+export async function ensureFirstArticleNotionCopy(args:{database:D1Database;bindings:NotionSyncBindings;article:ManagedArticle}):Promise<{linked:boolean;updated:boolean;reason?:string}>{
+  const {database:db,bindings,article}=args;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!flagEnabled(bindings.NOTION_ARTICLE_SYNC_ENABLED)||!flagEnabled(bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED))return {linked:false,updated:false,reason:"disabled"};
+  if(!articleEditorialWritebackEligible(bindings,article.status))return {linked:false,updated:false,reason:"not-editable"};
+  const sourceId=bindings.NOTION_ARTICLES_DATA_SOURCE_ID?.trim();
+  if(!sourceId)throw Error("NOTION_ARTICLE_SOURCE_MISSING");
+  const mapping=()=>db.prepare("SELECT notion_page_id,content_hash FROM article_notion_sync WHERE article_id=? LIMIT 1").bind(article.id).first<{notion_page_id:string;content_hash:string}>();
+  const pendingId="first-copy:"+article.id;
+  const existing=await mapping();
+  if(existing&&existing.notion_page_id!==pendingId)return {linked:true,updated:false,reason:"already-linked"};
+  const eligible=()=>db.prepare("SELECT updated_at FROM managed_articles a WHERE id=? AND updated_at=? AND status=? AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=a.id)").bind(article.id,article.updatedAt,article.status).first<{updated_at:string}>();
+  if(!await eligible())throw Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+  if(!article.title.trim()||article.intro.trim().length<20||article.excerpt.trim().length<20||!(article.blocks??[]).length)throw Error("NOTION_ARTICLE_FIRST_COPY_INCOMPLETE");
+  const placement=notionArticleBreedPlacement({...article,portalSubpage:article.portalSection==="novinky"?article.newsCategory:article.portalSubpage});
+  if(!placement)throw Error("NOTION_ARTICLE_CATEGORY_DESTINATION_UNSUPPORTED");
+  const source=await notionRequest<{properties?:Record<string,{type?:string;select?:{options?:{name:string}[]}}> }>(bindings,"/data_sources/"+encodeURIComponent(sourceId));
+  const props:Record<string,unknown>={};
+  function property(name:string,type:string,value:unknown){
+    const schema=source.properties?.[name];
+    if(schema?.type!==type)throw Error("NOTION_ARTICLE_FIRST_COPY_SCHEMA_MISMATCH");
+    if(type==="select"&&typeof value==="string"&&!schema.select?.options?.some(option=>option.name===value))throw Error("NOTION_ARTICLE_FIRST_COPY_SELECT_MISMATCH");
+    if(type==="rich_text"||type==="title"){
+      if(typeof value!=="string")throw Error("NOTION_ARTICLE_FIRST_COPY_PROPERTY_INVALID");
+      const chars=Array.from(value),items=[];for(let i=0;i<chars.length;i+=900)items.push({type:"text",text:{content:chars.slice(i,i+900).join("")}});
+      if(items.length>=25)throw Error("NOTION_ARTICLE_FIRST_COPY_PROPERTY_LIMIT");
+      props[name]={[type]:items};
+    }else props[name]={[type]:type==="select"?(value?{name:value}:null):type==="date"?(value?{start:value}:null):value};
+  }
+  const absolute=(value:string|null|undefined)=>value?value.startsWith("/")?SITE_URL+value:value:null;
+  property("Názov","title",article.title);property("Slug","rich_text",article.slug);
+  property("Psipedia ID","rich_text",String(article.id));property("Perex","rich_text",article.excerpt);
+  property("Kategória","select",placement.category);property("Podsekcia","select",placement.subsection);
+  if(source.properties?.["Sekcia portálu"])property("Sekcia portálu","select",placement.portalSection);
+  const type=article.portalSection==="novinky"?"Aktuálna novinka":article.portalSection==="recenzie"?"Recenzia":null;
+  if(source.properties?.["Typ obsahu"])property("Typ obsahu","select",type);
+  const publicNow=effectiveArticleStatus(article.status,article.publishedAt)==="published";
+  property("Stav","select",publicNow?"Publikované":"Ready");property("Odoslať na Psipedia","checkbox",true);
+  property("Hlavný obrázok URL","url",absolute(article.image));
+  property("Alt text obrázka","rich_text",article.imageAlt??"");property("Zdroj obrázka","url",article.imageCreditUrl??null);
+  property("Kredit fotografie","rich_text",article.imageCredit??"");property("Popis na sociálne siete","rich_text",article.socialCaption??"");
+  const seo=article.seo;
+  const values:Record<ArticleNotionSeoKey,string|boolean|null>={seoTitle:seo?.title??"",metaDescription:seo?.description??"",focusKeyword:seo?.focusKeyword??"",canonicalUrl:seo?.canonicalUrl||null,noindex:seo?.noindex??false,ogTitle:seo?.ogTitle??"",ogDescription:seo?.ogDescription??"",ogImageUrl:absolute(seo?.ogImage)};
+  for(const [key,definition] of Object.entries(SEO))property(definition.name,definition.type,values[key as ArticleNotionSeoKey]);
+  const relations=await articleBreedWorkcopyPageIds(db,bindings,article.relatedBreedIds??[]);
+  if(relations.length>=25)throw Error("NOTION_ARTICLE_FIRST_COPY_RELATION_LIMIT");
+  property("Prepojené plemená","relation",relations.map(id=>({id})));
+  if(publicNow){
+    if(!article.publishedAt||!Number.isFinite(Date.parse(article.publishedAt)))throw Error("NOTION_ARTICLE_FIRST_COPY_PUBLICATION_DATE");
+    property("Dátum publikácie","date",article.publishedAt);property("URL Psipedia","url",SITE_URL+articleHref(article));
+  }
+  property("Sync stav","select","Chyba");property("Sync chyba","rich_text","ARTICLE_FIRST_COPY_PENDING");
+  const body=articleFirstCopyBody(stagedNativeArticleProjection({...article,blocks:article.blocks??[],seoTitle:seo?.title??"",metaDescription:seo?.description??"",focusKeyword:seo?.focusKeyword??""}),SITE_URL);
+  if(body.length<2)throw Error("NOTION_ARTICLE_FIRST_COPY_INCOMPLETE");
+  const manifest=manifestLayout(article.blocks??[]);
+  if(manifest.length>100)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");
+  const manifestText=JSON.stringify(manifest);
+  const heading=(value:string)=>({object:"block",type:"heading_2",heading_2:{rich_text:[{type:"text",text:{content:value}}]}});
+  const children=[heading("Obsah článku"),...body.map(item=>item.payload),...(manifest.length?[heading("Psipedia bloky"),{object:"block",type:"code",code:{language:"json",rich_text:manifestRichText(manifestText)}}]:[])];
+  if(children.length>100)throw Error("NOTION_ARTICLE_FIRST_COPY_BLOCK_LIMIT");
+  const query=async()=>{
+    const result=await notionRequest<NotionQueryResponse>(bindings,"/data_sources/"+encodeURIComponent(sourceId)+"/query",{method:"POST",body:JSON.stringify({filter:{or:[{property:"Psipedia ID",rich_text:{equals:String(article.id)}},{property:"Slug",rich_text:{equals:article.slug}}]},page_size:3})});
+    if(!Array.isArray(result.results)||result.has_more||result.results.length>1)throw Error("NOTION_ARTICLE_FIRST_COPY_AMBIGUOUS");
+    return result.results[0];
+  };
+  const initial=await query();
+  if(initial&&(!stagedArticlePageOwned(bindings,initial)||initial.archived||initial.in_trash||richTextProperty(initial,"Psipedia ID")!==String(article.id)||richTextProperty(initial,"Slug")!==article.slug))throw Error("NOTION_ARTICLE_FIRST_COPY_IDENTITY");
+  const intent="FIRST_COPY_PENDING:"+await sha256(JSON.stringify({revision:article.updatedAt,props,children}));
+  if(existing&&existing.content_hash!==intent)throw Error("NOTION_ARTICLE_FIRST_COPY_REVISION_CHANGED");
+  if(!existing){
+    const now=new Date().toISOString();
+    const reserved=await db.prepare("INSERT INTO article_notion_sync(notion_page_id,article_id,content_hash,last_synced_at,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM managed_articles a WHERE id=? AND updated_at=? AND status=? AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=a.id)) ON CONFLICT DO NOTHING").bind(pendingId,article.id,intent,"1970-01-01T00:00:00.000Z",now,now,article.id,article.updatedAt,article.status).run();
+    if(reserved.meta?.changes!==1)throw Error("NOTION_ARTICLE_FIRST_COPY_BUSY");
+  }
+  if(!await eligible()||(await mapping())?.content_hash!==intent)throw Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+  let remote=await query();
+  if(!remote){
+    if(existing||initial)throw Error("NOTION_ARTICLE_FIRST_COPY_UNCERTAIN");
+    remote=await notionSharedRequest<NotionPage>(bindings,"/pages",{method:"POST",body:JSON.stringify({parent:{type:"data_source_id",data_source_id:sourceId},properties:props,children})},{retryTransient:false});
+  }
+  if(!remote?.id)throw Error("NOTION_ARTICLE_FIRST_COPY_UNCERTAIN");
+  const verified=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(remote.id));
+  if(verified.id!==remote.id||verified.archived||verified.in_trash||!stagedArticlePageOwned(bindings,verified))throw Error("NOTION_ARTICLE_FIRST_COPY_IDENTITY");
+  for(const [name,value] of Object.entries(props)){
+    const raw=propertyRecord(verified,name),type=Object.keys(value as Record<string,unknown>)[0];
+    if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||!sameNotionProperty(raw,value))throw Error("NOTION_ARTICLE_FIRST_COPY_PROPERTY_CONFLICT");
+  }
+  const blocks=await getPageBlocks(bindings,verified.id);
+  if(blocks.length!==children.length||blocks[0]?.type!=="heading_2"||blockText(blocks[0])!=="Obsah článku")throw Error("NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT");
+  verifyArticleFirstCopyBody(body,blocks.slice(1,1+body.length));
+  if(manifest.length&&(blocks.at(-2)?.type!=="heading_2"||blockText(blocks.at(-2)!)!=="Psipedia bloky"||manifestCodeText(blocks.at(-1)!)!==manifestText))throw Error("NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT");
+  const imported=notionPageToManagedArticleInput(verified,blocks,article);
+  if(imported.category!==article.category||imported.portalSection!==article.portalSection||(imported.portalSubpage??null)!==(article.portalSubpage??null)||(imported.newsCategory??null)!==(article.newsCategory??null)||JSON.stringify(manifestLayout(imported.blocks??[]))!==manifestText)throw Error("NOTION_ARTICLE_FIRST_COPY_ROUNDTRIP_CONFLICT");
+  const hash=await notionArticlePageContentHash(verified,blocks,article,null);
+  if(!await eligible())throw Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+  const now=new Date().toISOString();
+  const saved=await db.prepare("UPDATE article_notion_sync SET notion_page_id=?,content_hash=?,notion_last_edited_time=?,last_synced_at=?,updated_at=? WHERE article_id=? AND notion_page_id=? AND content_hash=? AND EXISTS(SELECT 1 FROM managed_articles a WHERE id=? AND updated_at=? AND status=? AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=a.id))").bind(verified.id,encodeArticleSeoReceipt(hash,verified),verified.last_edited_time??null,now,now,article.id,pendingId,intent,article.id,article.updatedAt,article.status).run();
+  if(saved.meta?.changes!==1)throw Error("NOTION_ARTICLE_FIRST_COPY_MAPPING_CONFLICT");
+  await updateNotionSyncState(bindings,verified.id,{state:"Synchronizované",articleId:article.id,syncedAt:now});
+  return {linked:true,updated:true};
 }
 
 async function sha256(value: string) {
@@ -2283,11 +2637,11 @@ async function upsertMapping(
       notion_page_id, article_id, notion_last_edited_time, content_hash, last_synced_at, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(notion_page_id) DO UPDATE SET
-      article_id = excluded.article_id,
       notion_last_edited_time = excluded.notion_last_edited_time,
       content_hash = excluded.content_hash,
       last_synced_at = excluded.last_synced_at,
       updated_at = excluded.updated_at
+    WHERE article_notion_sync.article_id=excluded.article_id
   `).bind(
     page.id,
     articleId,
@@ -2459,7 +2813,7 @@ function hasPsipediaV2Styles(doc: EditorialRichTextDocument | null | undefined) 
   return Boolean(doc?.content.some(block => {
     const inline = "items" in block ? block.items.flat() : block.content;
     return inline.some(node => node.type === "text" &&
-      node.marks?.some(mark => mark.type === "color" || mark.type === "highlight" || mark.type === "underline"));
+      node.marks?.some(mark => mark.type === "color" || mark.type === "highlight"));
   }));
 }
 function preserveNotionUnrepresentableStyles(
@@ -2511,6 +2865,9 @@ async function syncOneNotionPage(
     ).bind(page.id).first<{ article_id: number }>();
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
+  const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  if(staged&&!stagedArticlePageOwned(bindings,page))throw Error("NOTION_ARTICLE_TARGET_UNSAFE");
+  if(staged){const pending=await database.prepare("SELECT article_id FROM article_notion_sync m JOIN managed_articles a ON a.id=m.article_id WHERE m.notion_page_id LIKE 'first-copy:%' AND (CAST(m.article_id AS TEXT)=? OR a.slug=?) LIMIT 1").bind(richTextProperty(page,"Psipedia ID"),richTextProperty(page,"Slug")).first();if(pending)throw Error("NOTION_EDITORIAL_WRITEBACK_PENDING");}
   const mapping = await loadMapping(database, page.id);
   const signedFields = articleSignedNotionFields(page, changedPropertyIds, eventType);
   const legacyUnapprovedReady = selectProperty(page, "Stav") === "Ready"
@@ -2518,6 +2875,8 @@ async function syncOneNotionPage(
     && richTextProperty(page, "Sync chyba").includes("Prepojený článok už nie je Draft");
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  if(staged&&mapping&&mappedExisting&&richTextProperty(page,"Psipedia ID")!==String(mappedExisting.id))throw Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+  if(staged&&mapping&&mappedExisting&&mappedExisting.updatedBy!==SYNC_ACTOR&&(!Number.isFinite(Date.parse(mapping.last_synced_at))||!Number.isFinite(Date.parse(mappedExisting.updatedAt))||Date.parse(mappedExisting.updatedAt)>Date.parse(mapping.last_synced_at)))throw Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
   if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
   // A past-due scheduled article is public but intentionally remains "scheduled"
   // in D1. Permit inbound editorial edits only for its verified published Notion
@@ -2548,6 +2907,10 @@ async function syncOneNotionPage(
   // correct fallback; do not parse a mapped page without that context.
   const explicitSeo = signedFields
     ? articleSeoSignedChangedFields(page, changedPropertyIds ?? []) : undefined;
+  if(staged&&signedFields){
+    const fields:Record<string,[string,"title"|"rich_text"]>={title:["Názov","title"],excerpt:["Perex","rich_text"],socialCaption:["Popis na sociálne siete","rich_text"],imageCredit:["Kredit fotografie","rich_text"]};
+    for(const key of signedFields){const field=fields[key];if(field){const raw=propertyRecord(page,field[0]);if(!raw||raw.type!==field[1]||raw.has_more===true||!Array.isArray(raw[field[1]])||(raw[field[1]] as unknown[]).length>=25)throw Error("NOTION_ARTICLE_PROPERTY_INCOMPLETE");notionEditorialPropertyText(raw,field[1]);}}
+  }
   const proposed = notionPageToManagedArticleInput(
     page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
@@ -2571,12 +2934,13 @@ async function syncOneNotionPage(
       (existing.portalSection !== proposed.portalSection && !explicitBreedPlacementChange))) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
   }
+  const stagedScheduled=Boolean(staged&&mapping&&existing?.status==="scheduled"&&articleEditorialPageApproved(bindings,existing.status,page));
   if (existing && existing.status !== "draft" && existing.status !== "published"
-    && !dueScheduledPublishedMapping) {
+    && !dueScheduledPublishedMapping&&!stagedScheduled) {
     throw new Error("ARTICLE_STATUS_REVIEW_REQUIRED");
   }
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
-  validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping);
+  validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping||stagedScheduled);
 
   const sourcePayload = notionPageToManagedArticleInput(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
@@ -2606,7 +2970,7 @@ async function syncOneNotionPage(
   const authorityPayload = existing && mapping && signedFields === null
     ? applyArticleAuthority(inboundPayload,existing,articleModes) : inboundPayload;
   const basePayload = existing && mapping && signedFields !== null
-    ? articleApplySignedFields(inboundPayload, existing, signedFields)
+    ? (staged?preserveNotionUnrepresentableStyles(articleApplySignedFields(inboundPayload,existing,signedFields),existing,{}):articleApplySignedFields(inboundPayload, existing, signedFields))
     : existing && mapping
       ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
       : authorityPayload;
@@ -2688,7 +3052,7 @@ async function syncOneNotionPage(
 
     // A locally edited draft belongs to the editor, not to the next Notion sweep.
     // Hash-only checks cannot detect admin edits after the previous import.
-    if (existing.status === "published" || dueScheduledPublishedMapping) {
+    if (existing.status === "published" || dueScheduledPublishedMapping||stagedScheduled) {
       // The article remains public with its original URL, assets, topic
       // relations, author and moderation state. Only Notion editorial fields
       // (body, intro, title, excerpt, SEO and social caption) flow inbound.
@@ -2731,8 +3095,8 @@ async function syncOneNotionPage(
         updatedAt: existing.updatedAt,
         // Guard the stored lifecycle as well as updated_at. Past-due scheduled
         // content edits must not turn into a reschedule or an accidental publish.
-        status: dueScheduledPublishedMapping ? "scheduled" : undefined,
-        allowPastDueScheduledContentEdit: dueScheduledPublishedMapping,
+        status: existing.status==="scheduled" ? "scheduled" : undefined,
+        allowPastDueScheduledContentEdit: existing.status==="scheduled"&&effectiveArticleStatus(existing.status,existing.publishedAt)==="published",
       });
       if (!updated) throw new Error("ARTICLE_PUBLISHED_UPDATE_FAILED");
       await upsertMapping(database, page, updated.id, contentHash, now);
@@ -2800,6 +3164,12 @@ async function syncOneNotionPage(
   if (selectProperty(page, "Stav") !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia")) {
     throw new Error("ARTICLE_CREATE_REQUIRES_READY");
   }
+  if(staged){
+    const similarity=await findSimilarArticles(database,basePayload);
+    const duplicate=strongArticleDuplicate(similarity);
+    if(duplicate)throw Error("ARTICLE_DUPLICATE_REVIEW_REQUIRED: #"+duplicate.id+" "+duplicate.reason);
+    if(similarity.incomplete)throw Error("ARTICLE_SIMILARITY_SCAN_INCOMPLETE");
+  }
   const prepared = await prepareNotionMainImage(bindings, page, basePayload);
   let created: Awaited<ReturnType<typeof createManagedArticle>> | null = null;
   try {
@@ -2858,6 +3228,26 @@ export async function runNotionArticleSyncSweep(args: {
     pages = [page];
   } else {
     pages = await listReadyNotionPages(args.bindings);
+    if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const older=await rotateNotionDiscovery<NotionPage>({
+          database:args.database,bindings:args.bindings,agenda:"articles",
+          sourceId:args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID!,limit:20,
+          filter:{or:[
+            {and:[{property:"Stav",select:{equals:"Ready"}},
+              {property:"Odoslať na Psipedia",checkbox:{equals:true}}]},
+            {property:"Stav",select:{equals:"Publikované"}},
+            {property:"Stav",select:{equals:"Na kontrolu"}},
+          ]},
+        });
+        // Visit older candidates first so the existing 20-write cap cannot
+        // indefinitely starve them. The editorial approval gate is unchanged.
+        pages=mergeNotionDiscovery(older,pages);
+      }catch{
+        summary.failed++;
+        console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"articles"});
+      }
+    }
   }
   for (const page of pages) {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
@@ -2868,11 +3258,18 @@ export async function runNotionArticleSyncSweep(args: {
         args.changedPropertyIds, args.eventType);
       summary[result] += 1;
     } catch (error) {
-      summary.failed += 1;
       const message = error instanceof Error ? error.message : String(error);
+      if(message.startsWith("ARTICLE_DUPLICATE_REVIEW_REQUIRED:")){
+        summary.reviewRequired=(summary.reviewRequired??0)+1;
+        if(selectProperty(page,"Sync stav")!=="Chyba"||richTextProperty(page,"Sync chyba")!==message)
+          await updateNotionSyncState(args.bindings,page.id,{state:"Chyba",error:message}).catch(()=>undefined);
+        continue;
+      }
+      summary.failed += 1;
       // The content-writeback outbox is authoritative while unfinished.
       // Do not overwrite its Notion status with an import-sweep error.
       if (message === "NOTION_EDITORIAL_WRITEBACK_PENDING") continue;
+      if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&message==="NOTION_ARTICLE_TARGET_UNSAFE")continue;
       console.error(JSON.stringify({
         event: "notion_article_sync_failed",
         notionPageId: page.id,

@@ -1,3 +1,8 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
+import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
+import type { FieldReservation } from "./notion-unified-field-transfer.ts";
+import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitHelpCaseV2AdminEdit, HELP_CASE_V2_FIELDS, HELP_CASE_V2_SEO, isHelpCaseV2Field, isHelpCaseV2SeoField, helpCaseV2Kind, helpCaseV2Value } from "./notion-help-case-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
@@ -713,6 +718,7 @@ export async function createManagedHelpCase(payload: ManagedHelpCaseInput, edito
   const database = requireD1Binding();
   await ensureHelpStore(database);
   const input = normalizeInput(payload);
+  await assertProfilePublicationIdentity(database,"help-cases",null,input.status,input);
   const now = new Date().toISOString();
   const row = await database
     .prepare(
@@ -771,7 +777,9 @@ export async function updateManagedHelpCase(
   editorEmail: string,
   existingItem?: HelpCase,
   unifiedExpectedRevision?: string,
+  reviewOnSave=false,
 ) {
+  if(reviewOnSave&&unifiedExpectedRevision===undefined)throw Error("REVIEW_ON_SAVE_REQUIRES_V2");
   const database = requireD1Binding();
   await ensureHelpStore(database);
   const existing = existingItem ?? (await getManagedHelpCaseById(id));
@@ -782,6 +790,7 @@ export async function updateManagedHelpCase(
   const input = normalizeInput(payload, {
     allowLegacyUrgent: existing.category === "urgentne-pripady",
   });
+  await assertProfilePublicationIdentity(database,"help-cases",existing.status,input.status,input,id);
   const now = unifiedExpectedRevision === undefined ? new Date().toISOString() : nextHelpV2Revision(unifiedExpectedRevision);
   const publishedAt =
     input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
@@ -840,7 +849,7 @@ export async function updateManagedHelpCase(
       ...(unifiedExpectedRevision === undefined ? [] : [unifiedExpectedRevision]),
     );
   const row = unifiedExpectedRevision === undefined ? await statement.first<HelpCaseRow>() :
-    (await commitHelpCaseV2AdminEdit(database,statement,{id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:editorEmail})).results?.[0] as HelpCaseRow | undefined;
+    (await commitHelpCaseV2AdminEdit(database,statement,{id,expectedRevision:unifiedExpectedRevision,nextRevision:now,editor:editorEmail,companionStatements:reviewOnSave?reviewOnSaveStatements(database,{type:"HELP_CASE",id,revision:now,actor:editorEmail}):[]})).results?.[0] as HelpCaseRow | undefined;
   if (unifiedExpectedRevision !== undefined && !row) throw Error("HELP_CASE_V2_STALE");
   return row ? rowToHelpCase(row) : null;
 }
@@ -867,9 +876,10 @@ export function isHelpCaseConflict(error: unknown) {
  * dedicated adoption/organization/Lost-Found domains. Public editorial
  * contact text is existing canonical content, not a private contact store. */
 export async function updateHelpCaseV2NotionField(input:{
-  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;
+  database:D1Database;id:number;pageId:string;field:string;value:unknown;revision:string;reservation?:FieldReservation;media?:VerifiedProfileMedia;
 }) {
   const {database,id,pageId,field,value,revision}=input;
+  const authority=helpAuthorityWriteGuard(input.reservation,"help-cases",id,pageId,field);
   if(!isHelpCaseV2Field(field)&&!isHelpCaseV2SeoField(field))throw Error("HELP_CASE_V2_PROTECTED");
   const row=await database.prepare("SELECT * FROM help_cases WHERE id=? AND updated_at=? AND "+HELP_ADMIN_DOMAIN_SQL)
     .bind(id,revision).first<HelpCaseRow>();
@@ -904,11 +914,14 @@ export async function updateHelpCaseV2NotionField(input:{
       if(image&&!image.startsWith("/media/")&&!image.startsWith("/images/")&&!/^https:\/\//i.test(image))
         throw Error("HELP_CASE_V2_IMAGE_INVALID");
       desired=image||null;
-      assignments.push("image_key=NULL","thumbnail_display_json=NULL","detail_display_json=NULL");
+      if(input.reservation?.profileAuthority){const media=requireProfileMediaProof("help-cases",value,input.media);desired=media.url;assignments.push("image_key=?");args.push(media.key);}
+      else assignments.push("image_key=NULL");
+      assignments.push("thumbnail_display_json=NULL","detail_display_json=NULL");
     }
     if(field==="Urgentné")desired=value?1:0;
     if(field==="CTA text"&&!value)desired=defaultHelpActionLabel(row.category as HelpCategorySlug);
-    if(helpCaseV2Value(field,desired)!==value)throw Error("HELP_CASE_V2_NORMALIZATION_REVIEW");
+    const expected=field==="Obrázok"&&input.reservation?.profileAuthority?profileMediaCanonicalValue(requireProfileMediaProof("help-cases",value,input.media)):value;
+    if(helpCaseV2Value(field,desired)!==expected)throw Error("HELP_CASE_V2_NORMALIZATION_REVIEW");
     // Do not infer closure or reopen a collection through a text edit. The
     // same lifecycle projection must agree before any narrow write.
     const lifecycle=applyHelpLifecycle({
@@ -939,7 +952,7 @@ export async function updateHelpCaseV2NotionField(input:{
     " AND NOT EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type='HELP_CASE' AND entity_id=help_cases.id)"+
     " AND NOT "+partnerReviewOwnerSql("HELP_CASE","help_cases.id")+
     " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='help' AND record_id=help_cases.id)"+
-    " AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=help_cases.id AND notion_page_id=?)")
-    .bind(...args,id,revision,pageId).run();
+    " AND EXISTS(SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=help_cases.id AND notion_page_id=?)"+authority.sql)
+    .bind(...args,id,revision,pageId,...authority.params).run();
   if(result.meta.changes!==1)throw Error("HELP_CASE_V2_WRITE_CONFLICT");
 }

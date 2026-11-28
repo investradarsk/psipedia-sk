@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+
+
 import { AdminEditorSyncReceipt } from "@/components/admin-editor-sync-status";
 
 import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
@@ -82,8 +85,10 @@ type BreedControlledValues=Record<string,string|number|string[]|null>;
 type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];rejectedKeys?:string[];error?:string};
 const subscribeToHydration=()=>()=>{};
 
-export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { breed?: ManagedBreed; options: BreedEditorOptions; returnHref?: string }) {
+export function AdminBreedEditor({ breed, initialReview=null, returnHref = "/admin/plemena" }: { breed?: ManagedBreed; initialReview?:{reviewed:boolean;reviewedAt:string}|null; options: BreedEditorOptions; returnHref?: string }) {
   const router = useRouter();
+  const [review,setReview]=useState(initialReview);
+  const [lockWithSave,setLockWithSave]=useState(true);
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setCanonicalForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
@@ -230,11 +235,18 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()||item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys}:{})})
+        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()||item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys,...(review?{reviewOnSave:!review.reviewed&&lockWithSave,expectedControlledRevision:controlledRevision,controlledChanges:submittedControlled}:{})}:{})})
       });
-      const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string}};
+      const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string};review?:{reviewed:boolean;reviewedAt:string}|null;controlled?:BreedControlledResponse|null};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
+      if(data.review)setReview(data.review);
+      if(review&&data.controlled){
+        const saved=data.controlled;
+        setControlledRevision(saved.revision);setControlledPendingKeys(saved.pendingKeys??[]);
+        if(formEditRevisionRef.current===submittedRevision){setControlled(saved.values);setControlledDirtyKeys([]);}
+        setControlledError("");
+      }
       const rejectedDirtyFields=data.rejectedDirtyFields??[];
       if (rejectedDirtyFields.length) {
         // Never mark an unsuccessful field clean. All successfully saved fields
@@ -253,10 +265,14 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
         }
         baseFormRef.current=revised as unknown as typeof form;
       } else baseFormRef.current=submittedForm;
-      setCanonicalForm((current)=>({...current,status:data.breed!.status}));
+      const aliases=review&&data.controlled?{fciGroup:data.breed.fciGroup,fciSectionNumber:data.breed.fciSectionNumber,size:data.breed.size}:{};
+      if(formEditRevisionRef.current===submittedRevision){
+        baseFormRef.current={...baseFormRef.current,...aliases};
+        setCanonicalForm(current=>({...current,...aliases,status:data.breed!.status}));
+      }else setCanonicalForm(current=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
-      let controlledHasPending=controlledPendingKeys.length>0;
-      if (breed && submittedControlledKeys.length) {
+      let controlledHasPending=!review&&controlledPendingKeys.length>0;
+      if (breed && submittedControlledKeys.length && !review) {
         if (controlledRevision===null) {
           controlledSaveFailed=true;
           setControlledError("Kontrolované údaje neboli načítané. Ostatné údaje sú uložené.");
@@ -477,6 +493,8 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
     >
     <form id="breed-canonical-editor-form" inert={saving} aria-busy={saving} noValidate className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
+    {review&&breed&&<AdminReviewCheckbox key={String(review.reviewed)+review.reviewedAt} entityType="BREED" entityId={breed.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate disabled={saving||dirty} onReviewChange={setReview}/>}
+    {review&&!review.reviewed&&<div role="status"><p>Neodkontrolované plemeno: Notion môže prepísať uložené úpravy.</p><label><input type="checkbox" checked={lockWithSave} disabled={saving} onChange={e=>setLockWithSave(e.target.checked)}/> Uložiť a označiť ako Odkontrolované</label></div>}
     <div className={styles.editorTopbar}>
       <div>
         <strong>{breed ? "Plemeno #" + breed.id : "Nový profil plemena"}</strong>
@@ -599,7 +617,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
             <AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning"/>
           </label>
           <div className="admin-field"><span>FCI skupina</span><select aria-label="FCI skupina" value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>
-            {FCI_GROUP_OPTIONS.map(([number,label])=><option key={number} value={number}>{number}. {label}</option>)}</select></div>
+            {review&&form.fciGroup===0&&<option value={0}>Nevyplnené</option>}{FCI_GROUP_OPTIONS.map(([number,label])=><option key={number} value={number}>{number}. {label}</option>)}</select></div>
           <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={e=>change("fciSection",e.target.value)} /></label>
           {breed && !controlledLoading && controlledRevision===null && <p role="status" className={styles.validation}>
             Štruktúrované údaje zatiaľ nie sú pre tento profil prepojené s Notionom. Dostupné sú pôvodné polia; údaje zostanú v Admine.
@@ -619,7 +637,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       <div className="admin-form-card">
         <div className={styles.heading} data-admin-profile-heading><div><h2>03 · Povaha v číslach</h2><p>Osem nezávislých hodnotení od 1 do 5.</p></div></div>
         <div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}>
-          <span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={e=>change(key,Number(e.target.value))}/></label>)}</div>
+          <span>{label}</span><input type="number" min="1" max="5" value={review&&form[key]===0?"":form[key]} placeholder={review?"Nevyplnené":undefined} onChange={e=>change(key,Number(e.target.value))}/></label>)}</div>
       </div>
     </AdminEditorSection>
 

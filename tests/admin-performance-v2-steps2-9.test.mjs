@@ -93,14 +93,15 @@ test("7/10 Attention summary deduplicates only in React server request", () => {
   assert.doesNotMatch(loader, /setTimeout|new Map|globalThis|localStorage/);
 });
 
-test("8/10 Organization saves refresh the server shell only when its name or slug changes", () => {
+test("8/10 Organization saves refresh the server shell only when identity or review changes", () => {
   const org = parse("components/admin-organization-editor.tsx");
   const page = parse("app/admin/organizacie/[id]/page.tsx");
   assert.match(page, /title=\{organization\.name\}/);
   assert.match(page, /organization\.slug/);
   assert.match(org, /let serverIdentityChanged = false/);
   assert.match(org, /serverIdentityChanged = Boolean\(organization &&\s*\(body\.item\.name !== organization\.name \|\| body\.item\.slug !== organization\.slug\)\)/);
-  assert.match(org, /if \(serverIdentityChanged\) router\.refresh\(\)/);
+  assert.match(org, /if \(serverIdentityChanged\|\|serverReviewChanged\) router\.refresh\(\)/);
+  assert.match(org,/serverReviewChanged=body\.review\.reviewed!==review\?\.reviewed/);
   assert.doesNotMatch(org, /if \(organizationSaved\) router\.refresh\(\)/);
   assert.equal((org.match(/router\.refresh\(\)/g) ?? []).length, 1, "no unconditional refresh after a text, contact, image or address save");
   assert.match(org, /setSavedAddressSnapshot\(JSON\.stringify\(savedAddress\)\)/);

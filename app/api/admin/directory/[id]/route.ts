@@ -107,6 +107,7 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync?: unknown;
       fullProfileSave?: unknown;
       expectedUpdatedAt?: unknown;
+      reviewOnSave?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
@@ -124,9 +125,12 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync: rawConfirmContactSync,
       fullProfileSave: rawFullProfileSave,
       expectedUpdatedAt: rawExpectedUpdatedAt,
+      reviewOnSave: rawReviewOnSave,
       ...submittedBody
     } = rawBody;
     const fullProfileSave = rawFullProfileSave === true;
+    const reviewOnSave = rawReviewOnSave === true && fullProfileSave &&
+      (env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
     // Full visible form is authoritative, but never overwrite a newer D1 revision.
     // Missing fields from an old/partially hydrated editor are NOT clears.
     if (fullProfileSave) {
@@ -235,10 +239,33 @@ export async function PUT(request: Request, { params }: Props) {
       }, { status: 409, headers: { "cache-control": "no-store" } });
       if (contactScope) editedPaths = contactScope.editedPaths as BreederEditorialField[];
     }
+    // A complete form is not proof that any individual contact was edited.
+    // Hidden/partially hydrated or masked contact inputs must not clear D1,
+    // nor authorize a remote write when saving an unrelated field.
+    let fullContactPaths: readonly string[] = [];
+    if (fullProfileSave) {
+      const current = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
+      const scoped = scopeAdminContactSave({
+        editedPaths: DIRECTORY_CONTACT_EDITORIAL_PATHS,
+        interactedFields: rawContactEditedFields,
+        originalValues: rawContactOriginalValues,
+        submitted: submittedBody as Record<string, unknown>,
+        currentValues: {websiteUrl: current.website, publicPhone: current.phone,
+          publicEmail: current.email, facebookUrl: current.facebook, instagramUrl: current.instagram},
+      });
+      if (scoped.incompatible || scoped.conflicts.length) return Response.json({
+        error: "Kontakty sa nepodarilo bezpečne overiť. Obnov profil a zopakuj úpravu.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+      fullContactPaths = scoped.editedPaths;
+      if (editedPaths) editedPaths = [...new Set<BreederEditorialField>([
+        ...editedPaths.filter(path => !(DIRECTORY_CONTACT_EDITORIAL_PATHS as readonly string[]).includes(path)),
+        ...scoped.editedPaths as BreederEditorialField[],
+      ])];
+    }
     // An explicit owner save from the Contacts tab may re-confirm contact values
     // already present in D1 but missing in Notion. This never expands the
     // full-form D1 write or resynchronizes unrelated fields.
-    const confirmContactSync = (fullProfileSave || rawConfirmContactSync === true) && editedPaths !== null &&
+    const confirmContactSync = rawConfirmContactSync === true && editedPaths !== null &&
       submittedBody.category === before.category && before.status !== "archived";
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
@@ -308,9 +335,7 @@ export async function PUT(request: Request, { params }: Props) {
     // Only backwards-compatible partial requests borrow untouched contacts
     // from D1. Public renderers decide whether a saved text is a valid link.
     const liveContactValues = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
-    const safeOptionalFields = fullProfileSave
-      ? { ...fieldPreserved }
-      : preserveUntouchedDirectoryContacts(
+    const safeOptionalFields = preserveUntouchedDirectoryContacts(
       { ...fieldPreserved },
       {
         websiteUrl: liveContactValues.website,
@@ -319,7 +344,7 @@ export async function PUT(request: Request, { params }: Props) {
         facebookUrl: liveContactValues.facebook,
         instagramUrl: liveContactValues.instagram,
       },
-      editedPaths ?? [],
+      fullProfileSave ? fullContactPaths : editedPaths ?? [],
     );
     // Full saves normalize all five contacts in the same D1 UPDATE, including
     // intentional empty values. Only legacy partial requests need the
@@ -413,6 +438,7 @@ export async function PUT(request: Request, { params }: Props) {
     let profile = await updateManagedDirectoryProfile(
       id, payload, user.email, before, db, {
         expectedUpdatedAt: before.updatedAt,
+        reviewOnSave,
         unifiedEditFields: (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string }).NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true"
           ? (editedPaths ?? []) : undefined,
       },
@@ -562,7 +588,8 @@ export async function PUT(request: Request, { params }: Props) {
             breederAdminFields: isDirectoryFieldEventCategory(before.category)
               ? [...new Set<BreederEditorialField>([
                   ...(editedPaths ?? breederEditedFields(before, profile)),
-                  ...(confirmContactSync ? DIRECTORY_CONTACT_EDITORIAL_PATHS : []),
+                  ...(confirmContactSync ? DIRECTORY_CONTACT_EDITORIAL_PATHS.filter(field =>
+                    typeof body[field] === "string" && Boolean(body[field]?.trim())) : []),
                 ])] : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"

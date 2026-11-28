@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AdminBulkActionToolbar } from "@/components/admin-interaction-system";
+import { AdminBulkStatusActions } from "@/components/admin-bulk-status-actions";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminEshopListInline } from "@/components/admin-eshop-list-inline";
@@ -17,7 +21,9 @@ const subscribeHydration = () => () => {};
 const clientSnapshot = () => true;
 const serverSnapshot = () => false;
 
-export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
+export function AdminEshopTable({ shops, bulkStatusEnabled=false }: { shops: ManagedEshop[]; bulkStatusEnabled?:boolean }) {
+  const router=useRouter();
+  const [bulkIds,setBulkIds]=useState<number[]>([]);
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ManagedEshop["status"] | "all">("all");
@@ -33,12 +39,15 @@ export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
   const visible = shops.filter(item => (status === "all" || item.status === status) &&
     terms.every(term => normalize([item.id, item.name, item.websiteUrl, ...item.focusTags].join(" ")).includes(term)));
   const shop = visible.find(item => item.id === selectedId);
+  const items=visible.filter(item=>bulkIds.includes(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}));
+  const finish=(ids:number[])=>{setBulkIds(current=>current.filter(id=>!ids.includes(id)));router.refresh();};
   function closeDetail() {
     if (editing) return;
     setSelectedId(null);
     openerRef.current?.focus();
   }
   function resetDetail() {
+    setBulkIds([]);
     setSelectedId(null);
     openerRef.current = null;
   }
@@ -53,8 +62,10 @@ export function AdminEshopTable({ shops }: { shops: ManagedEshop[] }) {
       <div data-admin-list-filter-actions><button className="admin-secondary-action" type="button" onClick={() => { resetDetail(); setQuery(""); setStatus("all"); }}>Vyčistiť filtre</button></div>
     </fieldset>
     <p role="status" data-admin-list-results>Nájdené: {visible.length} z {shops.length}</p>
+    {bulkStatusEnabled&&items.length>0&&<AdminBulkActionToolbar selectedCount={items.length} selectionDescription="Výber platí pre aktuálny filter." onClear={()=>setBulkIds([])} primaryAction={<AdminBulkStatusActions agenda="eshops" items={items} disabled={editing} onFinished={finish}/>} destructiveAction={<AdminRecordBulkDelete kind="eshops" selectedIds={items.map(item=>item.id)} disabled={editing} onFinished={finish}/>}/>}
     {visible.length ? <AdminRecordTable
       rows={visible}
+      selection={bulkStatusEnabled?{selectedIds:items.map(item=>item.id),onChange:setBulkIds,disabled:!hydrated||editing}:undefined}
       label="E-shopy"
       density="compact"
       stretch

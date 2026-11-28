@@ -367,6 +367,9 @@ async function executeVerifiedUnfenced(db:D1Database,bindings:ManualTransferBind
 }
 
 async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job:Job){
+  // The old owner-directed transfer can bypass profile authority. Keep its
+  // preview readable, but refuse actual legacy writes in the staged mode.
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   if(bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")return executeVerifiedUnfenced(db,bindings,job);
   await assertManualMappingEligible(db,job);
   if(!await mappingStillLinked(db,job))throw Error("TRANSFER_IDENTITY_CHANGED");

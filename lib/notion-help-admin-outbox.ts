@@ -60,6 +60,7 @@ export async function readHelpNotionWritebackStatus(
 ): Promise<HelpNotionWritebackState> {
   if (!AGENDAS.has(agenda) || !Number.isSafeInteger(entityId) || entityId <= 0)
     throw Error("HELP_OUTBOX_BAD_IDENTITY");
+  if (bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") return "disabled";
   if (bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
   if (await isAdminNotionSyncLocked(database, agenda, entityId)) return "disabled";
   const mapped = await database.prepare(
@@ -144,6 +145,7 @@ export async function retryOneHelpNotionWriteback(input: {
   database: D1Database; bindings: HelpNotionRetryBindings; agenda: HelpNotionAgenda; entityId: number;
 }): Promise<HelpNotionWritebackState> {
   const { database, bindings, agenda, entityId } = input;
+  if (bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") return "disabled";
   if (bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
   if (await isAdminNotionSyncLocked(database, agenda, entityId)) {
     await database.prepare(
@@ -225,6 +227,7 @@ export async function runHelpNotionWritebackRetrySweep(input: {
   database: D1Database; bindings: HelpNotionRetryBindings; limit?: number;
 }) {
   const result={claimed:0,synced:0,pending:0,review:0,disabled:0};
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return result;
   if (input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED!=="true") return result;
   const limit=Math.max(1,Math.min(5,input.limit??3));
   for(let i=0;i<limit;i++){

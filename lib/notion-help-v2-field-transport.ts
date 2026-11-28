@@ -1,4 +1,5 @@
-import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
+import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent, type FieldReservation } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock.ts";
@@ -59,7 +60,7 @@ type Scope={database:D1Database;bindings:NotionSyncBindings;agenda:Agenda;entity
   load:(db:D1Database,id:number)=>Promise<CanonicalSourceRecord[]>};
 type Adapter=Scope & {fields:readonly string[];direction:"pull"|"push";
   kind:(field:string)=>FieldKind|undefined;protectedFields:ReadonlySet<string>;
-  pull:(field:string,value:unknown,revision:string)=>Promise<void>;
+  pull:(field:string,value:unknown,revision:string,reservation?:FieldReservation,media?:VerifiedProfileMedia)=>Promise<void>;
   encode:(values:Record<string,ReconciliationValue>)=>Record<string,unknown>};
 
 async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolean){
@@ -82,7 +83,10 @@ async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolea
   if(currentMapping?.notion_page_id!==pageId||currentMapping.content_hash!==mapping.content_hash||
     await isAdminNotionSyncLocked(database,agenda,entityId)||await notionPageIsTombstoned(database,pageId))throw Error("HELP_V2_SCOPE_CHANGED");
   const notion=helpV2NotionObservation(page,field,kind);
-  const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:normalizeHelpObservation(field,source.properties[field])}:{present:false};
+  const mediaField=agenda==="adoptions"?"Hlavný obrázok URL":agenda==="lost-found"?"Hlavný obrázok":"Obrázok";
+  const canonical=normalizeHelpObservation(field,source.properties[field]);
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field===mediaField&&notion.present?await profileMediaSourceAlias(agenda,canonical,notion.value,bindings.BUCKET):canonical;
+  const psipedia:FieldObservation=Object.hasOwn(source.properties,field)?{present:true,value:logical}:{present:false};
   return {page,source,mapping,revision:before.updated_at,status:before.status,notion,psipedia};
 }
 
@@ -91,6 +95,7 @@ async function observe(input:Scope,field:string,kind:FieldKind,slugChange:boolea
  * adapter must enforce a revision/mapping/lock CAS inside its own SQL write. */
 export async function syncHelpV2Fields(input:Adapter){
   const {database,agenda,entityId,pageId,direction}=input;
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&direction==="push")return {pulled:0,pushed:0,failed:[] as string[]};
   const fields=[...new Set(input.fields)];
   if(direction==="push")for(const key of ["Slug",...(agenda==="lost-found"?["Typ"]:agenda==="help-cases"?["Kategória"]:[])]){
     if(fields.includes(key))fields.splice(0,0,...fields.splice(fields.indexOf(key),1));
@@ -109,19 +114,25 @@ export async function syncHelpV2Fields(input:Adapter){
       if(!observed.notion.present||!observed.psipedia.present)throw Error("HELP_V2_MISSING_FIELD");
       const historical=structural?null:await readProfileFieldBaseline({database,agenda,entityId,pageId,expectedHash:observed.mapping.content_hash});
       const reservation=structural?null:await reserveUnifiedField({
-        database,identity,historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
+        database,identity,authorityBindings:input.bindings,authorityProperty:observed.page.properties?.[field],historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
         notion:observed.notion,psipedia:observed.psipedia,direction,
         psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision),
       });
       if(!structural&&!reservation)continue;
       const value=reservation?reservation.value:observed.psipedia.value;
+      const mediaField=agenda==="adoptions"?"Hlavný obrázok URL":agenda==="lost-found"?"Hlavný obrázok":"Obrázok";
+      if(reservation?.profileAuthority&&agenda==="lost-found"&&field===mediaField){
+        const protection=await database.prepare("SELECT source,main_image_key FROM lost_found_dog_reports WHERE id=? AND updated_at=?").bind(entityId,observed.revision).first<{source:string;main_image_key:string|null}>();
+        if(!protection||protection.source==="Používateľské hlásenie"||protection.main_image_key?.startsWith("safe/"))throw Error("LOST_FOUND_V2_MODERATION_MEDIA_LOCKED");
+      }
+      const media=reservation?.profileAuthority&&field===mediaField?await prepareProfileMedia(agenda,value,input.bindings,observed.source.properties[field]):undefined;
       const fresh=await observe(input,field,kind,slug);
       if(fresh.revision!==observed.revision||!fresh.notion.present||!fresh.psipedia.present||
         fresh.notion.value!==observed.notion.value||fresh.psipedia.value!==observed.psipedia.value||
         fresh.page.last_edited_time!==observed.page.last_edited_time)
         throw Error("HELP_V2_SOURCE_CHANGED");
       if(reservation)await assertUnifiedReservationCurrent(database,reservation);
-      if(direction==="pull")await input.pull(field,value,observed.revision);
+      if(direction==="pull")await input.pull(field,value,observed.revision,reservation??undefined,media);
       else {
         const values:Record<string,ReconciliationValue>={[field]:value as ReconciliationValue};
         if(slug)values["URL Psipedia"]=fresh.source.url;
@@ -148,7 +159,7 @@ export async function recoverHelpV2Field(input:Scope,field:string,kind:FieldKind
   const {database,agenda,entityId,pageId}=input;
   const identity={agenda,entityId:String(entityId),pageId,field};
   const historical=await readProfileFieldBaseline({database,agenda,entityId,pageId,expectedHash:observed.mapping.content_hash});
-  await reserveUnifiedField({database,identity,direction:"observe",notion:observed.notion,psipedia:observed.psipedia,
+  await reserveUnifiedField({database,identity,direction:"observe",authorityBindings:input.bindings,authorityProperty:observed.page.properties?.[field],notion:observed.notion,psipedia:observed.psipedia,
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:normalizeHelpObservation(field,historical[field]),version:observed.mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.revision)});
 }

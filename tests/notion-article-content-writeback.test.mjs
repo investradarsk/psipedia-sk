@@ -16,7 +16,7 @@ const seoUrl = asUrl(await compile("../lib/notion-article-seo-properties.ts"));
 const contentPlanSource = (await compile("../lib/notion-article-content-plan.ts"))
   .replace('from "./notion-article-seo-properties"', 'from "' + seoUrl + '"');
 const {
-  buildNotionEditorialPlan, EditorialSyncConflict,
+  buildNotionEditorialPlan, EditorialSyncConflict, buildEditorialStructure, observeEditorialStructure, editorialInsertionIds, articleFirstCopyBody, verifyArticleFirstCopyBody,
   notionEditorialBlockShape, notionEditorialPropertyText,
 } = await import(asUrl(contentPlanSource));
 
@@ -157,9 +157,9 @@ test("unsupported Notion children/marks and unsafe Admin blocks never disappear"
   assert.throws(() => build(article(), withChildren), /UNSUPPORTED_NOTION_CHILDREN/);
   const a = article();
   a.blocks[1] = { id: "g", type: "gallery", images: [] };
-  assert.throws(() => build(a), /UNSUPPORTED_ADMIN_BLOCK_gallery/);
+  assert.throws(() => build(a), /UNSUPPORTED_ADMIN_BLOCK_GALLERY/);
   const underlined = originalBlocks();
-  underlined[2].paragraph.rich_text[0].annotations.underline = true;
+  underlined[2].paragraph.rich_text[0].annotations.strikethrough = true;
   assert.throws(() => build(article(), underlined), /UNSUPPORTED_NOTION_MARK/);
 });
 
@@ -289,4 +289,64 @@ test("production activates editorial draft writeback globally, without per-artic
   assert.match(sync, /if \(article\.status !== "draft"\)/);
   assert.match(sync, /SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = \?/);
   assert.doesNotMatch(config, /NOTION_ARTICLE_WRITEBACK_CANARY|NOTION_ARTICLE_WRITEBACK_ALLOWLIST/);
+});
+
+test("staged scheduled and published editorial planning touches only selected cells",()=>{
+  for(const status of ["published","scheduled"]){
+    const a=article();a.status=status;a.title="Nový titul";
+    const p={...page(),Perex:{rich_text:rich("Pôvodný perex článku.")}};
+    const plan=buildNotionEditorialPlan({article:a,remoteBlocks:[{id:"unsupported",type:"unsupported"}],pageProperties:p,siteUrl:"https://psipedia.sk",allowNonDraft:true,scope:{properties:["Názov"],body:false},seoFields:[]});
+    assert.deepEqual(Object.keys(plan.properties),["Názov"]);
+    assert.equal(plan.blocks.length,0);
+    assert.equal(plan.blockSnapshots.length,0);
+    assert.throws(()=>buildNotionEditorialPlan({article:a,remoteBlocks:originalBlocks(),pageProperties:p,siteUrl:"https://psipedia.sk",allowNonDraft:true,scope:{properties:["Kredit fotografie"],body:false},seoFields:[]}),/NOTION_ARTICLE_PROPERTY_MISSING/);
+  }
+});
+
+test("structural middle insertion preserves original notes and unchanged block identities",()=>{
+  const a=article();a.blocks.splice(1,0,{id:"new",type:"text",content:"Nový odsek."});
+  const body=originalBlocks(),note=block("private","heading_2","SEO");
+  const plan=buildEditorialStructure(a,body,[...body,note],"https://psipedia.sk");
+  assert.equal(plan.remove.length,0);assert.equal(plan.insert.length,1);
+  assert.deepEqual(plan.prefix.map(b=>b.id),["intro","h"]);assert.deepEqual(plan.suffix.map(b=>b.id),["p","private"]);
+  assert.equal(observeEditorialStructure(plan,[...body,note]).complete,false);
+  const newBlock=block("remote-new","paragraph","Nový odsek.");
+  plan.insertedIds=editorialInsertionIds(plan,[newBlock]);
+  assert.equal(observeEditorialStructure(plan,[body[0],body[1],newBlock,body[2],note]).complete,true);
+  assert.throws(()=>observeEditorialStructure(plan,[body[0],body[1],newBlock,body[2],block("private","heading_2","Changed")]));
+});
+test("structural delete and reorder preserve unrelated notes and reject unknown append",()=>{
+  const a=article();a.blocks.reverse();
+  const body=originalBlocks(),note=block("private","heading_2","SEO");
+  const plan=buildEditorialStructure(a,body,[...body,note],"https://psipedia.sk");
+  assert.deepEqual(plan.remove.map(b=>b.id),["h","p"]);
+  assert.equal(plan.insert.length,2);
+  const added=[block("new-p","paragraph",a.blocks[0].content),block("new-h","heading_2",a.blocks[1].text)];
+  assert.throws(()=>observeEditorialStructure(plan,[...body,...added,note]),/NOTION_EDITORIAL_APPEND_UNCERTAIN/);
+  plan.insertedIds=editorialInsertionIds(plan,added);
+  assert.deepEqual(observeEditorialStructure(plan,[...body,...added,note]).remaining,["h","p"]);
+  assert.throws(()=>observeEditorialStructure(plan,[body[0],body[2],...added,note]),/NOTION_EDITORIAL_STRUCTURE_CONFLICT/);
+  plan.deleteStartedIds=["h"];
+  assert.deepEqual(observeEditorialStructure(plan,[body[0],body[2],...added,note]).remaining,["p"]);
+  plan.deleteStartedIds.push("p");
+  assert.equal(observeEditorialStructure(plan,[body[0],...added,note]).complete,true);
+  const shorter=article();shorter.blocks.pop();
+  const deletion=buildEditorialStructure(shorter,body,[...body,note],"https://psipedia.sk");
+  assert.equal(deletion.insert.length,0);assert.deepEqual(deletion.remove.map(b=>b.id),["p"]);
+  deletion.deleteStartedIds=["p"];
+  assert.equal(observeEditorialStructure(deletion,[body[0],body[1],note]).complete,true);
+});
+
+test("first-copy native serialization uses the same exact readback shapes",()=>{
+  const expected=articleFirstCopyBody(article(),"https://psipedia.sk");
+  assert.equal(expected.length,originalBlocks().length);
+  verifyArticleFirstCopyBody(expected,originalBlocks());
+  assert.throws(()=>verifyArticleFirstCopyBody(expected,originalBlocks().slice(1)),/NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT/);
+});
+
+test("native underline round-trips without flattening italic or bold marks",()=>{
+  const a=article();a.blocks[1].richText={version:2,type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"Pôvodný odsek.",marks:[{type:"underline"},{type:"italic"}]}]}]};
+  const b=originalBlocks();b[2].paragraph.rich_text[0].annotations.underline=true;b[2].paragraph.rich_text[0].annotations.italic=true;
+  assert.equal(build(a,b).blocks.length,0);
+  assert.equal(build(a).blocks[0].payload.paragraph.rich_text[0].annotations.underline,true);
 });

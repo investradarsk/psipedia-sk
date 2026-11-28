@@ -167,7 +167,7 @@ async function dueSourceRows(db: D1Database, now: Date) {
     "    FROM lost_found_dog_reports WHERE status='ACTIVE' AND published_at IS NOT NULL",
     "    AND (expires_at IS NULL OR expires_at > ?)",
     ") p LEFT JOIN help_source_checks c ON c.entity_type=p.entity_type AND c.entity_id=p.entity_id",
-    "WHERE c.last_checked_at IS NULL OR c.last_checked_at <= ? OR c.source_url <> COALESCE(p.source_url,'')",
+    "WHERE c.last_checked_at IS NULL OR c.last_checked_at <= ? OR c.source_url <> TRIM(COALESCE(p.source_url,''))",
     "ORDER BY COALESCE(c.last_checked_at,'') ASC,p.entity_type,p.entity_id LIMIT ?",
   ].join("\n");
   const result = await db.prepare(query).bind(now.toISOString(), cutoff, BATCH_LIMIT).all<SourceRow>();
@@ -238,7 +238,9 @@ export async function listHelpSourceChecks(db: D1Database, limit = 60): Promise<
     "FROM help_source_checks c",
     "LEFT JOIN adoption_dogs a ON c.entity_type='ADOPTION' AND a.id=c.entity_id AND a.status IN ('ACTIVE','RESERVED')",
     "LEFT JOIN lost_found_dog_reports l ON c.entity_type='LOST_FOUND' AND l.id=c.entity_id AND l.status='ACTIVE'",
-    "WHERE (a.id IS NOT NULL OR l.id IS NOT NULL)",
+    "WHERE (a.id IS NOT NULL AND c.source_url=TRIM(COALESCE(a.external_source_url,'')))",
+    " OR (l.id IS NOT NULL AND l.published_at IS NOT NULL AND l.duplicate_of_id IS NULL",
+    " AND (l.expires_at IS NULL OR julianday(l.expires_at)>julianday('now')) AND c.source_url=TRIM(COALESCE(l.source_url,'')))",
     "ORDER BY",
     "  CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 0",
     "       WHEN c.source_state IN ('UNAVAILABLE','NO_SOURCE') THEN 1",
@@ -250,22 +252,25 @@ export async function listHelpSourceChecks(db: D1Database, limit = 60): Promise<
   return result.results ?? [];
 }
 
-export async function confirmHelpSourceManually(db: D1Database, entityType: HelpSourceEntityType, entityId: number, now = new Date()) {
+export async function confirmHelpSourceManually(db: D1Database, entityType: HelpSourceEntityType, entityId: number, now = new Date(), expectedCheckedAt?:string) {
   if (!await helpSourceSchemaReady(db)) return false;
-  const timestamp = now.toISOString();
-  if (entityType === "ADOPTION") {
-    // Explicit editor confirmation, never automatic. This is canonical verification.
-    const update = await db.prepare(
-      "UPDATE adoption_dogs SET last_verified_at=?,updated_at=? WHERE id=? AND status IN ('ACTIVE','RESERVED')",
-    ).bind(timestamp, timestamp, entityId).run();
-    if ((update.meta?.changes ?? 0) !== 1) return false;
-  } else {
-    const existing = await db.prepare("SELECT id FROM lost_found_dog_reports WHERE id=? AND status='ACTIVE'")
-      .bind(entityId).first<{ id: number }>();
-    if (!existing) return false;
+  const timestamp=now.toISOString();
+  // Capture the evidence revision and require the exact current canonical
+  // source inside the write, not just in the calling HTTP handler.
+  const check=await db.prepare("SELECT last_checked_at,source_url FROM help_source_checks WHERE entity_type=? AND entity_id=?")
+    .bind(entityType,entityId).first<{last_checked_at:string|null;source_url:string}>();
+  if(!check?.last_checked_at||!check.source_url.trim()||(expectedCheckedAt!==undefined&&check.last_checked_at!==expectedCheckedAt))return false;
+  const match="entity_type=? AND entity_id=? AND last_checked_at=? AND source_url=?";
+  const args=[entityType,entityId,check.last_checked_at,check.source_url] as const;
+  if(entityType==="ADOPTION"){
+    const update=db.prepare("UPDATE adoption_dogs SET last_verified_at=?,updated_at=? WHERE id=? AND status IN ('ACTIVE','RESERVED') AND TRIM(COALESCE(external_source_url,''))=? AND EXISTS(SELECT 1 FROM help_source_checks WHERE "+match+")")
+      .bind(timestamp,timestamp,entityId,check.source_url,...args);
+    const receipt=db.prepare("UPDATE help_source_checks SET last_reviewed_at=?,last_reviewed_state=source_state,updated_at=? WHERE "+match+" AND changes()=1")
+      .bind(timestamp,timestamp,...args);
+    const [changed,saved]=await db.batch([update,receipt]);
+    return changed.meta.changes===1&&saved.meta.changes===1;
   }
-  const saved = await db.prepare(
-    "UPDATE help_source_checks SET last_reviewed_at=?,last_reviewed_state=source_state,updated_at=? WHERE entity_type=? AND entity_id=?",
-  ).bind(timestamp, timestamp, entityType, entityId).run();
-  return (saved.meta?.changes ?? 0) === 1;
+  const saved=await db.prepare("UPDATE help_source_checks SET last_reviewed_at=?,last_reviewed_state=source_state,updated_at=? WHERE "+match+" AND EXISTS(SELECT 1 FROM lost_found_dog_reports WHERE id=? AND status='ACTIVE' AND published_at IS NOT NULL AND duplicate_of_id IS NULL AND (expires_at IS NULL OR julianday(expires_at)>julianday(?)) AND TRIM(COALESCE(source_url,''))=?)")
+    .bind(timestamp,timestamp,...args,entityId,timestamp,check.source_url).run();
+  return saved.meta.changes===1;
 }

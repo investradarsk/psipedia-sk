@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { env } from "cloudflare:workers";
+import { findSimilarArticles } from "@/lib/article-similarity-review";
+import type { ManagedArticle } from "@/lib/article-store";
 import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -13,7 +17,24 @@ import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ calendarDay?: string; calendarTime?: string; returnTo?: string | string[] }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ calendarDay?: string; calendarTime?: string; returnTo?: string | string[]; podobne?: string }> };
+
+async function SimilarArticles({article}:{article:ManagedArticle}){
+  const db=(env as unknown as {DB?:D1Database}).DB;
+  const report=db?await findSimilarArticles(db,article).catch(()=>null):null;
+  const labels={SAME_TITLE:"Rovnaký nadpis",SIMILAR_TITLE:"Podobný nadpis",SAME_BODY:"Rovnaký obsah",SIMILAR_BODY:"Podobný obsah"};
+  return <section className="admin-panel" style={{padding:16}}>
+    <h3>Podobné články</h3>
+    <p>Porovnanie poslednej uloženej verzie. Nejde o automatické rozhodnutie o publikovaní ani zmazaní.</p>
+    {!report?<p role="status">Kontrola sa nepodarila. Výsledok nie je overený.</p>:<>
+      <p>Porovnaných {report.titleScanned} nadpisov a {report.scanned} obsahových záznamov. {(report.incomplete||report.bodyIncomplete)&&"Časť archívu alebo obsahu nebola skontrolovaná."}</p>
+      {report.candidates.length?<div className="admin-table-scroll"><table className="admin-table"><thead><tr><th>Článok</th><th>Stav</th><th>Zhoda</th></tr></thead><tbody>
+      {report.candidates.map(candidate=><tr key={candidate.id}><td><Link href={`/admin/clanky/${candidate.id}`} prefetch={false}>{candidate.title}</Link></td><td>{candidate.status==="published"?"Publikovaný":candidate.status==="scheduled"?"Naplánovaný":"Koncept"}</td><td>{labels[candidate.reason]} · {candidate.score} %</td></tr>)}
+      </tbody></table></div>:<p>V skontrolovanom rozsahu sa nenašli kandidáti.</p>}
+    </>}
+    <Link href={`/admin/clanky/${article.id}`} prefetch={false}>Skryť porovnanie</Link>
+  </section>;
+}
 
 export default async function EditArticlePage({ params, searchParams }: Props) {
   const { id } = await params;
@@ -47,6 +68,7 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
       <Suspense fallback={null}>
         <AdminRecordViewStats entityType="ARTICLE" entityId={numericId} />
       </Suspense>
+      {query.podobne==="1"?<Suspense fallback={<p>Kontrolujú sa podobné články…</p>}><SimilarArticles article={article}/></Suspense>:<Link className="admin-secondary-action" href={`/admin/clanky/${article.id}?podobne=1`} prefetch={false}>Skontrolovať podobné články</Link>}
       <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} returnToCalendar={returnToCalendar} returnHref={returnHref} />
     </AdminShell>
   );

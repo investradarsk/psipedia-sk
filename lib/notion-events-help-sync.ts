@@ -1,3 +1,5 @@
+import { profileDuplicateReason } from "./profile-duplicate-review.ts";
+import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { recoverHelpV2Field } from "./notion-help-v2-field-transport.ts";
 import { recoverOrganizationV2Field } from "./notion-organization-field-v2.ts";
 import { HELP_CASE_V2_PROTECTED, helpCaseV2Kind } from "./notion-help-case-v2-contract.ts";
@@ -10,7 +12,8 @@ import { updateAdoptionV2NotionField } from "./adoption-admin-write.ts";
 import { syncOrganizationV2Fields } from "./notion-organization-field-v2.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
-import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
+import { isAdminNotionSyncLocked, isActiveAdminPartnerOwner, partnerReviewOwnerSql, reviewTypeForAgenda } from "./admin-notion-review-lock";
+import { runUnifiedReviewTransition } from "./notion-unified-manual-fence.ts";
 import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot, sameHelpFieldValue } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
@@ -62,7 +65,7 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
-import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
+import { selectiveNotionProperties, sameNotionProperty } from "./notion-selective-property-patch.ts";
 import {
   EVENT_NOTION_CONTACT_FIELDS,
   withoutEventContactFields,
@@ -492,7 +495,7 @@ async function saveMapping(input: {
     throw new Error("BASELINE_HASH_MISMATCH");
   }
   if (input.agenda === "events") {
-    await input.database.prepare(`
+    const receipt=await input.database.prepare(`
       INSERT INTO event_notion_sync (
         notion_page_id,event_id,content_hash,notion_last_edited_time,
         psipedia_updated_at,last_synced_at,created_at,updated_at
@@ -504,6 +507,8 @@ async function saveMapping(input: {
         psipedia_updated_at=excluded.psipedia_updated_at,
         last_synced_at=excluded.last_synced_at,
         updated_at=excluded.updated_at
+      WHERE event_notion_sync.notion_page_id=excluded.notion_page_id
+        AND (event_notion_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')
     `).bind(
       input.pageId,
       input.entityId,
@@ -514,13 +519,14 @@ async function saveMapping(input: {
       input.syncedAt,
       input.syncedAt,
     ).run();
+    if(!receipt.success||receipt.meta.changes!==1)throw Error("EVENT_MAPPING_REASSIGNMENT_BLOCKED");
     if (input.snapshot) await recordProfileFieldBaseline({
       database: input.database, agenda: input.agenda, entityId: input.entityId,
       pageId: input.pageId, hash: input.hash, snapshot: input.snapshot, syncedAt: input.syncedAt,
     });
     return;
   }
-  await input.database.prepare(`
+  const receipt=await input.database.prepare(`
     INSERT INTO notion_agenda_sync (
       agenda,notion_page_id,entity_id,content_hash,notion_last_edited_time,
       psipedia_updated_at,last_synced_at,created_at,updated_at
@@ -532,6 +538,8 @@ async function saveMapping(input: {
       psipedia_updated_at=excluded.psipedia_updated_at,
       last_synced_at=excluded.last_synced_at,
       updated_at=excluded.updated_at
+    WHERE notion_agenda_sync.notion_page_id=excluded.notion_page_id
+      AND (notion_agenda_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')
   `).bind(
     input.agenda,
     input.pageId,
@@ -543,6 +551,7 @@ async function saveMapping(input: {
     input.syncedAt,
     input.syncedAt,
   ).run();
+  if(!receipt.success||receipt.meta.changes!==1)throw Error("HELP_MAPPING_REASSIGNMENT_BLOCKED");
   if (input.snapshot) await recordProfileFieldBaseline({
     database: input.database, agenda: input.agenda, entityId: input.entityId,
     pageId: input.pageId, hash: input.hash, snapshot: input.snapshot, syncedAt: input.syncedAt,
@@ -569,12 +578,25 @@ function sourceDuplicateCandidate(
   page: NotionPage,
   definition: AgendaDefinition,
   sources: CanonicalSourceRecord[],
+  staged = false,
 ) {
   const slug = clean(pageProperty(page, "Slug"));
   const url = clean(pageProperty(page, "URL Psipedia"));
   const candidates = sources.filter((source) => {
     const sourceSlug = clean(source.properties["Slug"]);
-    return (slug && sourceSlug === slug) || (url && source.url === url);
+
+    if ((slug && sourceSlug === slug) || (url && source.url === url)) return true;
+    if(!staged)return false;
+    // Same identity policy as Admin, partners and the existing-record audit.
+    const project=(read:(key:string)=>unknown)=>({
+      name:read(definition.key==="adoptions"?"Meno":definition.key==="lost-found"?"Meno psa":"Názov"),
+      city:read("Mesto"),kind:read(definition.key==="help-cases"?"Kategória":"Typ"),
+      date:read(definition.key==="events"?"Začiatok":definition.key==="adoptions"?"Dátum narodenia":definition.key==="lost-found"?"Dátum udalosti":"Dátum hlásenia"),
+      organization:read(definition.key==="events"?"Organizátor":"Organizácia"),venue:read("Miesto"),
+      website:read("Web"),source:read(definition.key==="lost-found"?"Zdroj URL":definition.key==="help-cases"?"CTA URL":"Zdroj dát"),
+      registration:read("IČO / registračné číslo"),sex:read("Pohlavie"),breed:read("Plemeno"),
+    });
+    return profileDuplicateReason(definition.key,project(key=>pageProperty(page,key)),project(key=>source.properties[key]))!==null;
   });
   if (candidates.length === 0) return null;
   return candidates.map((source) => source.id).join(",");
@@ -594,6 +616,13 @@ function systemProperties(
   } satisfies Record<string, ReconciliationValue>;
 }
 
+async function acknowledgeStagedEventsHelpDraft(database:D1Database,bindings:NotionEventsHelpSyncBindings,agenda:BidirectionalAgendaKey,source:CanonicalSourceRecord,sourceId:string,pageId:string,schema:Record<string,DataSourceProperty>){
+  const id=Number(source.id),revision=await canonicalUpdatedAt(agenda,id,database);
+  if(!revision)throw Error("PROFILE_INBOUND_DRAFT_MISSING");
+  const desired=encodeProperties({"Psipedia ID":source.id,"Slug":source.properties["Slug"],"URL Psipedia":source.url},schema);
+  if(Object.keys(desired).length!==3)throw Error("PROFILE_INBOUND_IDENTITY_SCHEMA");
+  await acknowledgeInboundProfileIdentity({database,bindings,agenda,id,pageId,sourceId,revision,desired});
+}
 async function writeSourceToNotion(input: {
   bindings: NotionEventsHelpSyncBindings;
   dataSourceId: string;
@@ -602,6 +631,7 @@ async function writeSourceToNotion(input: {
   pageId?: string | null;
   existingPage?: NotionPage;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const syncedAt = new Date().toISOString();
   const properties = encodeProperties(
     {
@@ -718,6 +748,8 @@ async function syncAgenda(input: {
   /** Explicit Admin before/after delta; never compare the entire Notion page. */
   adminChangedFields?: readonly string[];
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&input.manualDirection)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const summary = emptyAgenda(input.definition, input.isEnabled, input.ready);
   if (!input.isEnabled || !input.ready) return summary;
 
@@ -880,10 +912,33 @@ async function syncAgenda(input: {
         }
       }
     }
+    if(!mapping&&input.mode==="sync"&&!input.targetPageId&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const agenda=input.definition.key;
+        const created=await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda,id:entityId,sourceId:target.dataSourceId!,
+          async snapshot(){
+            const current=(await input.definition.load(input.database,entityId)).find(row=>sourceId(row)===entityId);
+            if(!current)throw Error("PROFILE_FIRST_CREATE_CANONICAL_MISSING");
+            const revision=await canonicalUpdatedAt(agenda,entityId,input.database);
+            if(!revision)throw Error("PROFILE_FIRST_CREATE_REVISION_MISSING");
+            const values={...current.properties,...systemProperties(current,revision)};
+            const properties=encodeProperties(values,schema);
+            if(agendaEditableFields[agenda].some(name=>!Object.hasOwn(values,name)||!Object.hasOwn(properties,name)))throw Error("PROFILE_FIRST_CREATE_SCHEMA_INCOMPLETE");
+            return {revision,hash:await snapshotHash(agenda,editableSnapshot(agenda,current.properties,schema)),properties,
+              reviewed:await isAdminNotionSyncLocked(input.database,agenda,entityId)};
+          }});
+        if(created.created)summary.createdInNotion++;else summary.bootstrapped++;
+      }catch(error){logFailure(summary,{entityId,operation:"create_in_notion",error});}
+      continue;
+    }
     // Review is an Admin/D1-owned hard lock. It blocks both Notion pull
     // and push, including targeted imports, hashes and automatic backfills.
     if (await isAdminNotionSyncLocked(input.database, input.definition.key, entityId)) {
       summary.unchanged += 1;
+      continue;
+    }
+    if(mapping&&mapping.content_hash===PROFILE_INBOUND_ID_PENDING&&input.mode==="sync"&&input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{await acknowledgeStagedEventsHelpDraft(input.database,input.bindings,input.definition.key,source,target.dataSourceId,mapping.notion_page_id,schema);summary.unchanged++;}catch(error){logFailure(summary,{entityId,operation:"acknowledge_inbound_identity",error});}
       continue;
     }
     // Existing mapped Events now use targeted field events on Admin saves and
@@ -1061,6 +1116,7 @@ async function syncAgenda(input: {
 
     try {
       const pageIdentity = identityPage(page);
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&!input.webhookMappedOnly){summary.unchanged++;continue;}
       if (pageIdentity.psipediaId && pageIdentity.psipediaId !== source.id) {
         summary.conflicts += 1;
         appendNotionReview(summary.reviewQueue, {
@@ -1192,8 +1248,8 @@ async function syncAgenda(input: {
             dataSourceId:target.dataSourceId,load:loadNotionV2HelpCases,fields,
             direction:inbound?"pull":"push",protectedFields:HELP_CASE_V2_PROTECTED,
             kind:helpCaseV2Kind,
-            pull:(field,value,revision)=>updateHelpCaseV2NotionField({
-              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            pull:(field,value,revision,reservation,media)=>updateHelpCaseV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,media,
             }),
             encode:values=>encodeProperties(values,schema),
           });
@@ -1213,8 +1269,8 @@ async function syncAgenda(input: {
             dataSourceId:target.dataSourceId,load:loadNotionBulkLostFound,fields,
             direction:inbound?"pull":"push",protectedFields:LOST_FOUND_V2_PROTECTED,
             kind:lostFoundV2Kind,
-            pull:(field,value,revision)=>updateLostFoundV2NotionField({
-              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            pull:(field,value,revision,reservation,media)=>updateLostFoundV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,media,
             }),
             encode:values=>encodeProperties(values,schema),
           });
@@ -1236,8 +1292,8 @@ async function syncAgenda(input: {
             kind:field=>field==="Vek mesiace"||field==="Hmotnosť"?"number":
               field==="Kríženec"?"checkbox":field==="Dátum narodenia"?"date":
               isAdoptionV2Field(field)||field==="Slug"||field==="Stav"?"text":undefined,
-            pull:(field,value,revision)=>updateAdoptionV2NotionField({
-              database:input.database,id:entityId,pageId:page.id,field,value,revision,
+            pull:(field,value,revision,reservation,media)=>updateAdoptionV2NotionField({
+              database:input.database,id:entityId,pageId:page.id,field,value,revision,reservation,media,
             }),
             encode:values=>encodeProperties(values,schema),
           });
@@ -1354,6 +1410,8 @@ async function syncAgenda(input: {
         summary.pushedToNotion++;
         continue;
       }
+      // In authority mode no mapped profile may fall through to a legacy record-wide merge.
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){summary.unchanged++;continue;}
       const extensionFields = notionSeoSchemaExtensionFields(input.definition.key);
 
       if (
@@ -2041,6 +2099,7 @@ await requireVerifiedMappedNotionWriteback({
     const operatorLegacy = Boolean(!trustedGemini && input.reviewedLegacy &&
       input.targetPageId === page.id);
     const privateImport = trustedGemini || operatorLegacy;
+    const staged=input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
     if (privateImport && !trustedGeminiSourceIsPrivateDraft(input.definition.key, values)) {
       summary.conflicts += 1;
       appendNotionReview(summary.reviewQueue, {
@@ -2102,17 +2161,17 @@ await requireVerifiedMappedNotionWriteback({
       summary.unchanged += 1;
       continue;
     }
-    if (!privateImport && !readyForCreate(input.definition.key, values)) {
+    if (!privateImport && !readyForCreate(input.definition.key, values) && !(staged&&trustedGeminiSourceIsPrivateDraft(input.definition.key,values))) {
       summary.unchanged += 1;
       continue;
     }
 
-    const duplicate = sourceDuplicateCandidate(page, input.definition, sources);
+    const duplicate = sourceDuplicateCandidate(page, input.definition, sources,staged);
     if (duplicate) {
       summary.conflicts += 1;
       appendNotionReview(summary.reviewQueue, {
         entityId: null, notionPageId: page.id, reason: "DUPLICATE_CONFLICT",
-        fields: ["Slug", "URL Psipedia"], baselineAvailable: false,
+        fields: staged?["Identita záznamu"]:["Slug", "URL Psipedia"], baselineAvailable: false,
         notionChanged: null, psipediaChanged: null,
       });
       if (input.mode === "sync") {
@@ -2121,7 +2180,7 @@ await requireVerifiedMappedNotionWriteback({
           pageId: page.id,
           schema,
           page,
-          message: `Canonical záznam už existuje pre slug/URL (Psipedia ID: ${duplicate}).`,
+          message: `Možná duplicita existujúceho záznamu (Psipedia ID: ${duplicate}).`,
         }).catch(() => undefined);
       }
       continue;
@@ -2163,7 +2222,7 @@ await requireVerifiedMappedNotionWriteback({
         if (latest.last_edited_time !== page.last_edited_time)
           throw new Error("GEMINI_SAVED_REVISION_CHANGED");
         const liveSources = await input.definition.load(input.database);
-        if (sourceDuplicateCandidate(latest, input.definition, liveSources)) {
+        if (sourceDuplicateCandidate(latest, input.definition, liveSources,staged)) {
           summary.conflicts += 1;
           continue;
         }
@@ -2183,7 +2242,7 @@ await requireVerifiedMappedNotionWriteback({
         preflightAdoptionDraft(draftValues);
       }
       importWriteStarted = true;
-      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, privateImport) as { id?: number } | null;
+      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, privateImport,staged) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
@@ -2202,7 +2261,7 @@ await requireVerifiedMappedNotionWriteback({
         agenda: input.definition.key,
         pageId: page.id,
         entityId,
-        hash,
+        hash:staged?PROFILE_INBOUND_ID_PENDING:hash,
         notionLastEditedTime: page.last_edited_time ?? null,
         psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
         syncedAt: preWriteAt,
@@ -2230,6 +2289,10 @@ await requireVerifiedMappedNotionWriteback({
         summary.createdFromNotion += 1;
         importWriteStarted = false;
         continue;
+      }
+      if(staged){
+        await acknowledgeStagedEventsHelpDraft(input.database,input.bindings,input.definition.key,source,target.dataSourceId,page.id,schema);
+        summary.createdFromNotion++;importWriteStarted=false;continue;
       }
       try {
         const written = await writeSourceToNotion({
@@ -2489,6 +2552,19 @@ export async function ensureManagedEventInNotion(input: {
     definition:canonicalTargetDefinition(definition),allowCreate:false,persist:true,
   });
   if(!target.dataSourceId)throw new Error("GEMINI_EVENT_NOTION_TARGET_MISSING");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const result=await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda:"events",id:input.eventId,sourceId:target.dataSourceId,allowCreate:input.allowCreate,
+      async snapshot(schema){
+        const current=(await loadNotionBulkEvents(input.database)).find(row=>Number(row.id)===input.eventId);
+        const revision=await canonicalUpdatedAt("events",input.eventId,input.database);
+        if(!current||!revision)throw Error("PROFILE_FIRST_CREATE_CANONICAL_MISSING");
+        const values={...current.properties,...systemProperties(current,revision)};
+        const properties=encodeProperties(values,schema);
+        if(agendaEditableFields.events.some(name=>!Object.hasOwn(values,name)||!Object.hasOwn(properties,name)))throw Error("PROFILE_FIRST_CREATE_SCHEMA_INCOMPLETE");
+        return {revision,hash:await snapshotHash("events",editableSnapshot("events",current.properties,schema)),properties,reviewed:await isAdminNotionSyncLocked(input.database,"events",input.eventId)};
+      }});
+    return {notionPageId:result.pageId};
+  }
   const dataSource=await fetchDataSource(input.bindings,target.dataSourceId);
   const schema=dataSource.properties ?? {};
   if(!["Názov","Psipedia ID","URL Psipedia"].every(name=>Boolean(schema[name])))
@@ -2602,11 +2678,11 @@ export async function recoverEventsHelpV2Field(database:D1Database,bindings:Noti
       return;
     }
     if(agenda==="adoptions"){
-      const result=await syncHelpV2Fields({...scope,agenda,load:loadNotionV2Adoptions,fields,direction,protectedFields:new Set(["Slug","Stav"]),kind:key=>key==="Vek mesiace"||key==="Hmotnosť"?"number":key==="Kríženec"?"checkbox":key==="Dátum narodenia"?"date":isAdoptionV2Field(key)?"text":undefined,pull:(key,value,revision)=>updateAdoptionV2NotionField({database,id,pageId,field:key,value,revision}),encode:unavailable});
+      const result=await syncHelpV2Fields({...scope,agenda,load:loadNotionV2Adoptions,fields,direction,protectedFields:new Set(["Slug","Stav"]),kind:key=>key==="Vek mesiace"||key==="Hmotnosť"?"number":key==="Kríženec"?"checkbox":key==="Dátum narodenia"?"date":isAdoptionV2Field(key)?"text":undefined,pull:(key,value,revision,reservation,media)=>updateAdoptionV2NotionField({database,id,pageId,field:key,value,revision,reservation,media}),encode:unavailable});
       if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
       return;
     }
-    const result=await syncHelpV2Fields({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases,fields,direction,protectedFields:agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED,kind:agenda==="lost-found"?lostFoundV2Kind:helpCaseV2Kind,pull:(key,value,revision)=>agenda==="lost-found"?updateLostFoundV2NotionField({database,id,pageId,field:key,value,revision}):updateHelpCaseV2NotionField({database,id,pageId,field:key,value,revision}),encode:unavailable});
+    const result=await syncHelpV2Fields({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases,fields,direction,protectedFields:agenda==="lost-found"?LOST_FOUND_V2_PROTECTED:HELP_CASE_V2_PROTECTED,kind:agenda==="lost-found"?lostFoundV2Kind:helpCaseV2Kind,pull:(key,value,revision,reservation,media)=>agenda==="lost-found"?updateLostFoundV2NotionField({database,id,pageId,field:key,value,revision,reservation,media}):updateHelpCaseV2NotionField({database,id,pageId,field:key,value,revision,reservation,media}),encode:unavailable});
     if(result.failed.length)throw Error("HELP_V2_RECOVERY_PENDING");
     return;
   }
@@ -2620,4 +2696,125 @@ export async function recoverEventsHelpV2Field(database:D1Database,bindings:Noti
   const kind=agenda==="lost-found"?lostFoundV2Kind(field):helpCaseV2Kind(field);
   if(!kind||protectedFields.has(field))throw Error("HELP_V2_RECOVERY_SCOPE");
   await recoverHelpV2Field({...scope,agenda,load:agenda==="lost-found"?loadNotionBulkLostFound:loadNotionV2HelpCases},field,kind);
+}
+
+
+/** One explicit reviewed-profile export, not an ordinary outbound sync.
+ * Keep the canonical review and persistent fence throughout provider I/O.
+ * The existing source loaders only export the agenda's approved projection. */
+export async function unlockReviewedEventsHelpProfile(input:{
+  database:D1Database;bindings:NotionEventsHelpSyncBindings;
+  agenda:BidirectionalAgendaKey;entityId:number;
+}):Promise<void>{
+  const {database:db,bindings,agenda,entityId:id}=input;
+  if(!enabled(bindings)||bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")
+    throw Error("REVIEW_UNLOCK_DISABLED");
+  const type=reviewTypeForAgenda(agenda);
+  const definition=definitions.find(item=>item.key===agenda);
+  if(!definition||!Number.isSafeInteger(id)||id<1)throw Error("REVIEW_UNLOCK_SCOPE_INVALID");
+  const table=({events:"managed_events",organizations:"help_organizations",adoptions:"adoption_dogs",
+    "lost-found":"lost_found_dog_reports","help-cases":"help_cases"} as const)[agenda];
+  const kind=agenda==="help-cases"?"help":agenda;
+  const mapTable=agenda==="events"?"event_notion_sync":"notion_agenda_sync";
+  const mapId=agenda==="events"?"event_id":"entity_id";
+  const mapScope=agenda==="events"?"":" AND agenda=?";
+  const mapArgs=agenda==="events"?[]:[agenda];
+  const readMapping=()=>db.prepare("SELECT notion_page_id FROM "+mapTable+" WHERE "+mapId+"=?"+mapScope)
+    .bind(id,...mapArgs).first<{notion_page_id:string}>();
+  async function snapshot(){
+    if(await isActiveAdminPartnerOwner(db,type,id))throw Error("REVIEW_UNLOCK_PARTNER_OWNED");
+    const local=await db.prepare("SELECT p.updated_at,p.status FROM "+table+" p WHERE p.id=? "+
+      "AND EXISTS(SELECT 1 FROM admin_entity_reviews r WHERE r.entity_type=? AND r.entity_id=p.id) "+
+      "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=? AND t.record_id=p.id)")
+      .bind(id,type,kind).first<{updated_at:string;status:string}>();
+    if(!local||String(local.status).toLowerCase()==="archived")throw Error("REVIEW_UNLOCK_CANONICAL_LOCK_REQUIRED");
+    const mapping=await readMapping();
+    if(!mapping)throw Error("REVIEW_UNLOCK_MAPPING_MISSING");
+    const target=await resolveNotionCanonicalTarget({database:db,
+      bindings:bindings as NotionEventsHelpSyncBindings & Record<string,unknown>,
+      definition:canonicalTargetDefinition(definition!),allowCreate:false,persist:false});
+    if(!target.dataSourceId)throw Error("REVIEW_UNLOCK_TARGET_MISSING");
+    const schema=(await fetchDataSource(bindings,target.dataSourceId)).properties??{};
+    const source=(await definition!.load(db,id)).find(item=>sourceId(item)===id);
+    if(!source||await canonicalUpdatedAt(agenda,id,db)!==local.updated_at||
+      (await readMapping())?.notion_page_id!==mapping.notion_page_id)
+      throw Error("REVIEW_UNLOCK_REVISION_CHANGED");
+    // Never manufacture a clear from a missing canonical property or schema.
+    const required=[...agendaEditableFields[agenda],"Psipedia ID","URL Psipedia","Odkontrolované"];
+    const values:Record<string,ReconciliationValue>={...source.properties,
+      "Psipedia ID":source.id,"URL Psipedia":source.url,"Odkontrolované":true};
+    if(required.some(name=>!schema[name]||!Object.hasOwn(values,name)||values[name]===undefined))
+      throw Error("REVIEW_UNLOCK_SCHEMA_INCOMPLETE");
+    const desired=encodeProperties(values,schema);
+    if(required.some(name=>!Object.hasOwn(desired,name))||propertyType(schema["Odkontrolované"])!=="checkbox")
+      throw Error("REVIEW_UNLOCK_ENCODING_INCOMPLETE");
+    const hash=await snapshotHash(agenda,editableSnapshot(agenda,source.properties,schema));
+    return {revision:local.updated_at,content:{pageId:mapping.notion_page_id,
+      dataSourceId:target.dataSourceId,desired,hash}};
+  }
+  // Reject obvious missing mapping/invalid schema before acquiring a durable
+  // fence. Re-read inside it before any mutation.
+  await snapshot();
+  let verifiedEditedAt:string|null=null;
+  await runUnifiedReviewTransition(db,{scope:agenda,profile_id:id},{
+    kind:"unlock",
+    readLockedSnapshot:snapshot,
+    async transferAndVerify(_fence,expected){
+      const current=await snapshot();
+      if(JSON.stringify(current)!==JSON.stringify(expected))return false;
+      const {pageId,dataSourceId,desired}=expected.content;
+      const read=async()=>{
+        const page=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(pageId));
+        if(page.id!==pageId||!notionPageBelongsToDataSource(page,dataSourceId)||
+          identityPage(page).psipediaId!==String(id))throw Error("REVIEW_UNLOCK_REMOTE_IDENTITY");
+        for(const [key,wanted] of Object.entries(desired)){
+          const raw=page.properties?.[key] as Record<string,unknown>|undefined;
+          const property=Object.keys(wanted as Record<string,unknown>)[0];
+          if(!raw||raw.type!==property||!Object.hasOwn(raw,property)||raw.has_more===true||
+            (Array.isArray(raw[property])&&(raw[property] as unknown[]).length>=25))
+            throw Error("REVIEW_UNLOCK_REMOTE_PROPERTY_INCOMPLETE");
+        }
+        return page;
+      };
+      const page=await read();
+      const patch=selectiveNotionProperties(page.properties??{},desired);
+      // The lock's technical mirror stays true during the entire transfer.
+      if(patch)await patchPage(bindings,pageId,patch);
+      const confirmed=await read();
+      if(Object.entries(desired).some(([key,wanted])=>!sameNotionProperty(confirmed.properties?.[key],wanted)))
+        return false;
+      if(JSON.stringify(await snapshot())!==JSON.stringify(expected))return false;
+      verifiedEditedAt=confirmed.last_edited_time??null;
+      return true;
+    },
+    async unlockIfCurrent(fence,expected){
+      if(!verifiedEditedAt)return false;
+      const current=await snapshot();
+      if(JSON.stringify(current)!==JSON.stringify(expected))return false;
+      const remote=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(expected.content.pageId));
+      if(remote.id!==expected.content.pageId||!notionPageBelongsToDataSource(remote,expected.content.dataSourceId)||identityPage(remote).psipediaId!==String(id)||remote.last_edited_time!==verifiedEditedAt||Object.entries(expected.content.desired).some(([name,value])=>!sameNotionProperty(remote.properties?.[name],value)))return false;
+      const guard="EXISTS(SELECT 1 FROM "+table+" p WHERE p.id=? AND p.updated_at=? AND lower(p.status)<>'archived')"+
+        " AND EXISTS(SELECT 1 FROM "+mapTable+" WHERE "+mapId+"=? AND notion_page_id=?"+mapScope+")"+
+        " AND EXISTS(SELECT 1 FROM notion_unified_manual_fence WHERE agenda=? AND entity_id=? AND owner_token=?)"+
+        " AND EXISTS(SELECT 1 FROM admin_entity_reviews WHERE entity_type=? AND entity_id=?)"+
+        " AND NOT "+partnerReviewOwnerSql(type,String(id))+
+        " AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind=? AND record_id=?)";
+      const args=[id,expected.revision,id,expected.content.pageId,...mapArgs,agenda,String(id),fence.token,type,id,kind,id];
+      const now=new Date().toISOString();
+      const requireOne=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('REVIEW_UNLOCK_CAS_CONFLICT','$') END");
+      const result=await db.batch([
+        db.prepare("UPDATE "+mapTable+" SET content_hash=?,notion_last_edited_time=?,psipedia_updated_at=?,last_synced_at=?,updated_at=?"+
+          (agenda==="events"?",inbound_locked_at=NULL,inbound_lock_reason=NULL":"")+
+          " WHERE "+mapId+"=?"+mapScope+" AND notion_page_id=? AND "+guard)
+          .bind(expected.content.hash,verifiedEditedAt,expected.revision,now,now,id,...mapArgs,expected.content.pageId,...args),
+        requireOne(),
+        db.prepare("DELETE FROM admin_entity_reviews WHERE entity_type=? AND entity_id=? AND "+guard)
+          .bind(type,id,...args),
+        requireOne(),
+      ]);
+      return result.every(row=>row.success)&&result[2]?.meta.changes===1;
+    },
+  });
+  // The normal metadata mirror will publish Odkontrolované=false after this
+  // verified D1 commit. A failed mirror must never reopen an unverified profile.
 }

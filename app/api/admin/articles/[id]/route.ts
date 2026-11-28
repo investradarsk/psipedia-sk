@@ -21,6 +21,8 @@ import {
   writeBackPublishedArticleToNotion,
   writeBackArticleBreedCategoryToNotion,
   writeBackDraftArticleContentToNotion,
+  articleEditorialWritebackEligible,
+  ensureFirstArticleNotionCopy,
   writeBackArticleSeoToNotion,
   type NotionSyncBindings,
 } from "@/lib/notion-article-sync";
@@ -49,6 +51,8 @@ function notionStepReceipt(result: NotionArticleResult): ArticleFollowupReceipt 
 }
 function notionStepFailure(error: unknown): ArticleFollowupReceipt {
   const raw = error instanceof Error ? error.message : "";
+  const http=/^Notion API (\d{3}):/.exec(raw);
+  if(http)return {status:"failed",code:"NOTION_ARTICLE_HTTP_"+http[1]};
   return { status: "failed", code: /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
     ? raw : "REMOTE_WRITEBACK_FAILED" };
 }
@@ -177,6 +181,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
     }
     const notionSteps: Partial<Record<NotionArticleStep, ArticleFollowupReceipt>> = {};
     const bindings = env as unknown as ArticleRouteBindings;
+    const contentFollowup=before.status === "draft" && article.status === "draft" || bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&articleEditorialWritebackEligible(bindings,article.status);
     if (!bindings.DB) {
       if (before.status !== "published" && article.status === "published") {
         notionSteps.publication = { status: "skipped", code: "NOTION_BINDING_MISSING" };
@@ -187,7 +192,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       if (articleSeoChangedFields(before, article).length > 0) {
         notionSteps.seo = { status: "skipped", code: "NOTION_BINDING_MISSING" };
       }
-      if (before.status === "draft" && article.status === "draft") {
+      if (contentFollowup) {
         notionSteps.draft = { status: "skipped", code: "NOTION_BINDING_MISSING" };
       }
     }
@@ -237,15 +242,14 @@ export async function PUT(request: Request, { params }: RouteProps) {
       };
       const reportError = (step: NotionArticleStep, error: unknown, event: string) => {
         notionSteps[step] = notionStepFailure(error);
-        const raw = error instanceof Error ? error.message : "";
-        const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
-          ? raw : "REMOTE_WRITEBACK_FAILED";
+        const code=notionSteps[step]?.code??"REMOTE_WRITEBACK_FAILED";
         notionEditorialWriteback = { status: "blocked", code };
         console.error(event, { articleId: article.id, code });
       };
+      if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&contentFollowup){try{const first=await ensureFirstArticleNotionCopy({database:bindings.DB,bindings,article});if(first.updated)report("draft",first);}catch(error){reportError("draft",error,"notion_article_first_copy_failed");}}
       // Category/section moves to/from Plemená must be mirrored before the SEO
       // and draft editorial writers use the acknowledged Notion receipt.
-      if (isBreedArticleNotionChange(before, article)) {
+      if (!notionSteps.draft && isBreedArticleNotionChange(before, article)) {
         try {
           report("placement", await writeBackArticleBreedCategoryToNotion({
             database: bindings.DB, bindings, before, article,
@@ -257,7 +261,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       // Only changed SEO properties are sent, for BOTH drafts and published
       // articles. They run before draft body writeback so its Notion hash
       // baseline reflects already-acknowledged SEO changes.
-      if (notionEditorialWriteback?.status !== "blocked" &&
+      if (!notionSteps.draft && notionEditorialWriteback?.status !== "blocked" &&
           articleSeoChangedFields(before, article).length > 0) {
         try {
           report("seo", await writeBackArticleSeoToNotion({
@@ -267,12 +271,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
           reportError("seo", error, "notion_article_seo_writeback_failed");
         }
       }
-      if (before.status === "draft" && article.status === "draft" &&
+      if (!notionSteps.draft && contentFollowup &&
           notionEditorialWriteback?.status !== "partial" &&
           notionEditorialWriteback?.status !== "blocked") {
         try {
           report("draft", await writeBackDraftArticleContentToNotion({
-            database: bindings.DB, bindings, article, previousExcerpt: before.excerpt,
+            database: bindings.DB, bindings, article, before, previousExcerpt: before.excerpt,
           }));
         } catch (error) {
           reportError("draft", error, "notion_article_editorial_writeback_failed");
@@ -294,12 +298,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
       if (!notionSteps.seo && articleSeoChangedFields(before, article).length > 0) {
         notionSteps.seo = { status: "deferred", code: "WAITING_FOR_PLACEMENT" };
       }
-      if (!notionSteps.draft && before.status === "draft" && article.status === "draft") {
+      if (!notionSteps.draft && contentFollowup) {
         notionSteps.draft = { status: "deferred", code: "WAITING_FOR_PLACEMENT" };
       }
     }
     if (notionSteps.seo?.status === "failed" || notionSteps.seo?.status === "partial") {
-      if (!notionSteps.draft && before.status === "draft" && article.status === "draft") {
+      if (!notionSteps.draft && contentFollowup) {
         notionSteps.draft = { status: "deferred", code: "WAITING_FOR_SEO" };
       }
     }
@@ -382,11 +386,13 @@ export async function PATCH(request: Request, { params }: RouteProps) {
               database: bindings.DB, bindings, before: before! as typeof article, article,
             }));
           } else {
-            if (article.status !== "draft") {
-              return Response.json({ error: "Obsah Notion je možné zopakovať iba pre koncept." }, { status: 409 });
+            if (!articleEditorialWritebackEligible(bindings,article.status)) {
+              return Response.json({ error: "Článok nie je v stave umožňujúcom prenos obsahu." }, { status: 409 });
             }
-            receipt = notionStepReceipt(await writeBackDraftArticleContentToNotion({
+            const first=await ensureFirstArticleNotionCopy({database:bindings.DB,bindings,article});
+            receipt = notionStepReceipt(first.updated?first:await writeBackDraftArticleContentToNotion({
               database: bindings.DB, bindings, article,
+              before:before as typeof article|undefined,
               previousExcerpt: before?.id === article.id && before.slug === article.slug &&
                 typeof before.updatedAt === "string" && before.updatedAt !== article.updatedAt &&
                 typeof before.excerpt === "string" ? before.excerpt : undefined,
@@ -421,19 +427,17 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       );
       if (!article) return Response.json({ error: "Článok neexistuje." }, { status: 404 });
       let notionEditorialWriteback: { status: string; code?: string } | undefined;
-      if (before.status === "draft" && article.status === "draft") {
+      if (before.status === "draft" && article.status === "draft" || (env as unknown as ArticleRouteBindings).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&articleEditorialWritebackEligible(env as unknown as ArticleRouteBindings,article.status)) {
         try {
           const bindings = env as unknown as ArticleRouteBindings;
           if (bindings.DB) {
             const result = await writeBackDraftArticleContentToNotion({
-              database: bindings.DB, bindings, article, previousExcerpt: before.excerpt,
+              database: bindings.DB, bindings, article, before, previousExcerpt: before.excerpt,
             });
             notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
           }
         } catch (error) {
-          const raw = error instanceof Error ? error.message : "";
-          const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
-            ? raw : "REMOTE_WRITEBACK_FAILED";
+          const code=notionStepFailure(error).code??"REMOTE_WRITEBACK_FAILED";
           notionEditorialWriteback = { status: "blocked", code };
           console.error("notion_article_inline_writeback_failed", { articleId: id, code });
         }

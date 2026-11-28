@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { planDirectoryAdminReceipts } from "./notion-directory-admin-receipts.ts";
 import type { BreederEditorialField } from "./notion-breeder-field-events.ts";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
@@ -1973,6 +1974,7 @@ export async function createManagedDirectoryProfile(
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const input = normalizeManagedDirectoryProfileInput(payload);
+  await assertProfilePublicationIdentity(database,"directory",null,input.status,input);
   const now = new Date().toISOString();
   const secondary = readAdditionalDirectoryCategories(input.sourceData, input.category);
   // Explicit nonempty selections on newly created profiles belong to SQL
@@ -2144,7 +2146,7 @@ export async function updateManagedDirectoryProfile(
   editorEmail: string,
   existingProfile?: ManagedDirectoryProfile,
   databaseInput?: D1Database,
-  guard?: { expectedUpdatedAt?: string; restoreArchived?: boolean; unifiedEditFields?: readonly BreederEditorialField[] },
+  guard?: { expectedUpdatedAt?: string; restoreArchived?: boolean; unifiedEditFields?: readonly BreederEditorialField[]; reviewOnSave?: boolean },
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
@@ -2156,6 +2158,7 @@ export async function updateManagedDirectoryProfile(
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
+  await assertProfilePublicationIdentity(database,"directory",existing.status,normalizedForMirrors.status,normalizedForMirrors,id);
   const canonicalStatement = buildManagedDirectoryProfileUpdateStatement(
     database,
     id,
@@ -2205,8 +2208,20 @@ export async function updateManagedDirectoryProfile(
   const receipt = guard?.unifiedEditFields && guard.expectedUpdatedAt
     ? planDirectoryAdminReceipts(database, { id, expectedRevision: guard.expectedUpdatedAt, nextRevision: now, editor: editorEmail, fields: [...guard.unifiedEditFields, ...(payload.additionalCategories !== undefined ? ["additionalCategories" as const] : [])] })
     : { before: [], after: [] };
+  const reviewOnSave = guard?.reviewOnSave === true;
+  const reviewStatements = reviewOnSave ? [
+    directory0173ReviewCasGuardStatement(database),
+    database.prepare(
+      "INSERT INTO directory_profile_review_state(profile_id,reviewed_at,reviewed_by,unlock_pending,unlock_requested_at,unlock_requested_by,updated_at,updated_by) "+
+      "SELECT p.id,?,?,0,NULL,NULL,?,? FROM directory_profiles p WHERE p.id=? AND p.updated_at=? AND p.updated_by=? "+
+      "ON CONFLICT(profile_id) DO UPDATE SET reviewed_at=COALESCE(NULLIF(TRIM(directory_profile_review_state.reviewed_at),''),excluded.reviewed_at),"+
+      "reviewed_by=CASE WHEN NULLIF(TRIM(directory_profile_review_state.reviewed_at),'') IS NULL THEN excluded.reviewed_by ELSE directory_profile_review_state.reviewed_by END,"+
+      "unlock_pending=0,unlock_requested_at=NULL,unlock_requested_by=NULL,updated_at=excluded.updated_at,updated_by=excluded.updated_by"
+    ).bind(now,editorEmail,now,editorEmail,id,now,editorEmail),
+    directory0173ReviewCasGuardStatement(database),
+  ] : [];
   let row: DirectoryProfileRow | null;
-  if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0 || receipt.before.length > 0) {
+  if (reviewOnSave || payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0 || receipt.before.length > 0) {
     // Owner-submitted category changes commit relational SQL in the SAME
     // D1 transaction. An omitted field must never clear SQL membership.
     // The initial UPDATE is the authority/CAS and the planner fails closed
@@ -2222,6 +2237,7 @@ export async function updateManagedDirectoryProfile(
     const responses = await database.batch([
       ...receipt.before,
       canonicalStatement,
+      ...reviewStatements,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
       ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
       ...presentationMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),

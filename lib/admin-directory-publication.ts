@@ -1,3 +1,4 @@
+import { assertSavedProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 /**
  * Owner-only, compare-and-swap transition used when a successful Directory form
  * save unexpectedly comes back as a draft. This never rewrites content fields
@@ -27,6 +28,7 @@ export async function publishDirectoryDraftByCas(input: {
       typeof actor !== "string" || !actor.trim()) {
     throw new DirectoryPublicationConflictError();
   }
+  await assertSavedProfilePublicationIdentity(db,"directory",id);
   const now = input.now ?? new Date().toISOString();
   const updated = await db.prepare(
     "UPDATE directory_profiles SET status='published'," +

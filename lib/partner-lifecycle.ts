@@ -1,3 +1,4 @@
+import { preservePartnerReviewBeforeRevoke, partnerAdminReviewStatement } from "./admin-notion-review-lock";
 /**
  * No second content store: partner lifecycle requests reuse moderation_submissions.
  * Only an authenticated Admin decision may hide/archive a canonical profile,
@@ -159,7 +160,11 @@ function profileStatements(db:D1Database,row:Row,iso:string,actor:string,resourc
   const type=row.resourceType as ProfileType,spec=specs[type],id=Number(row.subjectId);
   if(!spec||!Number.isSafeInteger(id)||id<1)throw new PartnerLifecycleError("Profil neexistuje.",409);
   const own=ownerCondition(row,resourceId);
-  if(row.operation==="REQUEST_RELEASE")return [revokeOwner(db,row,iso,actor,resourceId),cas(db)];
+  const preserveReview=()=>spec.resourceColumn
+    ? preservePartnerReviewBeforeRevoke(db,{scope:{kind:"resource",accountId:row.accountId,resourceId},nowIso:iso,actorRef:actor})
+    : [partnerAdminReviewStatement(db,{type:type==="ADOPTION_DOG"?"ADOPTION":type==="LOST_FOUND_DOG"?"LOST_FOUND":"HELP_CASE",
+        entitySql:"SELECT "+id,nowIso:iso,actorRef:actor})];
+  if(row.operation==="REQUEST_RELEASE")return [...preserveReview(),revokeOwner(db,row,iso,actor,resourceId),cas(db)];
   const next=row.operation==="REQUEST_HIDE"?spec.hidden:spec.archived;
   const updatedBy=type==="LOST_FOUND_DOG"?"":",updated_by=?";
   const query="UPDATE "+spec.table+" SET status=?,updated_at=?"+updatedBy+
@@ -167,7 +172,7 @@ function profileStatements(db:D1Database,row:Row,iso:string,actor:string,resourc
   const params=[next,iso,...(updatedBy?[actor]:[]),id,spec.archived,next,...own.binds];
   return [
     db.prepare(query).bind(...params),cas(db),
-    ...(row.operation==="REQUEST_ARCHIVE"?[revokeOwner(db,row,iso,actor,resourceId),cas(db)]:[]),
+    ...(row.operation==="REQUEST_ARCHIVE"?[...preserveReview(),revokeOwner(db,row,iso,actor,resourceId),cas(db)]:[]),
   ];
 }
 function closeAccountStatements(db:D1Database,row:Row,iso:string,actor:string){
@@ -175,6 +180,7 @@ function closeAccountStatements(db:D1Database,row:Row,iso:string,actor:string){
     db.prepare("UPDATE partner_accounts SET status='DEACTIVATED',deactivated_at=?,updated_at=? "+
       "WHERE id=? AND status='ACTIVE'").bind(iso,iso,row.accountId),
     cas(db),
+    ...preservePartnerReviewBeforeRevoke(db,{scope:{kind:"account",id:row.accountId},nowIso:iso,actorRef:actor}),
     db.prepare("UPDATE partner_memberships SET revoked_at=?,revoked_by=?,updated_at=? "+
       "WHERE account_id=? AND revoked_at IS NULL").bind(iso,actor,iso,row.accountId),
     db.prepare("UPDATE partner_help_claims SET status='REVOKED',revoked_at=?,revoked_by=?,updated_at=? "+

@@ -1,3 +1,4 @@
+import { notionRemoteDeletionNeedsReview } from "@/lib/admin-record-lifecycle";
 import { metadataOnlyChange, sameSource, UUID, EVENT_TYPES, type NotionWebhookEvent as WebhookEvent } from "@/lib/notion-webhook-contract";
 import { directoryPropertyEventMissingChangedIds } from "@/lib/notion-directory-field-event-scope";
 import type { NotionWebhookInboxResult } from "@/lib/notion-webhook-inbox";
@@ -55,10 +56,17 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     return "ignored";
   if (!EVENT_TYPES.has(event.type ?? "")) return "ignored";
 
+  // Remote trash is only a diagnostic, never a canonical delete. A deleted
+  // page may be inaccessible to GET; existing D1 mapping proves scope.
+  if (event.type === "page.deleted")
+    return await notionRemoteDeletionNeedsReview(bindings.DB,id) ? "remote-deleted" : "ignored";
+
   // A single GET also proves source ownership. Never trust an ID or category
   // just because it appeared in a signed event from this connection.
   const page = await notionRequest<OwnedPage>(bindings, "/pages/" + encodeURIComponent(id));
-  if (page.id !== id || page.archived || page.in_trash) return "ignored";
+  if (page.id !== id) return "ignored";
+  if (page.archived || page.in_trash)
+    return await notionRemoteDeletionNeedsReview(bindings.DB,id) ? "remote-deleted" : "ignored";
   if (metadataOnlyChange(event, page)) return "metadata-only";
   // A field edit without field IDs does not identify which value is newest.
   // Never guess by replaying the entire page; only signed explicit fields may
@@ -85,7 +93,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   // disabled agendas are reported explicitly, never falsely "processed".
   let summary: {
     enabled: boolean; failed: number; schemaReady?: boolean;
-    scanned?: number; notionScanned?: number;
+    scanned?: number; notionScanned?: number; reviewRequired?:number;
   } | undefined;
   if (sameSource(sourceId, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) {
@@ -193,6 +201,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   if (!summary.enabled) return "disabled";
   if (summary.schemaReady === false) throw new Error("NOTION_TARGETED_SCHEMA_UNAVAILABLE");
   if (summary.failed > 0) throw new Error("NOTION_TARGETED_RECONCILIATION_FAILED");
+  if(summary.reviewRequired)return "review-required";
   if (summary.scanned === 0 || summary.notionScanned === 0) return "deferred";
   return "processed";
 }

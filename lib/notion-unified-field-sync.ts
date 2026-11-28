@@ -27,6 +27,22 @@ export type ScopedFieldEdit = VerifiedFieldEdit & {
 export type FieldObservation =
   | { present: false }
   | { present: true; value: unknown };
+/** Explicit, trusted adapter context for the new profile-ownership policy.
+ * Never construct this from a Notion property or an unvalidated request.
+ * Omission keeps the existing V2 policy until the adapter is migrated.
+ * Articles are deliberately outside UnifiedSyncAgenda.
+ */
+export type ProfileAuthorityContext = {
+  owner: "notion" | "admin" | "partner" | "unlocking";
+  /** This exact field is mapped and allowed to flow Notion -> D1. */
+  fieldAllowed: boolean;
+  /** Present, complete provider value was decoded and validated for this field.
+   * A failed read, omitted property, incomplete pagination or invalid value
+   * must never be reported as a validated blank.
+   */
+  notionValidated: boolean;
+};
+
 export type UnifiedFieldDecision =
   | { action: "unchanged" | "pull" | "push"; value: unknown }
   | { action: "review"; reason: string };
@@ -93,6 +109,8 @@ export function decideUnifiedField(input: {
   psipediaEdit?: ScopedFieldEdit;
   locked?: boolean;
   protected?: boolean;
+  /** Opt-in only after lock, identity and field mapping checks in the adapter. */
+  profileAuthority?: ProfileAuthorityContext;
   /** Explicit initialization only; never an inferred historical edit. */
   initializeEmpty?: boolean;
 }): UnifiedFieldDecision {
@@ -102,6 +120,18 @@ export function decideUnifiedField(input: {
   if (!input.notion.present || !input.psipedia.present ||
       input.notion.value === undefined || input.psipedia.value === undefined)
     return review("MISSING_FIELD");
+  // The owner is chosen from canonical D1 lifecycle state, not timestamps.
+  // Check eligibility and validation even if observations happen to match.
+  if (input.profileAuthority !== undefined) {
+    const authority = input.profileAuthority;
+    if (authority.owner !== "notion") return review("LOCKED");
+    if (authority.fieldAllowed !== true) return review("PROTECTED_FIELD");
+    if (authority.notionValidated !== true) return review("INVALID_NOTION_FIELD");
+    const n = input.notion.value, p = input.psipedia.value;
+    // A validated blank is authoritative, just like false, zero or a list.
+    // No normal profile-content push is permitted in this mode.
+    return same(n, p) ? { action: "unchanged", value: p } : { action: "pull", value: n };
+  }
   const n = input.notion.value, p = input.psipedia.value;
   if (same(n, p)) return { action: "unchanged", value: p };
   if (!input.baseline || input.baseline.value === undefined || !input.baseline.version) {
@@ -121,7 +151,7 @@ export function decideUnifiedField(input: {
   const base = input.baseline.value;
   const ne = verified(input.notionEdit, input.identity, "notion", input.baseline.version, n);
   const pe = verified(input.psipediaEdit, input.identity, "psipedia", input.baseline.version, p);
-  // A blank Notion field is never an instruction to erase a populated SQL field.
+  // Legacy V2 only: a blank Notion field is not an authorized clear.
   if (blank(n) && !blank(p) && !same(n, base)) return review("UNVERIFIED_NOTION_CLEAR");
   if (blank(p) && !blank(n) && !same(p, base) && !pe?.explicitClear)
     return review("UNVERIFIED_ADMIN_CLEAR");

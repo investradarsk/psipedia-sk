@@ -3,6 +3,7 @@ const { Client, LogLevel, isHTTPResponseError } = notionSdk;
 import type { ImagesBindingLike } from "@/lib/private-media";
 
 export type NotionSyncBindings = {
+  NOTION_PROFILE_AUTHORITY_MODE?: string;
   NOTION_API_TOKEN?: string;
   BUCKET?: R2Bucket;
   IMAGES?: ImagesBindingLike;
@@ -91,14 +92,20 @@ const NOTION_RETRY_MAX_MS = 8_000;
 const NOTION_RETRY_AFTER_MAX_MS = 60_000;
 const NOTION_MIN_REQUEST_GAP_MS = 350;
 let nextNotionRequestSlot = 0;
+let notionRateLimitedUntil = 0;
 
 // Isolate-local pacing limits bursts when several sync sweeps share a Worker.
+// Only numeric timestamps are shared across requests, never pending promises.
 // Durable cross-isolate quotas still require separate operational monitoring.
-async function paceNotionRequest() {
-  const now = Date.now();
-  const reserved = Math.max(now, nextNotionRequestSlot);
-  nextNotionRequestSlot = reserved + NOTION_MIN_REQUEST_GAP_MS;
-  await wait(reserved - now);
+async function paceNotionRequest(staged = false) {
+  for (;;) {
+    const now = Date.now();
+    const reserved = Math.max(now, nextNotionRequestSlot, staged ? notionRateLimitedUntil : 0);
+    nextNotionRequestSlot = reserved + NOTION_MIN_REQUEST_GAP_MS;
+    await wait(reserved - now);
+    // A 429 may have arrived while this request was already waiting.
+    if (!staged || Date.now() >= notionRateLimitedUntil) return;
+  }
 }
 
 
@@ -191,7 +198,7 @@ export async function notionRequest<T>(
     if (key === "authorization" || key === "notion-version") delete headers[key];
   }
   for (let attempt = 0; attempt <= NOTION_MAX_RETRIES; attempt += 1) {
-    await paceNotionRequest();
+    await paceNotionRequest(bindings.NOTION_PROFILE_AUTHORITY_MODE === "validated-text");
     try {
       return await client.request<Record<string, unknown>>({
         path: url.pathname.slice("/v1/".length),
@@ -202,6 +209,10 @@ export async function notionRequest<T>(
       }) as unknown as T;
     } catch (error) {
       if (!isHTTPResponseError(error)) throw error;
+      if (bindings.NOTION_PROFILE_AUTHORITY_MODE === "validated-text" && error.status === 429) {
+        const delay=notionRetryDelayMs(attempt,error.headers instanceof Headers?error.headers.get("retry-after"):null);
+        notionRateLimitedUntil=Math.max(notionRateLimitedUntil,Date.now()+delay);
+      }
       if (options.retryTransient !== false && attempt < NOTION_MAX_RETRIES && notionRetryableStatus(error.status)) {
         await wait(notionRetryDelayMs(attempt, error.headers.get("retry-after")));
         continue;
@@ -473,7 +484,7 @@ export async function prepareNotionMainImage(args: {
   sourceUrl: string;
   sourcePageUrl?: string;
   altText?: string;
-  folder: "articles" | "breeds" | "events" | "directory" | "help" | "adoptions" | "eshops";
+  folder: "articles" | "breeds" | "events" | "directory" | "help" | "adoptions" | "eshops" | "lost-found";
   existingImageUrl?: string | null;
   existingImageKey?: string | null;
 }): Promise<PreparedNotionImage> {

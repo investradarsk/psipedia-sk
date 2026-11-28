@@ -53,7 +53,7 @@ function makeDatabase({ articles, action = "publish", captured = articles, failI
             })) };
           }
           if (sql.includes("FROM managed_articles")) {
-            const ids = values.map(Number);
+            const ids = sql.includes("json_each(?)") ? JSON.parse(values[0]).map(Number) : values.map(Number);
             return { results: ids.flatMap((id) => {
               const article = articleMap.get(id);
               return article ? [{ id, status: article.status, updated_at: article.updated_at }] : [];

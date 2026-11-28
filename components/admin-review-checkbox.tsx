@@ -13,6 +13,7 @@ type Props = {
   showDate?: boolean;
   lockedByPartner?: boolean;
   disabled?: boolean;
+  onReviewChange?: (review:{reviewed:boolean;reviewedAt:string})=>void;
 };
 
 function formatReviewedAt(value: string) {
@@ -36,6 +37,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
   showDate = false,
   lockedByPartner = false,
   disabled = false,
+  onReviewChange,
 }: Props) {
   const [reviewed, setReviewed] = useState(initialReviewed);
   const [reviewedAt, setReviewedAt] = useState(initialReviewedAt);
@@ -44,6 +46,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
 
   async function change(nextReviewed: boolean) {
     if (disabled || pending || lockedByPartner) return;
+    if (!nextReviewed && (entityType==="BREED"||entityType==="ESHOP") && !window.confirm("Odomknúť profil? Najprv sa overí úplný prenos mapovaných údajov z Adminu do Notionu.")) return;
     setPending(true);
     setError("");
     try {
@@ -59,6 +62,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
       if (!response.ok || !payload.review) throw new Error(payload.error || "Stav kontroly sa nepodarilo uložiť.");
       setReviewed(payload.review.reviewed);
       setReviewedAt(payload.review.reviewedAt);
+      onReviewChange?.(payload.review);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Stav kontroly sa nepodarilo uložiť.");
     } finally {

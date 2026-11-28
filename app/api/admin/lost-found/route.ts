@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { requireAdminMutation } from "@/lib/admin-auth";
 import { createAdminDogReport, type ManagedDogReportInput } from "@/lib/lost-found-dog-store";
 
@@ -8,6 +9,7 @@ export async function POST(request: Request) {
   if (auth.response || !auth.user) return auth.response!;
   try {
     const input = await request.json() as ManagedDogReportInput;
+    const duplicate=await adminProfileDuplicateResponse("lost-found",input);if(duplicate)return duplicate;
     const report = await createAdminDogReport(input, auth.user.email);
     return Response.json(
       { report },

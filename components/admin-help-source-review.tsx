@@ -24,7 +24,7 @@ function sourceHref(url: string) {
 }
 
 export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }) {
-  const isReviewDue = (item: HelpSourceCheckRow) => item.source_state !== "ACTIVE_SIGNAL" && Boolean(item.review_due);
+  const isReviewDue = (item: HelpSourceCheckRow) => Boolean(item.review_due);
   const urgent = items.filter(isReviewDue);
   const done = items.filter((item) => !isReviewDue(item));
 
@@ -57,7 +57,7 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
             <Link href={editor}>Otvoriť profil</Link>
           </div>
           <AdminHelpSourceQuickActions entityType={item.entity_type}
-            entityId={item.entity_id} checkedAt={item.last_checked_at} />
+            entityId={item.entity_id} checkedAt={href?item.last_checked_at:null} />
         </article>
       );
     });
@@ -67,10 +67,10 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
     <div className={styles.layout}>
       <div className="admin-stats" aria-label="Stav kontroly zdrojov">
         <div><span>Vyžaduje ručnú kontrolu</span><strong>{urgent.length}</strong></div>
-        <div><span>Bez ručnej kontroly</span><strong>{done.length}</strong></div>
+        <div><span>Bez aktuálnej požiadavky</span><strong>{done.length}</strong></div>
       </div>
       <p className={styles.explainer}>
-        Automatická kontrola nikdy nemení stav adopcie ani pátrania. Potvrdenie používaj až po
+        Automatický signál aktivity nie je ručné overenie. Počty sa týkajú iba načítanej dávky. Automatická kontrola nikdy nemení stav adopcie ani pátrania. Potvrdenie používaj až po
         skutočnom overení pôvodného zdroja; pri adopcii sa uloží aj dátum posledného overenia.
       </p>
       <section aria-label="Potrebuje overenie">
@@ -78,7 +78,7 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
         {urgent.length ? <div className={styles.cards}>{cards(urgent)}</div> : <p>V načítanej dávke nie je žiadny nevybavený prípad.</p>}
       </section>
       <section aria-label="Ostatné výsledky">
-        <h2>Už skontrolované ({done.length})</h2>
+        <h2>Bez aktuálnej požiadavky ({done.length})</h2>
         {done.length ? <div className={styles.cards}>{cards(done)}</div> : <p>Zatiaľ žiadne.</p>}
       </section>
     </div>

@@ -56,10 +56,10 @@ test("past-due scheduled articles import editorial changes only through verified
   assert.equal(verified(null, remote), false);
 
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"[\s\S]*?!dueScheduledPublishedMapping/);
-  assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\)/);
+  assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\|\|stagedScheduled\)/);
   assert.match(syncSource, /status: existing\.status,[\s\S]*?publishedAt: existing\.publishedAt/);
-  assert.match(syncSource, /status: dueScheduledPublishedMapping \? "scheduled" : undefined/);
-  assert.match(syncSource, /allowPastDueScheduledContentEdit: dueScheduledPublishedMapping/);
+  assert.match(syncSource, /status: existing\.status==="scheduled" \? "scheduled" : undefined/);
+  assert.match(syncSource, /allowPastDueScheduledContentEdit: existing\.status==="scheduled"&&effectiveArticleStatus\(existing\.status,existing\.publishedAt\)==="published"/);
   assert.match(articleStoreSource, /schedulingPrecondition\?\.allowPastDueScheduledContentEdit === true/);
   assert.match(articleStoreSource, /schedulingPrecondition\.status === "scheduled"/);
   assert.match(articleStoreSource, /existing\.status === "scheduled"/);
@@ -326,7 +326,7 @@ test("hourly article sync survives unrelated Promise.all rejections and logs run
 test("article sync keeps the original no-publish, no-duplicate and status writeback protections", () => {
   assert.match(syncSource, /status: "draft"/);
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
-  assert.match(syncSource, /article_id = excluded\.article_id/);
+  assert.match(syncSource, /WHERE article_notion_sync\.article_id\s*=\s*excluded\.article_id/);
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
   assert.match(syncSource, /await updateNotionSyncState\(bindings, page\.id, \{/);
@@ -421,7 +421,8 @@ test("Notion body supports native external images, video embeds and tables", () 
 test("Notion Psipedia block manifest can create any normalized Admin article block with placement", () => {
   assert.match(syncSource, /isAdminManifestHeading/);
   assert.match(syncSource, /"psipedia bloky"/);
-  assert.match(syncSource, /JSON\.parse\(blockText\(manifest\)\)/);
+  assert.match(syncSource, /JSON\.parse\(raw\.map\(node=>node\.plain_text\)\.join\(""\)\)/);
+  assert.match(syncSource, /NOTION_ARTICLE_MANIFEST_INCOMPLETE/);
   assert.match(syncSource, /normalizeArticleBlocks/);
   assert.match(syncSource, /afterSection/);
   assert.match(syncSource, /beforeHeading/);

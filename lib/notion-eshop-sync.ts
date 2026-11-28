@@ -1,7 +1,12 @@
+import { normalizeProfileIdentity, profileIdentityWebsite } from "./directory-duplicate-audit.ts";
+import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
+import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
+import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
+import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
 import { ESHOP_V2_FIELDS, observeEshopV2Property } from "./notion-eshop-v2-contract.ts";
 import { reserveUnifiedField, confirmUnifiedField, assertUnifiedReservationCurrent } from "./notion-unified-field-transfer.ts";
 import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
-import { notionPageIsTombstoned } from "./admin-record-lifecycle";
+import { notionPageIsTombstoned, notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { updateEshopV2NotionField } from "./eshop-ratings.ts";
 import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { sameNotionProperty } from "./notion-selective-property-patch.ts";
@@ -84,6 +89,7 @@ export type NotionEshopSyncSummary = {
   pulledFromNotion: number;
   pushedToNotion: number;
   unchanged: number;
+  reviewRequired?: number;
   failed: number;
 };
 
@@ -298,7 +304,7 @@ async function saveMapping(input: {
     "notion_page_id=excluded.notion_page_id,content_hash=excluded.content_hash," +
     "notion_last_edited_time=excluded.notion_last_edited_time,psipedia_updated_at=excluded.psipedia_updated_at," +
     "last_synced_at=excluded.last_synced_at,updated_at=excluded.updated_at " +
-    "WHERE eshop_notion_sync.notion_page_id=excluded.notion_page_id",
+    "WHERE eshop_notion_sync.notion_page_id=excluded.notion_page_id AND (eshop_notion_sync.content_hash<>'INBOUND_ID_PENDING' OR excluded.content_hash='INBOUND_ID_PENDING')",
   ).bind(
     input.pageId,
     input.shopId,
@@ -347,6 +353,11 @@ async function markPageError(bindings: NotionEshopSyncBindings, pageId: string, 
   }).catch(() => undefined);
 }
 
+async function acknowledgeStagedEshopDraft(database:D1Database,bindings:NotionEshopSyncBindings,sourceId:string,shop:ManagedEshop,pageId:string){
+  const all=notionProperties(shop,"",shop.updatedAt) as Record<string,unknown>;
+  await acknowledgeInboundProfileIdentity({database,bindings,agenda:"eshops",id:shop.id,pageId,sourceId,revision:shop.updatedAt,
+    desired:Object.fromEntries(["Psipedia ID","Slug","URL Psipedia"].map(name=>[name,all[name]]))});
+}
 async function writeShopToNotion(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
@@ -354,6 +365,7 @@ async function writeShopToNotion(input: {
   shop: ManagedEshop;
   pageId?: string | null;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const syncedAt = new Date().toISOString();
   const hash = await snapshotHash(profileSnapshot(input.shop));
   const properties = notionProperties(input.shop, hash, syncedAt);
@@ -390,10 +402,18 @@ async function writeShopToNotion(input: {
   });
 }
 
-function readyForCreate(page: NotionPage) {
-  if (notionRichTextProperty(page, "Psipedia ID")) return false;
+function readyForCreate(page: NotionPage,staged=false) {
+  if (page.archived || page.in_trash || notionRichTextProperty(page, "Psipedia ID")) return false;
   const desired = notionSnapshot(page);
   const rawStatus = notionSelectProperty(page, "Psipedia stav");
+  if(staged){
+    // Keep the minimum identity and creation signal, but do not require
+    // editorial completion until the Admin explicitly publishes the draft.
+    const rawId=page.properties?.["Psipedia ID"] as {type?:string;rich_text?:unknown[]}|undefined;
+    return rawId?.type==="rich_text"&&Array.isArray(rawId.rich_text)&&rawId.rich_text.length===0&&
+      (rawStatus==="Koncept"||rawStatus==="Publikované")&&!!desired.name&&/^[a-z0-9-]{1,100}$/.test(desired.slug)&&
+      Object.keys(ESHOP_V2_FIELDS).every(field=>observeEshopV2Property(page.properties,field as keyof typeof ESHOP_V2_FIELDS).present);
+  }
   return Boolean(
     (rawStatus === "Koncept" || rawStatus === "Publikované")
     && desired.name
@@ -481,7 +501,7 @@ async function importUnmappedEshop(input: {
   bindings: NotionEshopSyncBindings;
   page: NotionPage;
   dataSourceId: string;
-}): Promise<"created" | "already-mapped" | "not-ready"> {
+}): Promise<"created" | "already-mapped" | "not-ready" | "review-required"> {
   let releaseAgenda: (() => Promise<void>) | null = null;
   let releasePage: (() => Promise<void>) | null = null;
   let canonicalWriteUncertain = false;
@@ -493,14 +513,22 @@ async function importUnmappedEshop(input: {
 
     // Re-evaluate evidence under both locks, never from a stale webhook body.
     if (await loadMappingByPage(input.database, input.page.id)) return "already-mapped";
+    if (await notionPageIsTombstoned(input.database,input.page.id)) return "not-ready";
     const latest = await fetchPage(input.bindings, input.page.id);
     if (latest.id !== input.page.id ||
         !notionPageBelongsToDataSource(latest, input.dataSourceId))
       throw new Error("ESHOP_IMPORT_PAGE_UNSAFE");
     if (latest.last_edited_time !== input.page.last_edited_time)
       throw new Error("ESHOP_IMPORT_STALE_REVISION");
-    if (!readyForCreate(latest)) return "not-ready";
+    if (!readyForCreate(latest,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text") || await notionPageIsTombstoned(input.database,latest.id)) return "not-ready";
 
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      const draft=notionSnapshot(latest);
+      const identities=await input.database.prepare("SELECT id,slug,name,website_url FROM managed_eshops ORDER BY id LIMIT 5001").all<{id:number;slug:string;name:string;website_url:string|null}>();
+      if(!identities.success||identities.results.length>5000)throw Error("ESHOP_DUPLICATE_SCAN_INCOMPLETE");
+      const name=normalizeProfileIdentity(draft.name),site=profileIdentityWebsite(draft.websiteUrl);
+      if(identities.results.some(row=>(!!draft.slug&&row.slug===draft.slug)||(!!name&&normalizeProfileIdentity(row.name)===name)||(!!site&&profileIdentityWebsite(row.website_url)===site)))return "review-required";
+    }
     // A lost D1 create acknowledgement is ambiguous: preserve both locks,
     // rather than retrying into an accidental duplicate canonical identity.
     canonicalWriteUncertain = true;
@@ -510,12 +538,16 @@ async function importUnmappedEshop(input: {
     const syncedAt = new Date().toISOString();
     await saveMapping({
       database: input.database, pageId: latest.id, shopId: created.id,
-      contentHash: "", notionLastEditedTime: latest.last_edited_time ?? null,
+      contentHash: input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"?PROFILE_INBOUND_ID_PENDING:"", notionLastEditedTime: latest.last_edited_time ?? null,
       psipediaUpdatedAt: null, syncedAt,
     });
     // An empty provisional hash cannot be mistaken for a verified common
     // baseline. The established syncMapped reconciler retries safe writeback.
     canonicalWriteUncertain = false;
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      await acknowledgeStagedEshopDraft(input.database,input.bindings,input.dataSourceId,created,latest.id);
+      return "created";
+    }
     await writeShopToNotion({
       database: input.database, bindings: input.bindings,
       dataSourceId: input.dataSourceId, shop: created, pageId: latest.id,
@@ -536,6 +568,7 @@ async function applyNotionToShop(input: {
   shop: ManagedEshop;
   desiredOverride?: EditableSnapshot;
 }) {
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const logo = await prepareLogo(input.bindings, desired.logoUrl, input.shop);
   try {
@@ -569,11 +602,11 @@ async function recentPages(bindings: NotionEshopSyncBindings, dataSourceId: stri
   return response.results ?? [];
 }
 
-async function bootstrapIds(database: D1Database) {
+async function bootstrapIds(database: D1Database,staged=false) {
   const result = await database.prepare(
     "SELECT shop.id FROM managed_eshops shop " +
     "LEFT JOIN eshop_notion_sync ens ON ens.eshop_id=shop.id " +
-    "WHERE ens.eshop_id IS NULL ORDER BY shop.id ASC LIMIT ?1",
+    "WHERE ens.eshop_id IS NULL "+(staged?"AND shop.status<>\'archived\' AND NOT EXISTS(SELECT 1 FROM notion_unified_manual_fence f WHERE f.agenda=\'eshops\' AND f.entity_id=CAST(shop.id AS TEXT)) AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind=\'eshops\' AND t.record_id=shop.id) ":"")+"ORDER BY shop.id ASC LIMIT ?1",
   ).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
   return (result.results ?? []).map((row) => Number(row.id)).filter(Number.isSafeInteger);
 }
@@ -683,7 +716,9 @@ async function observeEshopV2(input:EshopV2Scope,field:EshopAdminField,allowUrlC
     try{present=Boolean(raw)&&equalV2(JSON.parse(raw!.focus_tags_json),canonical.focusTags);}catch{present=false;}
   }
   const notion=field==="slug"||field==="status"||field==="logoKey"?{present:false as const}:observeEshopV2Property(page.properties,field);
-  const psipedia=present?{present:true as const,value:field==="logoKey"?after.logoKey:canonical[field]}:{present:false as const};
+  const physical=field==="logoKey"?after.logoKey:canonical[field];
+  const logical=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&field==="logoUrl"&&notion.present?await profileMediaSourceAlias("eshops",physical,notion.value,bindings.BUCKET):physical;
+  const psipedia=present?{present:true as const,value:logical}:{present:false as const};
   return {shop:after,page,canonical,notion,psipedia};
 }
 
@@ -708,7 +743,8 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
       // A whole-record hash is usable only when it proves the exact snapshot.
       const baseline=stored??(!structural&&await snapshotHash(first.canonical)===input.mapping.content_hash?first.canonical:null);
       const reservation=structural?null:await reserveUnifiedField({
-        database:input.database,identity,notion:first.notion,psipedia:first.psipedia,direction,
+        database:input.database,identity,authorityBindings:input.bindings,
+        authorityProperty:first.page.properties?.[ESHOP_V2_FIELDS[field as keyof typeof ESHOP_V2_FIELDS]],notion:first.notion,psipedia:first.psipedia,direction,
         historicalBaseline:baseline&&Object.hasOwn(baseline,field)?{value:baseline[field as keyof EditableSnapshot],version:input.mapping.content_hash}:null,
         psipediaEdit:await readUnifiedAdminEdit(input.database,identity,first.shop.updatedAt),
       });
@@ -721,15 +757,19 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
       if(direction==="pull"){
         if(structural)throw Error("ESHOP_V2_PROTECTED_FIELD");
         let logo:{imageUrl:string|null;imageKey:string|null}|undefined;
+        let mediaProof:VerifiedProfileMedia|undefined;
         if(field==="logoUrl"){
           // External fetch may transform the URL into a new R2 identity.
           // That is not equality proof; defer the alias-aware media workflow.
+          if(reservation?.profileAuthority){mediaProof=await prepareProfileMedia("eshops",value,input.bindings,fresh.canonical.logoUrl);logo={imageUrl:mediaProof.url,imageKey:mediaProof.key};}
+          else {
           const own=typeof value==="string"?localizeOwnAsset(value):null;
           if(!own||!own.startsWith("/media/eshops/")||!input.bindings.BUCKET)
             throw Error("ESHOP_V2_LOGO_REQUIRES_MEDIA_REVIEW");
           const key=own.slice("/media/".length);
           if(!await input.bindings.BUCKET.head(key))throw Error("ESHOP_V2_LOGO_MISSING");
           logo={imageUrl:own,imageKey:key};
+          }
           // Recheck after the R2 read. Old assets are not deleted here.
           const current=await observeEshopV2(input,field);
           if(current.shop.updatedAt!==fresh.shop.updatedAt||current.page.last_edited_time!==fresh.page.last_edited_time||
@@ -737,7 +777,7 @@ async function syncEshopV2Fields(input:EshopV2Scope,fields:readonly EshopAdminFi
         }
         if(reservation)await assertUnifiedReservationCurrent(input.database,reservation);
         await updateEshopV2NotionField({database:input.database,id:first.shop.id,pageId:first.page.id,
-          revision:first.shop.updatedAt,field,value,logo});
+          revision:first.shop.updatedAt,field,value,logo,mediaProof,authorityReservation:reservation??undefined});
       }else{
         const all=notionProperties(fresh.shop,"",new Date().toISOString()) as Record<string,unknown>;
         const names=field==="slug"?["Slug","URL Psipedia"]:field==="status"?["Psipedia stav"]:
@@ -781,6 +821,7 @@ async function syncMapped(input: {
   webhookChangedPropertyIds?: readonly string[];
   adminChangedFields?: readonly EshopAdminField[];
 }) {
+  if(await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id))return "unchanged" as const;
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
   const page = input.page ?? await fetchPage(input.bindings, input.mapping.notion_page_id);
@@ -790,6 +831,14 @@ async function syncMapped(input: {
   }
 
   const claimedId = notionRichTextProperty(page, "Psipedia ID");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(input.bindings.NOTION_UNIFIED_FIELD_SYNC_ENABLED!=="true")throw Error("PROFILE_AUTHORITY_REQUIRES_V2");
+    if(input.mapping.content_hash===PROFILE_INBOUND_ID_PENDING){await acknowledgeStagedEshopDraft(input.database,input.bindings,input.dataSourceId,shop,page.id);return "pushed" as const;}
+    await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"eshops",id:shop.id,pageId:page.id,sourceId:input.dataSourceId});
+    if(await readStandaloneReviewLock(input.database,"eshops",shop.id))return "unchanged" as const;
+    if(input.manualDirection||input.forcePush)throw Error("PROFILE_AUTHORITY_LEGACY_TRANSFER_DISABLED");
+    if(input.adminChangedFields!==undefined)return "unchanged" as const;
+  }
   if ((input.webhookChangedPropertyIds !== undefined || input.adminChangedFields !== undefined)
       && claimedId !== String(shop.id))
     throw new Error("ESHOP_FIELD_EVENT_IDENTITY_MISMATCH");
@@ -992,6 +1041,7 @@ async function mirrorEshopSystemFields(input: {
   database: D1Database; bindings: NotionEshopSyncBindings;
   dataSourceId: string; mapping: EshopNotionMapping;
 }): Promise<"pushed" | "unchanged"> {
+  if(await notionPageIsTombstoned(input.database,input.mapping.notion_page_id))return "unchanged";
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) return "unchanged";
   const page = await fetchPage(input.bindings, input.mapping.notion_page_id);
@@ -999,6 +1049,10 @@ async function mirrorEshopSystemFields(input: {
       !notionPageBelongsToDataSource(page, input.dataSourceId) ||
       notionRichTextProperty(page, "Psipedia ID") !== String(shop.id))
     throw new Error("ESHOP_SYSTEM_MIRROR_IDENTITY_MISMATCH");
+  if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    await mirrorStandaloneReviewFlag({database:input.database,bindings:input.bindings,agenda:"eshops",id:shop.id,pageId:page.id,sourceId:input.dataSourceId});
+    if(await readStandaloneReviewLock(input.database,"eshops",shop.id))return "unchanged";
+  }
   const all = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
   const names = [
     "Počet hodnotení", "Celkové hodnotenie", "Doručenie",
@@ -1065,14 +1119,23 @@ export async function runNotionEshopBootstrapSweep(input: {
   if (!summary.schemaReady) return summary;
 
   const dataSourceId = input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim();
-  const ids = await bootstrapIds(input.database);
+  const ids = await bootstrapIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text");
   summary.selected = ids.length;
 
   for (const id of ids) {
     try {
       const shop = await getManagedEshopById(id, input.database);
       if (!shop) continue;
-      await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId, shop });
+      if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        await ensureFirstProfileNotionCopy({database:input.database,bindings:input.bindings,agenda:"eshops",id,sourceId:dataSourceId,
+          async snapshot(){
+            const current=await getManagedEshopById(id,input.database);
+            if(!current)throw Error("ESHOP_CANONICAL_MISSING");
+            const hash=await snapshotHash(profileSnapshot(current));
+            const review=await input.database.prepare("SELECT 1 AS reviewed FROM admin_entity_reviews WHERE entity_type='ESHOP' AND entity_id=?").bind(id).first<{reviewed:number}>();
+            return {revision:current.updatedAt,hash,properties:notionProperties(current,hash,current.updatedAt),reviewed:!!review};
+          }});
+      }else await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId, shop });
       summary.bootstrapped += 1;
     } catch (error) {
       summary.failed += 1;
@@ -1084,7 +1147,7 @@ export async function runNotionEshopBootstrapSweep(input: {
     }
   }
 
-  summary.hasMore = (await bootstrapIds(input.database)).length > 0;
+  summary.hasMore = (await bootstrapIds(input.database,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")).length > 0;
   return summary;
 }
 
@@ -1163,19 +1226,33 @@ export async function runNotionEshopSyncSweep(input: {
     pages = [page];
   } else {
     pages = await recentPages(input.bindings, dataSourceId);
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const older=await rotateNotionDiscovery<NotionPage>({
+          database:input.database,bindings:input.bindings,agenda:"eshops",sourceId:dataSourceId,limit:20,
+        });
+        pages=mergeNotionDiscovery(older,pages);
+      }catch{
+        // Preserve the recent safety net; surface incomplete rotation.
+        summary.failed++;
+        console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"eshops"});
+      }
+    }
   }
   summary.notionScanned = pages.length;
 
   for (const page of pages) {
     try {
+      if(await notionPageMustSkipInboundSync(input.database,page.id)){summary.unchanged++;continue;}
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMapping({ database: input.database, page });
 
-      if (!mapping && readyForCreate(page)) {
+      if (!mapping && readyForCreate(page,input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")) {
         const imported = await importUnmappedEshop({
           database: input.database, bindings: input.bindings, page, dataSourceId,
         });
         if (imported === "created") summary.createdFromNotion += 1;
+        else if(imported==="review-required")summary.reviewRequired=(summary.reviewRequired??0)+1;
         else summary.unchanged += 1;
         continue;
       }
@@ -1268,7 +1345,25 @@ export async function recoverEshopV2Field(database:D1Database,bindings:NotionEsh
   if(observed.shop.status==="archived")throw Error("ESHOP_V2_ARCHIVED");
   const historical=await readProfileFieldBaseline({database,agenda:"eshops",entityId:id,pageId,expectedHash:mapping.content_hash});
   const identity={agenda:"eshops" as const,entityId:String(id),pageId,field};
-  await reserveUnifiedField({database,identity,notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
+  await reserveUnifiedField({database,identity,authorityBindings:bindings,
+    authorityProperty:observed.page.properties?.[ESHOP_V2_FIELDS[field as keyof typeof ESHOP_V2_FIELDS]],notion:observed.notion,psipedia:observed.psipedia,direction:"observe",
     historicalBaseline:historical&&Object.hasOwn(historical,field)?{value:historical[field],version:mapping.content_hash}:null,
     psipediaEdit:await readUnifiedAdminEdit(database,identity,observed.shop.updatedAt)});
+}
+
+
+export async function unlockReviewedEshop(input:{database:D1Database;bindings:NotionEshopSyncBindings;entityId:number}){
+  if(!configured(input.bindings))throw Error("ESHOP_REVIEW_SYNC_DISABLED");
+  await unlockStandaloneReviewedProfile({database:input.database,bindings:input.bindings,agenda:"eshops",
+    id:input.entityId,sourceId:input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim(),
+    async projection(){
+      const shop=await getManagedEshopById(input.entityId,input.database);
+      if(!shop)throw Error("ESHOP_CANONICAL_MISSING");
+      const all=notionProperties(shop,"",shop.updatedAt) as Record<string,unknown>;
+      const desired=Object.fromEntries([...Object.values(ESHOP_V2_FIELDS),"Logo Psipedia","Logo key"]
+        .map(name=>[name,all[name]]));
+      if(Object.values(desired).some(value=>value===undefined))throw Error("ESHOP_REVIEW_PROJECTION_INCOMPLETE");
+      return {revision:shop.updatedAt,desired};
+    }
+  });
 }

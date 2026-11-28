@@ -77,6 +77,7 @@ async function retryVerifiedAdminEdit(database:D1Database,bindings:Bindings,iden
   return pushRecoveryField(database,bindings,identity);
 }
 async function pushRecoveryField(database:D1Database,bindings:Bindings,identity:FieldIdentity,initial=false){
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")return false;
   if(bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED!=="true")return false;
   const id=Number(identity.entityId);
   switch(identity.agenda){
@@ -104,6 +105,12 @@ async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   // A confirmed blank may be filled from SQL without a fabricated receipt;
   // its scoped marker must survive the adapter's fresh pre-write check.
   // Never fabricate a signed event, resolve a dual edit or erase with blanks.
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    if(observed?.status==="REVIEW"&&observed.reason==="NOTION_AUTHORITY_PULL_REQUIRED")
+      await observe(database,bindings,key,"pull");
+    const state=await readUnifiedFieldState(database,key);
+    return state?.status==="SYNCED"?"synced":"review";
+  }
   if(observed?.status==="REVIEW"&&observed.reason==="INITIAL_FILL_PULL"){
     await observe(database,bindings,key,"pull");
   }else if(observed?.status==="REVIEW"&&(observed.reason==="INITIAL_FILL_PUSH"||observed.reason==="CONFIRMED_BLANK_PUSH")){
@@ -116,6 +123,16 @@ async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   }else await retryVerifiedAdminEdit(database,bindings,key);
   const state=await readUnifiedFieldState(database,key);
   return state?.status==="SYNCED"?"synced":"review";
+}
+
+/** Requeue only transient provider failures, never replay a stored mutation.
+ * The existing claimed deadline is the compare-and-swap fence; content,
+ * reservation state and manual locks are not modified by this retry. */
+async function rescheduleTransientRecovery(database:D1Database,row:Candidate,table:"notion_unified_field_state"|"notion_unified_admin_field_edits",claimedUntil:string,error:unknown){
+  if(!(error instanceof Error)||!/^Notion API (429|500|502|503|504|529):/.test(error.message))return;
+  const retryAt=new Date(Date.now()+300_000).toISOString();
+  await database.prepare("UPDATE "+table+" SET recovery_after=? WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? AND recovery_after=?")
+    .bind(retryAt,row.agenda,row.entity_id,row.notion_page_id,row.field_key,claimedUntil).run();
 }
 
 /** Existing minute cron, hard caps: at most two expired/REVIEW fields and
@@ -143,7 +160,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
     if(!row)break;
     result.checked++;
     try{const outcome=await recoverOne(database,bindings,row);result[outcome]++;}
-    catch{result.failed++;}
+    catch(error){result.failed++;if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")await rescheduleTransientRecovery(database,row,"notion_unified_field_state",next,error).catch(()=>{});}
   }
   // Prioritize authenticated edits even when the first direct writeback failed
   // before reserving any field. No stale receipt is replayed as a mutation.
@@ -161,7 +178,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
   if(receipt){
     result.checked++;
     try{const outcome=await recoverOne(database,bindings,receipt);result[outcome]++;}
-    catch{result.failed++;}
+    catch(error){result.failed++;if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")await rescheduleTransientRecovery(database,receipt,"notion_unified_admin_field_edits",next,error).catch(()=>{});}
   }
   await database.batch(UNIFIED_SYNC_AGENDAS.map(agenda=>database.prepare(
     "INSERT OR IGNORE INTO notion_unified_recovery_cursor(agenda) VALUES(?)").bind(agenda)));
@@ -173,31 +190,39 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
     .first<{agenda:UnifiedSyncAgenda;entity_id:number;field_offset:number;version:number}>();
   if(!cursor)return result;
   let id=cursor.entity_id, offset=cursor.field_offset;
-  const breedCatalog=cursor.agenda==="breeds"?await fields(database,"breeds",0):null;
-  if(breedCatalog){const decoded=decodeBreedCursor(breedCatalog,id,offset);id=decoded.id;offset=decoded.offset;}
+  let breedCatalog:string[]|null=null;
+  const v3=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  // Rotate through existing mappings with the same durable per-agenda cursor.
+  // A V3 tick may inspect twelve positions, but performs at most three
+  // remote field observations here; the existing retry probes are unchanged.
+  const started=Date.now();
+  let observations=0;
+  let decodedBreed=false;
   try{
-    const mapping=await database.prepare(mappingSql[cursor.agenda]).bind(id).first<{id:number;page:string}>();
-    if(!mapping){id=0;offset=0;}
-    else{
+    breedCatalog=cursor.agenda==="breeds"?await fields(database,"breeds",0):null;
+    if(breedCatalog){const decoded=decodeBreedCursor(breedCatalog,id,offset);id=decoded.id;offset=decoded.offset;decodedBreed=true;}
+    for(let step=0;step<(v3?12:1)&&observations<(v3?3:1);step++){
+      if(v3&&step>0&&Date.now()-started>=15_000)break;
+      const mapping=await database.prepare(mappingSql[cursor.agenda]).bind(id).first<{id:number;page:string}>();
+      if(!mapping){id=0;offset=0;break;}
       if(id!==mapping.id){id=mapping.id;offset=0;}
       const catalog=breedCatalog??await fields(database,cursor.agenda,id);
-      if(offset>=catalog.length){id++;offset=0;}
-      else{
-        const key={agenda:cursor.agenda,entityId:String(id),pageId:mapping.page,field:catalog[offset]};
-        offset++;
-        const existing=await readUnifiedFieldState(database,key);
-        if(!existing||existing.status==="SYNCED"){
-          if(!existing)result.seeded++;
-          result.checked++;
-          try{const outcome=await recoverOne(database,bindings,{agenda:key.agenda,entity_id:key.entityId,notion_page_id:key.pageId,field_key:key.field});result[outcome]++;}
-          catch{result.failed++;}
-        }
+      if(offset>=catalog.length){id++;offset=0;continue;}
+      const key={agenda:cursor.agenda,entityId:String(id),pageId:mapping.page,field:catalog[offset]};
+      const existing=await readUnifiedFieldState(database,key);
+      offset++;
+      if(!existing||existing.status==="SYNCED"){
+        observations++;
+        if(!existing)result.seeded++;
+        result.checked++;
+        try{const outcome=await recoverOne(database,bindings,{agenda:key.agenda,entity_id:key.entityId,notion_page_id:key.pageId,field_key:key.field});result[outcome]++;}
+        catch{result.failed++;}
       }
     }
   }catch{result.failed++;}
   finally{
     await database.prepare("UPDATE notion_unified_recovery_cursor SET entity_id=?,field_offset=?,lease_until=NULL WHERE agenda=? AND version=?")
-      .bind(id,breedCatalog?encodeBreedCursor(breedCatalog,offset):offset,cursor.agenda,cursor.version).run();
+      .bind(id,breedCatalog&&decodedBreed?encodeBreedCursor(breedCatalog,offset):offset,cursor.agenda,cursor.version).run();
   }
   return result;
 }

@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { createManagedDirectoryProfile, isDirectoryProfileConflict, listManagedDirectoryProfileSummaries, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
         payload = withUnconfirmedDirectoryAddress(body);
       }
     }
+    const duplicate=await adminProfileDuplicateResponse("directory",payload);if(duplicate)return duplicate;
     const profile = await createManagedDirectoryProfile(payload, user.email);
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: profile.id, verified, actorRef: user.email });
