@@ -1,3 +1,4 @@
+import { assertSavedProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { planCombinedOrganizationAddress } from "./organization-location-admin-write.ts";
 import { listOrganizationLocationsAdmin } from "./organization-location-admin-store.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -309,6 +310,7 @@ export async function changeOrganizationPublicationFromAdmin(
       throw new OrganizationPublicationTransitionError("Publikovať možno iba organizáciu v stave DRAFT.");
     }
     if (!existing.preflight.ready) throw new OrganizationPublicationBlockedError(existing.preflight);
+    await assertSavedProfilePublicationIdentity(db as unknown as D1Database,"organizations",id);
     result = await db.prepare(`
       UPDATE help_organizations
       SET status = 'PUBLISHED', published_at = ?, updated_at = ?, updated_by = ?
