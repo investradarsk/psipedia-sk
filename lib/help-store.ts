@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
@@ -788,6 +789,7 @@ export async function updateManagedHelpCase(
   const input = normalizeInput(payload, {
     allowLegacyUrgent: existing.category === "urgentne-pripady",
   });
+  await assertProfilePublicationIdentity(database,"help-cases",existing.status,input.status,input,id);
   const now = unifiedExpectedRevision === undefined ? new Date().toISOString() : nextHelpV2Revision(unifiedExpectedRevision);
   const publishedAt =
     input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
