@@ -1,3 +1,4 @@
+import { findSimilarArticles, strongArticleDuplicate } from "./article-similarity-review.ts";
 import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { sameNotionProperty } from "./notion-selective-property-patch";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
@@ -107,6 +108,7 @@ export type NotionArticleSyncSummary = {
   updated: number;
   unchanged: number;
   failed: number;
+  reviewRequired?: number;
 };
 
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
@@ -3162,6 +3164,12 @@ async function syncOneNotionPage(
   if (selectProperty(page, "Stav") !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia")) {
     throw new Error("ARTICLE_CREATE_REQUIRES_READY");
   }
+  if(staged){
+    const similarity=await findSimilarArticles(database,basePayload);
+    const duplicate=strongArticleDuplicate(similarity);
+    if(duplicate)throw Error("ARTICLE_DUPLICATE_REVIEW_REQUIRED: #"+duplicate.id+" "+duplicate.reason);
+    if(similarity.incomplete)throw Error("ARTICLE_SIMILARITY_SCAN_INCOMPLETE");
+  }
   const prepared = await prepareNotionMainImage(bindings, page, basePayload);
   let created: Awaited<ReturnType<typeof createManagedArticle>> | null = null;
   try {
@@ -3250,8 +3258,13 @@ export async function runNotionArticleSyncSweep(args: {
         args.changedPropertyIds, args.eventType);
       summary[result] += 1;
     } catch (error) {
-      summary.failed += 1;
       const message = error instanceof Error ? error.message : String(error);
+      if(message.startsWith("ARTICLE_DUPLICATE_REVIEW_REQUIRED:")){
+        summary.reviewRequired=(summary.reviewRequired??0)+1;
+        await updateNotionSyncState(args.bindings,page.id,{state:"Chyba",error:message}).catch(()=>undefined);
+        continue;
+      }
+      summary.failed += 1;
       // The content-writeback outbox is authoritative while unfinished.
       // Do not overwrite its Notion status with an import-sweep error.
       if (message === "NOTION_EDITORIAL_WRITEBACK_PENDING") continue;
