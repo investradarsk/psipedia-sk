@@ -1229,6 +1229,21 @@ async function assertArticlePublicationV3(database:D1Database,input:Awaited<Retu
   if(duplicate)throw new ArticlePublishIntegrityError([{code:"ARTICLE_DUPLICATE_REVIEW_REQUIRED",field:"title",severity:"BLOCKER",message:"Možná duplicita článku #"+duplicate.id+" – "+duplicate.title,suggestedAction:"Porovnaj existujúci článok a odlíš redakčný obsah."}]);
 }
 
+/** Reuse the canonical publication validator for a status-only bulk action.
+ * Read exactly the confirmed revision; the eventual mutation retains its CAS. */
+export async function assertSavedArticleBulkPublication(database:D1Database,id:number,expectedUpdatedAt:string){
+  if(!publicationV3Enabled())return;
+  const row=await database.prepare("SELECT * FROM managed_articles WHERE id=? AND updated_at=? LIMIT 1").bind(id,expectedUpdatedAt).first<ArticleRow>();
+  if(!row)throw new ArticleUpdateConflictError();
+  const article=rowToManagedArticle(row);
+  const payload:ManagedArticleInput={
+    ...article,status:"published",publishedAt:null,imageUrl:article.image??null,
+    blocks:article.blocks??[],sources:article.sources,authorProfileId:article.authorProfileId,
+    canonicalUrl:article.seo?.canonicalUrl??"",relatedBreedIds:article.relatedBreedIds,
+  };
+  const normalized=await normalizeInput(payload,database,article.authorProfileId);
+  await assertArticlePublicationV3(database,normalized,article);
+}
 export async function createManagedArticle(payload: ManagedArticleInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
