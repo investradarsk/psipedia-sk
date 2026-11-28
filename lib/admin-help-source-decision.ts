@@ -1,3 +1,4 @@
+import { publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
 import { transitionAdminDogReportStatus } from "./lost-found-dog-store";
 import { syncLostFoundModerationBeforeAdminStatus } from "./lost-found-public-moderation";
 import { LOST_FOUND_PUBLIC_SOURCE } from "./lost-found-public-submission";
@@ -24,7 +25,7 @@ export async function endHelpSourceCase(input: {
   const checked = await db.prepare(
     "SELECT source_url,last_checked_at FROM help_source_checks WHERE entity_type=? AND entity_id=?",
   ).bind(entityType, entityId).first<{ source_url: string; last_checked_at: string | null }>();
-  if (!checked || !checked.last_checked_at || checked.last_checked_at !== checkedAt) {
+  if (!checked || !checked.source_url.trim() || !checked.last_checked_at || checked.last_checked_at !== checkedAt) {
     throw new HelpSourceDecisionConflict();
   }
 
@@ -35,12 +36,13 @@ export async function endHelpSourceCase(input: {
     ).bind(entityId).first<{ status: string; updated_at: string; external_source_url: string | null }>();
     if (!existing || !["ACTIVE", "RESERVED"].includes(existing.status)) throw new HelpSourceDecisionConflict();
     if ((existing.external_source_url ?? "").trim() !== checked.source_url) throw new HelpSourceDecisionConflict();
-    const changed = await db.prepare(
+    const statement = db.prepare(
       "UPDATE adoption_dogs SET status='ADOPTED',last_verified_at=?,updated_at=?,updated_by=?"
       + " WHERE id=? AND updated_at=? AND status IN ('ACTIVE','RESERVED')"
       + " AND EXISTS (SELECT 1 FROM help_source_checks WHERE entity_type='ADOPTION'"
       + " AND entity_id=? AND last_checked_at=? AND source_url=?)",
-    ).bind(now, now, actorEmail, entityId, existing.updated_at, entityId, checkedAt, checked.source_url).run();
+    ).bind(now, now, actorEmail, entityId, existing.updated_at, entityId, checkedAt, checked.source_url);
+    const changed=publicationV3Enabled()?(await db.batch([statement,bulkPublicationGuardStatement(db,"adoptions",[entityId],false,now)]))[0]:await statement.run();
     if ((changed.meta?.changes ?? 0) !== 1) throw new HelpSourceDecisionConflict();
     return "ADOPTED" as const;
   }
@@ -64,7 +66,7 @@ export async function endHelpSourceCase(input: {
     });
   }
   try {
-    const changed = await transitionAdminDogReportStatus(entityId, "RESOLVED", actorEmail, existing.updated_at, db);
+    const changed = await transitionAdminDogReportStatus(entityId, "RESOLVED", actorEmail, existing.updated_at, db, publicationV3Enabled()?{checkedAt,sourceUrl:checked.source_url}:undefined);
     if (!changed) throw new HelpSourceDecisionConflict();
   } catch (error) {
     if (error instanceof Error && error.message === "lost_found_lifecycle_stale") {
