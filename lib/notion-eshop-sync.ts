@@ -1,3 +1,4 @@
+import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { readStandaloneReviewLock, mirrorStandaloneReviewFlag, unlockStandaloneReviewedProfile } from "./notion-reviewed-profile-export.ts";
@@ -1222,6 +1223,18 @@ export async function runNotionEshopSyncSweep(input: {
     pages = [page];
   } else {
     pages = await recentPages(input.bindings, dataSourceId);
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const older=await rotateNotionDiscovery<NotionPage>({
+          database:input.database,bindings:input.bindings,agenda:"eshops",sourceId:dataSourceId,limit:20,
+        });
+        pages=mergeNotionDiscovery(older,pages);
+      }catch{
+        // Preserve the recent safety net; surface incomplete rotation.
+        summary.failed++;
+        console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"eshops"});
+      }
+    }
   }
   summary.notionScanned = pages.length;
 
