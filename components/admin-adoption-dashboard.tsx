@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
+import { AdminBulkActionToolbar } from "@/components/admin-interaction-system";
 import { AdminBulkStatusActions } from "@/components/admin-bulk-status-actions";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordId } from "./admin-record-id";
@@ -121,16 +122,11 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [], bulk
       <button type="submit">Filtrovať</button>
     </form>
     {message && <p role="status">{message}</p>}
-    {selected.size > 0 && <div className={styles.gridSelection}>
-        <strong>Označené: {selected.size}</strong>
-        <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
-        {bulkStatusEnabled&&<AdminBulkStatusActions agenda="adoptions" items={result.items.filter(item=>selected.has(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}))} disabled={busy||Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>}
-      <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
-          onFinished={ids => {
-            setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
-            router.refresh();
-          }} />
-    </div>}
+    {selected.size > 0 && <AdminBulkActionToolbar selectedCount={selected.size}
+      onClear={()=>setSelected(new Set())}
+      primaryAction={bulkStatusEnabled?<AdminBulkStatusActions agenda="adoptions" items={result.items.filter(item=>selected.has(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}))} disabled={busy||Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>:undefined}
+      destructiveAction={<AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>}/>}
+
     <div className={styles.adoptionTableRegion}>
       <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií – tabuľka">
         {result.items.length ? <AdminRecordTable
