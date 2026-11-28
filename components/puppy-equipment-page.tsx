@@ -3,7 +3,7 @@ import { ClipboardCheck } from "lucide-react";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
-import { PublicFoundation } from "@/components/public-visual-system";
+import { PublicFoundation, PublicDataCard, PublicActionLink } from "@/components/public-visual-system";
 import { PuppyEquipmentChecklist } from "@/components/puppy-equipment-checklist";
 import { AFFILIATE_BANNER_PARTNERS } from "@/lib/affiliate-banner-rotation";
 import type { PortalSection, PortalSubpage } from "@/lib/portal";
@@ -11,11 +11,7 @@ import styles from "./puppy-equipment.module.css";
 
 export function PuppyEquipmentLink({ section }: { section: PortalSection }) {
   if (!section.subpages.some(item => item.slug === "vybava" && item.visible !== false)) return null;
-  return <Link href="/steniatka/vybava" className={styles.toolLink}>
-    <ClipboardCheck aria-hidden="true" size={26} />
-    <span><strong>Výbava pre šteniatko</strong><small>Odškrtni, čo už máš pripravené, a zisti, čo ti ešte chýba.</small></span>
-    <span aria-hidden="true">→</span>
-  </Link>;
+  return <PublicDataCard className={styles.toolLink} href="/steniatka/vybava" title="Výbava pre šteniatko" description="Odškrtni, čo už máš pripravené, a zisti, čo ti ešte chýba." icon={<ClipboardCheck />} actionLabel="Otvoriť nástroj" />;
 }
 
 export function PuppyEquipmentPage({ section, subpage }: { section: PortalSection; subpage: PortalSubpage }) {
@@ -30,12 +26,12 @@ export function PuppyEquipmentPage({ section, subpage }: { section: PortalSectio
         <section className={styles.partners} aria-labelledby="equipment-partners">
           <h2 id="equipment-partners">Kde hľadať výbavu</h2>
           <p>Ak niečo chýba, výbavu môžeš vyhľadať v partnerských e-shopoch. Porovnaj veľkosť, vhodnosť, cenu a podmienky vrátenia.</p>
-          <div className={styles.partnerLinks}>{AFFILIATE_BANNER_PARTNERS.map(partner => <a key={partner.id} href={partner.href} target="_blank" rel="sponsored noopener noreferrer">{partner.name} ↗</a>)}</div>
+          <div className={styles.partnerLinks}>{AFFILIATE_BANNER_PARTNERS.map(partner => <PublicActionLink key={partner.id} variant="secondary" href={partner.href} target="_blank" rel="sponsored noopener noreferrer">{partner.name}</PublicActionLink>)}</div>
           <p className={styles.note}>Stránka obsahuje partnerské odkazy.</p>
         </section>
         <section className={styles.related} aria-label="Súvisiace témy">
           <h2>Ďalšie prípravy</h2>
-          <div><Link href="/steniatka/pred-kupou-psa">Pred kúpou psa</Link><Link href="/steniatka/prve-dni">Prvé dni doma</Link><Link href="/steniatka/krmenie">Kŕmenie</Link><Link href="/adresar/veterinari">Nájsť veterinára</Link></div>
+          <div><PublicActionLink variant="secondary" href="/steniatka/pred-kupou-psa">Pred kúpou psa</PublicActionLink><PublicActionLink variant="secondary" href="/steniatka/prve-dni">Prvé dni doma</PublicActionLink><PublicActionLink variant="secondary" href="/steniatka/krmenie">Kŕmenie</PublicActionLink><PublicActionLink variant="secondary" href="/adresar/veterinari">Nájsť veterinára</PublicActionLink></div>
         </section>
       </PageContainer>
     </main>
