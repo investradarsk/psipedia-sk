@@ -210,7 +210,7 @@ export async function notionRequest<T>(
     } catch (error) {
       if (!isHTTPResponseError(error)) throw error;
       if (bindings.NOTION_PROFILE_AUTHORITY_MODE === "validated-text" && error.status === 429) {
-        const delay=notionRetryDelayMs(attempt,error.headers.get("retry-after"));
+        const delay=notionRetryDelayMs(attempt,error.headers instanceof Headers?error.headers.get("retry-after"):null);
         notionRateLimitedUntil=Math.max(notionRateLimitedUntil,Date.now()+delay);
       }
       if (options.retryTransient !== false && attempt < NOTION_MAX_RETRIES && notionRetryableStatus(error.status)) {
