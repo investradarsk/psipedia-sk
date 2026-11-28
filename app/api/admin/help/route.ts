@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { createManagedHelpCase, isHelpCaseConflict, listManagedHelpCaseSummaries, type ManagedHelpCaseInput } from "@/lib/help-store";
 
@@ -17,6 +18,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
-  try { return Response.json({ item: await createManagedHelpCase(await request.json() as ManagedHelpCaseInput, user.email) }, { status: 201 }); }
+  try { const payload=await request.json() as ManagedHelpCaseInput;
+    const duplicate=await adminProfileDuplicateResponse("help-cases",payload);if(duplicate)return duplicate;
+    return Response.json({ item: await createManagedHelpCase(payload, user.email) }, { status: 201 }); }
   catch (error) { return errorResponse(error); }
 }
