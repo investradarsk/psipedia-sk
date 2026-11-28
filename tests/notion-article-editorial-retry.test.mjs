@@ -231,6 +231,8 @@ async function loadWriter(h, overrides = {}, exportName = "writeBackDraftArticle
   }).outputText;
   const exports = {};
   const dependencies = {
+    "./article-similarity-review.ts": { findSimilarArticles: async () => { throw Error("Unexpected similarity scan during editorial retry"); }, strongArticleDuplicate: () => null },
+    "./notion-discovery-cursor.ts": { rotateNotionDiscovery: async () => { throw Error("Unexpected discovery during editorial retry"); }, mergeNotionDiscovery: (a,b) => [...a,...b] },
     "./notion-selective-property-patch": {sameNotionProperty:()=>false},
     "./notion-article-seo-properties": {
       ARTICLE_NOTION_SEO_PROPERTIES: { ogImageUrl: { name: "OG obrázok" } },
