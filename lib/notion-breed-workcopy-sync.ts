@@ -1,3 +1,4 @@
+import { rotateNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { prepareBreedMediaProofs, logicalBreedMediaValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { validateBreedStructuredValue } from "./notion-breed-structured-authority.mjs";
 import { importNewBreedWorkCopy } from "./notion-breed-inbound-import.ts";
@@ -244,6 +245,38 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         summary.failed++;
         console.warn("BREED_FIRST_COPY_PENDING",{id:row.id,code:error instanceof Error?error.message:"UNKNOWN"});
       }
+    }
+    // The work-copy source also needs a backup when a new-page webhook
+    // never arrives. Existing mapped editorial fields are handled by V2
+    // recovery, not a fabricated property-change event.
+    try{
+      const sourceId=args.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!;
+      const pages=await rotateNotionDiscovery({
+        database:args.database,bindings:args.bindings,agenda:"breeds",sourceId,limit:3,
+        filter:{property:"Psipedia ID",rich_text:{is_empty:true}},
+      });
+      const pending=await args.database.prepare("SELECT work_notion_page_id AS page FROM breed_notion_workcopy_links "+
+        "WHERE status='ACTIVE' AND work_last_error_code='INBOUND_ID_PENDING' AND "+
+        "replace(lower(work_data_source_id),'-','')=replace(lower(?),'-','') ORDER BY updated_at LIMIT 2")
+        .bind(sourceId).all<{page:string}>();
+      const ids=new Map<string,string>();
+      for(const page of pages)ids.set(normalized(page.id),page.id);
+      for(const row of pending.results??[])ids.set(normalized(row.page),row.page);
+      for(const pageId of ids.values()){
+        summary.scanned++;summary.notionScanned++;
+        try{
+          const result=await importNewBreedWorkCopy({database:args.database,bindings:args.bindings,pageId,sourceId});
+          if(result==="created")summary.created++;
+          else if(result==="review-required")summary.reviewRequired++;
+          else summary.unchanged++;
+        }catch{
+          summary.failed++;
+          console.warn("BREED_DISCOVERY_IMPORT_FAILED");
+        }
+      }
+    }catch{
+      summary.failed++;
+      console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"breeds"});
     }
     return summary;
   }
