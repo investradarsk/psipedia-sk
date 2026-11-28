@@ -3,9 +3,11 @@
 -- New work-only breeds have no historical Notion original; never fabricate one.
 -- Refuse to rebuild if any deployed table has an incoming foreign key.
 -- Do not disable foreign keys or rely on cascades during a schema migration.
+-- Fail closed on other table definitions mentioning a rebuilt table.
+-- D1 denies the table-valued PRAGMA foreign_key_list in production.
 SELECT CASE WHEN NOT EXISTS (
- SELECT 1 FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) fk
- WHERE m.type='table' AND fk."table" IN ('breed_notion_workcopy_links')
+ SELECT 1 FROM sqlite_master
+ WHERE type='table' AND ((lower(name)<>'breed_notion_workcopy_links' AND instr(lower(coalesce(sql,'')),'breed_notion_workcopy_links')>0))
 ) THEN 1 ELSE json_extract('V3_SCHEMA_INCOMING_FK','$') END;
 DROP TRIGGER unified_scope_breed_notion_workcopy_links_insert;
 DROP TRIGGER unified_scope_breed_notion_workcopy_links_delete;
