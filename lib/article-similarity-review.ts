@@ -2,8 +2,9 @@ import { normalizeSimilarText } from "./visual-library-similarity.ts";
 
 type ArticleIdentity={id?:number;title?:unknown;excerpt?:unknown;intro?:unknown;blocks?:unknown;takeaway?:unknown;status?:string};
 type Candidate={id:number;title:string;status:string;reason:"SAME_TITLE"|"SIMILAR_TITLE"|"SAME_BODY"|"SIMILAR_BODY";score:number};
-export type ArticleSimilarityReport={candidates:Candidate[];scanned:number;incomplete:boolean};
+export type ArticleSimilarityReport={candidates:Candidate[];scanned:number;titleScanned:number;incomplete:boolean;bodyIncomplete:boolean};
 const MAX_ROWS=1000;
+const MAX_TITLES=10000;
 const text=(v:unknown)=>typeof v==="string"?v:"";
 const normalize=(v:unknown)=>normalizeSimilarText(text(v));
 const ignored=new Set(["ako","pre","pri","nie","ale","alebo","aby","ktory","ktore","ktora","tento","tato","toto","vas","vase","psa","psy","psov","pes"]);
@@ -59,27 +60,38 @@ const select="SELECT id,title,status,excerpt,intro,takeaway,CASE WHEN length(blo
  * no content is returned in a report. Oversize/invalid articles are explicit
  * incomplete evidence, never silently reported as fully checked. */
 export async function findSimilarArticles(db:D1Database,input:ArticleIdentity):Promise<ArticleSimilarityReport>{
- const wanted=signature(input),candidates:Candidate[]=[];
- let after=0,scanned=0,incomplete=false;
+ const wanted=signature(input),matches=new Map<number,Candidate>();
+ // All titles (bounded separately) and the latest 1,000 bodies. A growing
+ // archive must not permanently stop new drafts at the body review ceiling.
+ const titles=await db.prepare("SELECT id,title,status FROM managed_articles ORDER BY id DESC LIMIT "+(MAX_TITLES+1)).all<Pick<Row,"id"|"title"|"status">>();
+ if(!titles.success||!Array.isArray(titles.results))throw Error("ARTICLE_SIMILARITY_UNAVAILABLE");
+ const titleScanned=Math.min(MAX_TITLES,titles.results.length),incomplete=titles.results.length>MAX_TITLES;
+ for(const row of titles.results.slice(0,MAX_TITLES)){
+  if(row.id===input.id)continue;
+  const match=compare(wanted,signature(row));
+  if(match)matches.set(row.id,{...row,...match});
+ }
+ let before=Number.MAX_SAFE_INTEGER,scanned=0,bodyIncomplete=false;
  while(scanned<MAX_ROWS){
   const limit=Math.min(20,MAX_ROWS-scanned);
-  const res=await db.prepare(select+" WHERE id>? ORDER BY id LIMIT ?").bind(after,limit).all<Row>();
+  const res=await db.prepare(select+" WHERE id<? ORDER BY id DESC LIMIT ?").bind(before,limit).all<Row>();
   if(!res.success||!Array.isArray(res.results))throw Error("ARTICLE_SIMILARITY_UNAVAILABLE");
   for(const row of res.results){
-   after=row.id;scanned++;
+   before=row.id;scanned++;
    if(row.id===input.id)continue;
    let item:ArticleIdentity;
-   try{item=rowIdentity(row);if(row.body_too_large)incomplete=true;}catch{incomplete=true;item={id:row.id,title:row.title};}
+   try{item=rowIdentity(row);if(row.body_too_large)bodyIncomplete=true;}catch{bodyIncomplete=true;continue;}
    const match=compare(wanted,signature(item));
-   if(match)candidates.push({id:row.id,title:row.title,status:row.status,...match});
+   if(match)matches.set(row.id,{id:row.id,title:row.title,status:row.status,...match});
   }
   if(res.results.length<limit)break;
  }
- if(scanned>=MAX_ROWS&&await db.prepare("SELECT id FROM managed_articles WHERE id>? LIMIT 1").bind(after).first())incomplete=true;
+ if(scanned>=MAX_ROWS&&await db.prepare("SELECT id FROM managed_articles WHERE id<? LIMIT 1").bind(before).first())bodyIncomplete=true;
  const rank=(c:Candidate)=>c.reason==="SAME_BODY"?0:c.reason==="SAME_TITLE"?1:c.reason==="SIMILAR_BODY"?2:3;
- candidates.sort((a,b)=>rank(a)-rank(b)||b.score-a.score||a.id-b.id);
- return {candidates:candidates.slice(0,10),scanned,incomplete};
+ const candidates=[...matches.values()].sort((a,b)=>rank(a)-rank(b)||b.score-a.score||a.id-b.id);
+ return {candidates:candidates.slice(0,10),scanned,titleScanned,incomplete,bodyIncomplete};
 }
+
 export function strongArticleDuplicate(report:ArticleSimilarityReport){
  return report.candidates.find(c=>c.reason==="SAME_BODY"||c.reason==="SAME_TITLE"||c.reason==="SIMILAR_BODY");
 }
