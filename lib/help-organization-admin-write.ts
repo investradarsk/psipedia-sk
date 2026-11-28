@@ -1,4 +1,4 @@
-import { assertSavedProfilePublicationIdentity } from "./publication-readiness-v3.ts";
+import { assertSavedProfilePublicationIdentity, publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
 import { planCombinedOrganizationAddress } from "./organization-location-admin-write.ts";
 import { listOrganizationLocationsAdmin } from "./organization-location-admin-store.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
@@ -303,7 +303,7 @@ export async function changeOrganizationPublicationFromAdmin(
   if (existing.updatedAt !== expectedUpdatedAt) throw new OrganizationConcurrentEditError();
 
   const updatedAt = now.toISOString();
-  let result: RunResult;
+  let statement:ReturnType<typeof db.prepare>;
 
   if (action === "publish") {
     if (existing.status !== "DRAFT") {
@@ -311,40 +311,44 @@ export async function changeOrganizationPublicationFromAdmin(
     }
     if (!existing.preflight.ready) throw new OrganizationPublicationBlockedError(existing.preflight);
     await assertSavedProfilePublicationIdentity(db as unknown as D1Database,"organizations",id);
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'PUBLISHED', published_at = ?, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status = 'DRAFT' AND archived_at IS NULL
-    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt);
   } else if (action === "unpublish") {
     if (existing.status !== "PUBLISHED") {
       throw new OrganizationPublicationTransitionError("Do konceptu možno presunúť iba publikovanú organizáciu.");
     }
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'DRAFT', published_at = NULL, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status = 'PUBLISHED' AND archived_at IS NULL
-    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt);
   } else if (action === "archive") {
     if (existing.status === "ARCHIVED" || existing.archivedAt) {
       throw new OrganizationPublicationTransitionError("Organizácia už je archivovaná.");
     }
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'ARCHIVED', published_at = NULL, archived_at = ?, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status IN ('DRAFT', 'PUBLISHED') AND archived_at IS NULL
-    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, updatedAt, editorEmail, id, expectedUpdatedAt);
   } else {
     if (existing.status !== "ARCHIVED" || !existing.archivedAt) {
       throw new OrganizationPublicationTransitionError("Obnoviť možno iba archivovanú organizáciu.");
     }
-    result = await db.prepare(`
+    statement = db.prepare(`
       UPDATE help_organizations
       SET status = 'DRAFT', published_at = NULL, archived_at = NULL, updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND status = 'ARCHIVED' AND archived_at IS NOT NULL
-    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt).run() as RunResult;
+    `).bind(updatedAt, editorEmail, id, expectedUpdatedAt);
   }
 
+  const d1=db as unknown as D1Database;
+  const result=(publicationV3Enabled()
+    ?(await d1.batch([statement as unknown as D1PreparedStatement,bulkPublicationGuardStatement(d1,"organizations",[id],action==="publish",updatedAt)]))[0]
+    :await statement.run()) as RunResult;
   const changes = Number(result.meta?.changes ?? result.changes ?? 0);
   if (changes !== 1) throw new OrganizationConcurrentEditError();
   await reconcileOrganizationLocationsGeo(id, editorEmail, db);
