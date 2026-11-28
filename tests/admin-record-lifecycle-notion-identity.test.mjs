@@ -135,7 +135,14 @@ test("remote deletion of any mapped page requires review without touching local 
 });
 
 test("staged removal refuses a concurrent first-copy fence, changed revision or different mapping",async()=>{
-  const {stagedProfileRemovalGuard}=await import("../lib/admin-record-lifecycle.ts");
+  const start=source.indexOf("export function stagedProfileRemovalGuard("),end=source.indexOf("\nasync function tombstone(",start);
+  assert.ok(start>=0&&end>start);
+  const specsStart=source.indexOf("const specs: Record"),specsEnd=source.indexOf("\ntype CanonicalRow",specsStart);
+  assert.ok(specsStart>=0&&specsEnd>specsStart);
+  const compiledGuard=ts.transpileModule(source.slice(specsStart,specsEnd)+"\n"+source.slice(start,end),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const guardExports={};
+  runInNewContext(compiledGuard,{exports:guardExports,Set,Array,Object,JSON},{timeout:1200});
+  const {stagedProfileRemovalGuard}=guardExports;
   const f=fixture();
   try{
     f.sqlite.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,updated_at TEXT); CREATE TABLE notion_unified_manual_fence(agenda TEXT,entity_id TEXT); ALTER TABLE directory_notion_sync ADD COLUMN content_hash TEXT DEFAULT '';");

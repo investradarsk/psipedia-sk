@@ -140,7 +140,9 @@ test("archived records are not silently converted into drafts by the unpublish a
 
 test("remote Notion deletion cannot begin unless the canonical D1 row was hidden", () => {
   const removal = core.split("export async function removeRecord(")[1] ?? "";
-  assert.match(removal, /const \[,hideResult\]=await db\.batch\(\[insert,hide\]\)/);
+  assert.match(removal, /const \[,legacyHideResult\]=await db\.batch\(\[insert,hide\]\)/);
+  assert.match(removal, /stagedProfileRemovalGuard\(db,kind,id,row\.updated_at,targets\)/);
+  assert.match(removal, /db\.batch\(\[guard,insert,hide,db\.prepare\(/);
   assert.match(removal, /hideResult\.meta\?\.changes/);
   const hidden = removal.indexOf("RECORD_HIDE_NOT_CONFIRMED");
   const remote = removal.indexOf("for(const target of targets)await verifyTrash");
