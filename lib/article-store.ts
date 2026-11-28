@@ -1,3 +1,5 @@
+import { findSimilarArticles, strongArticleDuplicate } from "./article-similarity-review.ts";
+import { publicationV3Enabled } from "./publication-readiness-v3.ts";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
@@ -1208,10 +1210,30 @@ export async function getManagedArticleById(id: number) {
 
 async function syncArticleBreeds(database:D1Database,articleId:number,breedIds:number[],editorEmail:string){const now=new Date().toISOString();const statements=[database.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(articleId)];for(const breedId of breedIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT id,?,?,? FROM managed_breeds WHERE id=?").bind(articleId,now,editorEmail,breedId));await database.batch(statements);}
 
+/** Same final gate for publish, schedule and calendar reschedule.
+ * Published and already-due scheduled content stays editable; no retroactive
+ * duplicate block on ordinary repairs of an existing public article. */
+async function assertArticlePublicationV3(database:D1Database,input:Awaited<ReturnType<typeof normalizeInput>>,existing?:ManagedArticle){
+  if(!publicationV3Enabled()||(input.status!=="published"&&input.status!=="scheduled"))return;
+  const alreadyPublic=existing?.status==="published"||
+    existing?.status==="scheduled"&&!!existing.publishedAt&&Date.parse(existing.publishedAt)<=Date.now();
+  if(alreadyPublic)return;
+  const issues:ArticleQaIssue[]=[];
+  if(!input.imageUrl)issues.push({code:"MAIN_IMAGE_REQUIRED",field:"imageUrl",severity:"BLOCKER",message:"Chýba hlavný obrázok článku.",suggestedAction:"Pridaj hlavný obrázok."});
+  if(!input.blocks.some(block=>["text","tip","warning","quote","bullet-list","numbered-list","table"].includes(block.type)))
+    issues.push({code:"ARTICLE_BODY_REQUIRED",field:"blocks",severity:"BLOCKER",message:"Článok nemá redakčný obsah.",suggestedAction:"Doplň text alebo iný obsahový blok."});
+  if(issues.length)throw new ArticlePublishIntegrityError(issues);
+  const report=await findSimilarArticles(database,{...input,id:existing?.id}).catch(()=>null);
+  if(!report||report.incomplete)throw new ArticlePublishIntegrityError([{code:"ARTICLE_SIMILARITY_SCAN_INCOMPLETE",field:"title",severity:"BLOCKER",message:"Kontrola podobnosti článku nie je úplná.",suggestedAction:"Skús kontrolu zopakovať pred publikovaním."}]);
+  const duplicate=strongArticleDuplicate(report);
+  if(duplicate)throw new ArticlePublishIntegrityError([{code:"ARTICLE_DUPLICATE_REVIEW_REQUIRED",field:"title",severity:"BLOCKER",message:"Možná duplicita článku #"+duplicate.id+" – "+duplicate.title,suggestedAction:"Porovnaj existujúci článok a odlíš redakčný obsah."}]);
+}
+
 export async function createManagedArticle(payload: ManagedArticleInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
   const input = await normalizeInput(payload, database);
+  await assertArticlePublicationV3(database,input);
   const topicIds = await validateArticleTopicIds(database, payload.topicIds ?? []);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? input.publishedAt ?? now : input.status === "scheduled" ? input.publishedAt : null;
@@ -1342,6 +1364,7 @@ export async function updateManagedArticle(
     && payload.publishedAt === existing.publishedAt
     && Date.parse(existing.publishedAt) <= Date.now();
   const input = await normalizeInput(payload, database, existing.authorProfileId, allowPastDueScheduledContentEdit);
+  await assertArticlePublicationV3(database,input,existing);
   const topicIds = payload.topicIds === undefined ? undefined : await validateArticleTopicIds(database, payload.topicIds);
   // Give every successful update a version newer than the one read.
   const previousMillis = Date.parse(existing.updatedAt);
