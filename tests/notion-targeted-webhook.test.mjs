@@ -430,7 +430,7 @@ test("durable Notion receipts deduplicate by event ID and store no values", asyn
   const statements = [];
   const db = { prepare: sql => ({
     bind: (...args) => ({
-      run: async () => { statements.push({sql, args}); },
+      run: async () => { statements.push({sql, args}); return {success:true}; },
     }),
   }) };
   const event = { id: "aaaa1111-bbbb-4ccc-8ddd-eeeeeeeeeeee",
@@ -441,7 +441,7 @@ test("durable Notion receipts deduplicate by event ID and store no values", asyn
   await enqueueNotionWebhook(db, event, JSON.stringify(event));
   await enqueueNotionWebhook(db, event, JSON.stringify(event));
   assert.equal(statements.length, 2);
-  assert.ok(statements.every(s => s.sql.includes("INSERT OR IGNORE")));
+  assert.ok(statements.every(s => s.sql.includes("ON CONFLICT(event_key) DO NOTHING")));
   assert.equal(statements[0].args[0], statements[1].args[0]);
   assert.equal(statements[0].args[0], event.id);
   assert.deepEqual(JSON.parse(statements[0].args[3]), {version:2,properties:["Phone","abc123"],id:event.id});
@@ -486,7 +486,7 @@ test("real SQLite inbox claims, processes and deduplicates signed page change", 
           bind(...params) {
             return {
               first: async () => stmt.get(...params) ?? null,
-              run: async () => stmt.run(...params),
+              run: async () => { const result=stmt.run(...params); return {success:true,meta:{changes:Number(result.changes)}}; },
             };
           },
         };
