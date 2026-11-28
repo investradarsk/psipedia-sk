@@ -3,6 +3,14 @@ import { UUID, type NotionWebhookEvent } from "./notion-webhook-contract.ts";
 const MAX_ATTEMPTS = 12;
 const CLAIM_SECONDS = 600;
 const COMPLETED_RETENTION_SECONDS = 7 * 24 * 3600;
+function retryCode(outcome: NotionWebhookInboxResult | "failed") {
+  if (outcome === "remote-deleted") return "NOTION_REMOTE_DELETED";
+  if (outcome === "failed") return "DISPATCH_FAILED";
+  if (outcome === "disabled") return "NOTION_SYNC_DISABLED";
+  if (outcome === "not-configured") return "NOTION_SYNC_NOT_CONFIGURED";
+  if (outcome === "deferred") return "RECONCILIATION_DEFERRED";
+  return "NEEDS_REVIEW";
+}
 export type NotionWebhookInboxResult =
   | "processed" | "ignored" | "metadata-only" | "out-of-scope"
   | "review-required" | "remote-deleted" | "deferred" | "disabled" | "not-configured";
@@ -101,7 +109,7 @@ export async function runNotionWebhookInboxSweep(input: {
         "UPDATE notion_webhook_inbox SET status='REVIEW', outcome=?, " +
         "last_error_code=?, lease_until=NULL, updated_at=? " +
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
-      ).bind(outcome, outcome === "remote-deleted" ? "NOTION_REMOTE_DELETED" : outcome === "failed" ? "DISPATCH_FAILED" : "NEEDS_REVIEW",
+      ).bind(outcome, retryCode(outcome),
         finishedAt, row.event_key, row.attempts).run();
       totals.review += 1;
     } else {
@@ -110,7 +118,7 @@ export async function runNotionWebhookInboxSweep(input: {
         "UPDATE notion_webhook_inbox SET status='PENDING', outcome=NULL, " +
         "last_error_code=?, next_attempt_at=?, lease_until=NULL, updated_at=? " +
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
-      ).bind(outcome === "failed" ? "DISPATCH_FAILED" : "RECONCILIATION_DEFERRED",
+      ).bind(retryCode(outcome),
         finishedAt + delay, finishedAt, row.event_key, row.attempts).run();
       totals.retried += 1;
     }
