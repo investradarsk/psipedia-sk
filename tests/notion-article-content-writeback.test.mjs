@@ -325,10 +325,14 @@ test("structural delete and reorder preserve unrelated notes and reject unknown 
   assert.throws(()=>observeEditorialStructure(plan,[...body,...added,note]),/NOTION_EDITORIAL_APPEND_UNCERTAIN/);
   plan.insertedIds=editorialInsertionIds(plan,added);
   assert.deepEqual(observeEditorialStructure(plan,[...body,...added,note]).remaining,["h","p"]);
+  assert.throws(()=>observeEditorialStructure(plan,[body[0],body[2],...added,note]),/NOTION_EDITORIAL_STRUCTURE_CONFLICT/);
+  plan.deleteStartedIds=["h"];
   assert.deepEqual(observeEditorialStructure(plan,[body[0],body[2],...added,note]).remaining,["p"]);
+  plan.deleteStartedIds.push("p");
   assert.equal(observeEditorialStructure(plan,[body[0],...added,note]).complete,true);
   const shorter=article();shorter.blocks.pop();
   const deletion=buildEditorialStructure(shorter,body,[...body,note],"https://psipedia.sk");
   assert.equal(deletion.insert.length,0);assert.deepEqual(deletion.remove.map(b=>b.id),["p"]);
+  deletion.deleteStartedIds=["p"];
   assert.equal(observeEditorialStructure(deletion,[body[0],body[1],note]).complete,true);
 });

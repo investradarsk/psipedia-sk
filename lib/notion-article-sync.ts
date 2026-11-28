@@ -850,6 +850,7 @@ type NotionManifestDirective = {
   afterSection?: string;
   beforeHeading?: string;
   position?: "start" | "end";
+  beforeBlockIndex?:number;
 };
 
 function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
@@ -872,7 +873,7 @@ function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(blockText(manifest));
+    parsed = JSON.parse(notionEditorialPropertyText({rich_text:blockRichText(manifest)},"rich_text"));
   } catch {
     throw new Error("Sekcia „Psipedia bloky“ obsahuje neplatný JSON manifest.");
   }
@@ -886,7 +887,10 @@ function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
     const afterSection = typeof record.afterSection === "string" ? normalizeText(record.afterSection) : "";
     const beforeHeading = typeof record.beforeHeading === "string" ? normalizeText(record.beforeHeading) : "";
     const position = record.position === "start" ? "start" : record.position === "end" ? "end" : undefined;
+    const beforeBlockIndex=record.beforeBlockIndex;
+    if(beforeBlockIndex!==undefined&&(!Number.isSafeInteger(beforeBlockIndex)||Number(beforeBlockIndex)<0||afterSection||beforeHeading||position))throw Error("NOTION_ARTICLE_MANIFEST_POSITION_INVALID");
     const input = { ...record };
+    delete input.beforeBlockIndex;
     delete input.afterSection;
     delete input.beforeHeading;
     delete input.position;
@@ -895,10 +899,11 @@ function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
       ...input,
       id: `notion-manifest-${manifest.id || "blocks"}-${index + 1}`,
     }]);
-    if (!block) return [];
+    if (!block){if(beforeBlockIndex!==undefined)throw Error("NOTION_ARTICLE_MANIFEST_BLOCK_INVALID");return [];}
 
     return [{
       block,
+      ...(beforeBlockIndex!==undefined?{beforeBlockIndex:Number(beforeBlockIndex)}:{}),
       ...(afterSection ? { afterSection } : {}),
       ...(beforeHeading ? { beforeHeading } : {}),
       ...(position ? { position } : {}),
@@ -918,7 +923,12 @@ function placeManifestBlocks(articleBlocks: ArticleBlock[], directives: NotionMa
   for (const directive of directives) {
     let insertAt = result.length;
 
-    if (directive.position === "start") {
+    if(directive.beforeBlockIndex!==undefined){
+      if(directive.beforeBlockIndex>articleBlocks.length)throw Error("NOTION_ARTICLE_MANIFEST_POSITION_INVALID");
+      const anchor=articleBlocks[directive.beforeBlockIndex];
+      insertAt=anchor?result.indexOf(anchor):result.length;
+      if(insertAt<0)throw Error("NOTION_ARTICLE_MANIFEST_POSITION_INVALID");
+    }else if (directive.position === "start") {
       insertAt = 0;
     } else if (directive.beforeHeading) {
       const target = directive.beforeHeading.toLocaleLowerCase("sk");
@@ -2091,7 +2101,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     }
     const scope=staged?articleEditorialScope(args.before!,article):undefined;
     if(scope?.properties.includes("Perex")&&!writeExcerpt)throw Error("NOTION_ARTICLE_PEREX_REVIEW_REQUIRED");
-    const bodyProjection=scope?.body?stagedNativeArticleProjection(args.before!,editorProjection):editorProjection;
+    const bodyProjection=scope?.body?stagedNativeArticleProjection(editorProjection):editorProjection;
+    const manifest=scope?.body?planStagedArticleManifest(args.before!,article,remoteBlocks,current.blocks??[]):undefined;
     const build=(body:boolean)=>buildNotionEditorialPlan({
       article: bodyProjection,
       ...(scope?{scope:{...scope,body},allowNonDraft:true}:{}), remoteBlocks: selected as RemoteArticleBlock[],
@@ -2106,9 +2117,11 @@ export async function writeBackDraftArticleContentToNotion(args: {
       plan=build(false);plan.structure=structure;
     }
     plan.pageGuard = pageGuard(page);
+    if(manifest)plan.manifest=manifest;
+    if(scope?.body&&!plan.structure)plan.otherBlocks=JSON.stringify(remoteBlocks.filter(block=>!selected.some(item=>item.id===block.id)));
     if(scope){plan.scope=scope;plan.untouchedProperties=untouchedProperties(page,scope.properties);if(!scope.body)plan.untouchedBlocks=JSON.stringify(remoteBlocks);}
     plan.fullBlockOrder = remoteBlocks.map((block) => block.id + ":" + block.type);
-    const changed = Boolean(plan.structure)||plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
+    const changed = Boolean(plan.structure||plan.manifest)||plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
     if (!changed){
       if(staged){
         // A completed SEO/placement-only save can acknowledge the editor revision
@@ -2162,7 +2175,16 @@ export async function writeBackDraftArticleContentToNotion(args: {
       page.id, article.id, article.updatedAt, leaseOwner, now).run();
     if (renewal.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
   }
+  function normalizedManifestBlocks(blocks:NotionBlock[]){
+    if(!plan.manifest)return blocks;
+    const current=blocks.filter(block=>block.id===plan.manifest!.id);
+    if(current.length!==1)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+    const value=manifestCodeText(current[0]);
+    if(value!==plan.manifest.before&&value!==plan.manifest.after||manifestCodeGuard(current[0])!==manifestCodeGuard(plan.manifest.original))throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+    return blocks.map(block=>block.id===plan.manifest!.id?plan.manifest!.original:block);
+  }
   function verifySnapshot(blocks: NotionBlock[]) {
+    blocks=normalizedManifestBlocks(blocks);
     if(plan.structure){observeEditorialStructure(plan.structure,blocks);return;}
     if (!plan.pageGuard || !Array.isArray(plan.fullBlockOrder) ||
       !Array.isArray(plan.blockSnapshots) || (plan.scope?.body!==false&&plan.blockSnapshots.length === 0)) {
@@ -2175,6 +2197,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if(plan.scope?.body===false){if(plan.untouchedBlocks!==JSON.stringify(blocks))throw Error("NOTION_EDITORIAL_BLOCK_CONFLICT");return;}
     const selected = selectNotionArticleBodyBlocks(blocks,
       hasCompletePublicPhotoCredit(editorProjection.imageCredit, editorProjection.imageCreditUrl));
+    if(plan.otherBlocks!==undefined&&plan.otherBlocks!==JSON.stringify(blocks.filter(block=>!selected.some(item=>item.id===block.id))))throw Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     if (selected.length !== plan.blockSnapshots.length) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
@@ -2265,7 +2288,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
       await assertCurrentDraft();
       const freshPage=await notionRequest<NotionPage>(args.bindings,"/pages/"+encodeURIComponent(page.id));
       if(!matchesEditorialIdentity(freshPage)||pageGuard(freshPage)!==plan.pageGuard||plan.untouchedProperties!==untouchedProperties(freshPage,plan.scope!.properties))throw Error("NOTION_EDITORIAL_METADATA_CONFLICT");
-      return observeEditorialStructure(structure,await getPageBlocks(args.bindings,page.id));
+      return observeEditorialStructure(structure,normalizedManifestBlocks(await getPageBlocks(args.bindings,page.id)));
     };
     let progress=await readStructure();
     if(structure.insert.length&&!structure.insertedIds?.length){
@@ -2282,7 +2305,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
       const current=await readStructure();
       if(!current.remaining.includes(id))continue;
       if(current.remaining[0]!==id)throw Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
-      await renewLease();
+      structure.deleteStartedIds=[...new Set([...(structure.deleteStartedIds??[]),id])];await persistProgress();
       await notionSharedRequest(args.bindings,"/blocks/"+encodeURIComponent(id),{method:"DELETE"},{retryTransient:false});
     }
     if(!(await readStructure()).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
@@ -2303,6 +2326,18 @@ export async function writeBackDraftArticleContentToNotion(args: {
     });
   }
 
+  if(plan.manifest){
+    await assertCurrentDraft();
+    const fresh=await getPageBlocks(args.bindings,page.id);verifySnapshot(fresh);
+    const current=fresh.find(block=>block.id===plan.manifest!.id)!;
+    if(manifestCodeText(current)!==plan.manifest.after){
+      await renewLease();
+      const chunks=Array.from(plan.manifest.after);
+      const rich_text=[];for(let i=0;i<chunks.length;i+=900)rich_text.push({type:"text",text:{content:chunks.slice(i,i+900).join("")}});
+      if(rich_text.length>100)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");
+      await notionRequest(args.bindings,"/blocks/"+encodeURIComponent(current.id),{method:"PATCH",body:JSON.stringify({code:{rich_text,language:blockPayload(current)?.language}})});
+    }
+  }
   await assertCurrentDraft();
   const verifiedPage = await notionRequest<NotionPage>(
     args.bindings, "/pages/" + encodeURIComponent(page.id),
@@ -2313,8 +2348,9 @@ export async function writeBackDraftArticleContentToNotion(args: {
   if(plan.scope&&plan.untouchedProperties!==untouchedProperties(verifiedPage,plan.scope.properties))throw Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
   verifySnapshot(verifiedBlocks);
-  if(plan.structure&&!observeEditorialStructure(plan.structure,verifiedBlocks).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
-  const verifiedProjection=plan.scope?.body&&!plan.structure?stagedNativeArticleProjection(args.before??article,editorProjection):editorProjection;
+  if(plan.structure&&!observeEditorialStructure(plan.structure,normalizedManifestBlocks(verifiedBlocks)).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
+  if(plan.manifest&&manifestCodeText(verifiedBlocks.find(block=>block.id===plan.manifest!.id)!)!==plan.manifest.after)throw Error("NOTION_ARTICLE_MANIFEST_VERIFICATION_FAILED");
+  const verifiedProjection=plan.scope?.body&&!plan.structure?stagedNativeArticleProjection(editorProjection):editorProjection;
   const verified = buildNotionEditorialPlan({
     article: verifiedProjection, ...(plan.scope?{scope:{...plan.scope,body:plan.structure?false:plan.scope.body},allowNonDraft:staged}:{}), remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks,hasCompletePublicPhotoCredit(editorProjection.imageCredit,editorProjection.imageCreditUrl)) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
@@ -2372,14 +2408,66 @@ export async function writeBackDraftArticleContentToNotion(args: {
   }
 }
 
-/** The existing manifest remains in its own Notion section. Unchanged
- * manifest directives and local promos must not enter the native block planner.
- * Changes to these specialized blocks need a separate manifest reconciliation. */
-function stagedNativeArticleProjection(before:ManagedArticle,article:Parameters<typeof buildNotionEditorialPlan>[0]["article"]){
-  const separate=(block:ArticleBlock)=>block.id.startsWith("notion-manifest-")||block.type==="psipedia-promo"&&!block.id.startsWith("notion-");
-  const old=(before.blocks??[]).filter(separate),next=article.blocks.filter(separate);
-  if(JSON.stringify(old)!==JSON.stringify(next))throw Error("NOTION_ARTICLE_MANIFEST_CHANGE_REVIEW_REQUIRED");
-  return {...article,blocks:article.blocks.filter(block=>!separate(block))};
+/** The existing manifest is the lossless representation of special article
+ * blocks, not a second database model. The positional directive references
+ * the native canonical block index; legacy heading anchors remain readable. */
+function manifestOwned(block:ArticleBlock){
+  return block.id.startsWith("notion-manifest-")||["cta","source","related","gallery"].includes(block.type);
+}
+function localPromo(block:ArticleBlock){return block.type==="psipedia-promo"&&!block.id.startsWith("notion-");}
+function stagedNativeArticleProjection(article:Parameters<typeof buildNotionEditorialPlan>[0]["article"]){
+  return {...article,blocks:article.blocks.filter(block=>!manifestOwned(block)&&!localPromo(block))};
+}
+function manifestCodeText(block:RemoteArticleBlock){
+  if(!block||block.type!=="code"||block.has_children)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  const body=blockPayload(block as NotionBlock),rich=body?.rich_text;
+  if(!["json","javascript","plain text"].includes(String(body?.language))||!Array.isArray(rich)||rich.some(node=>!node||node.type!=="text"||typeof node.plain_text!=="string"||node.href||node.text?.link||Object.entries(node.annotations??{}).some(([key,value])=>key==="color"?value!=="default":value===true)))throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  return rich.map(node=>node.plain_text).join("");
+}
+function manifestCodeGuard(block:RemoteArticleBlock){
+  const body=blockPayload(block as NotionBlock);
+  const {rich_text,...rest}=body??{};
+  return JSON.stringify([block.id,block.type,block.has_children===true,rest]);
+}
+function manifestComparable(block:ArticleBlock){
+  const {id,...content}=block;
+  return content;
+}
+function manifestLayout(blocks:readonly ArticleBlock[]){
+  let index=0;const result:Array<ReturnType<typeof manifestComparable>&{beforeBlockIndex:number}>=[];
+  for(const block of blocks){
+    if(localPromo(block))continue;
+    if(manifestOwned(block))result.push({...manifestComparable(block),beforeBlockIndex:index});
+    else index++;
+  }
+  return result;
+}
+function planStagedArticleManifest(before:ManagedArticle,after:ManagedArticle,remote:NotionBlock[],canonicalRemote:ArticleBlock[]):NotionEditorialPlan["manifest"]{
+  const old=manifestLayout(before.blocks??[]),next=manifestLayout(after.blocks??[]);
+  const oldLocal=(before.blocks??[]).filter(localPromo),newLocal=(after.blocks??[]).filter(localPromo);
+  if(JSON.stringify(oldLocal)!==JSON.stringify(newLocal))throw Error("NOTION_ARTICLE_LOCAL_PROMO_CHANGE_REVIEW_REQUIRED");
+  const remoteLayout=manifestLayout(canonicalRemote);
+  // Do not overwrite a separately edited manifest, even if another field is
+  // the cause of this Admin save. Compare content and native position.
+  if(JSON.stringify(remoteLayout)!==JSON.stringify(old))throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  if(JSON.stringify(old)===JSON.stringify(next))return undefined;
+  const headings=remote.filter(block=>block.type==="heading_2"&&isAdminManifestHeading(blockText(block)));
+  if(headings.length!==1)throw Error("NOTION_ARTICLE_MANIFEST_SECTION_REQUIRED");
+  const start=remote.indexOf(headings[0]),end=remote.findIndex((block,index)=>index>start&&block.type==="heading_2");
+  const candidates=remote.slice(start+1,end<0?undefined:end).filter(block=>block.type==="code");
+  if(candidates.length!==1||next.length>100)throw Error("NOTION_ARTICLE_MANIFEST_CONFLICT");
+  const original=candidates[0],raw=manifestCodeText(original);
+  // Validate every new element through the same import normalizer. Never
+  // encode an invalid item that the importer would silently discard.
+  const normalized=next.map((item,index)=>{
+    const {beforeBlockIndex,...content}=item;
+    const [block]=normalizeArticleBlocks([{...content,id:"verify-"+index}]);
+    if(!block||JSON.stringify(manifestComparable(block))!==JSON.stringify(content))throw Error("NOTION_ARTICLE_MANIFEST_BLOCK_INVALID");
+    return item;
+  });
+  const desired=JSON.stringify(normalized);
+  if(Array.from(desired).length>90000)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");
+  return {id:original.id,original,before:raw,after:desired};
 }
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));

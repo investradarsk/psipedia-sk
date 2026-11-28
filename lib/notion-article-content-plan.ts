@@ -31,9 +31,12 @@ export type EditorialStructure = {
   insert: {shape:string;payload:RecordValue}[];
   appendStarted?:boolean;
   insertedIds?:string[];
+  deleteStartedIds?:string[];
 };
 export type NotionEditorialPlan = {
   structure?:EditorialStructure;
+  manifest?:{id:string;original:RemoteArticleBlock;before:string;after:string};
+  otherBlocks?:string;
   // Immutable page and selected-block baseline. Missing or malformed recovery
   // evidence is a conflict, never permission to force a historic journal.
   pageGuard: string;
@@ -188,6 +191,7 @@ function structuralFingerprint(block:RemoteArticleBlock):string{
 }
 function structuralSnapshot(block:RemoteArticleBlock){return {id:block.id,fingerprint:structuralFingerprint(block)};}
 function structuralShape(block:RemoteArticleBlock):string{
+  if(!["paragraph","heading_2","heading_3","quote","callout","bulleted_list_item","numbered_list_item","image","embed","table"].includes(block.type))fail("UNSUPPORTED_NOTION_BLOCK_STRUCTURE");
   if(block.type!=="table")return notionEditorialBlockShape(block);
   const body=object(block.table),rows=Array.isArray(block.children)?block.children as RemoteArticleBlock[]:[];
   if(!rows.length||body.has_column_header!==true||body.has_row_header===true)fail("UNSUPPORTED_TABLE_STRUCTURE");
@@ -236,9 +240,11 @@ export function observeEditorialStructure(plan:EditorialStructure,blocks:RemoteA
   const inserted=plan.insertedIds??[];
   if(inserted.length&&inserted.length!==plan.insert.length)fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
   const same=(actual:RemoteArticleBlock|undefined,wanted:{id:string;fingerprint:string})=>actual?.id===wanted.id&&structuralFingerprint(actual)===wanted.fingerprint;
-  if(!plan.prefix.every((x,i)=>same(blocks[i],x))||!plan.suffix.every((x,i)=>same(blocks[blocks.length-plan.suffix.length+i],x)))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+  if(blocks.length<plan.prefix.length+plan.suffix.length||!plan.prefix.every((x,i)=>same(blocks[i],x))||!plan.suffix.every((x,i)=>same(blocks[blocks.length-plan.suffix.length+i],x)))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
   const middle=blocks.slice(plan.prefix.length,blocks.length-plan.suffix.length);
   const remaining=middle.filter(block=>plan.remove.some(x=>x.id===block.id));
+  const absent=plan.remove.slice(0,plan.remove.length-remaining.length);
+  if(absent.some(item=>!plan.deleteStartedIds?.includes(item.id)))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
   const expected=plan.remove.slice(plan.remove.length-remaining.length);
   if(!expected.every((x,i)=>same(remaining[i],x))||!remaining.every((b,i)=>middle[i]?.id===b.id))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
   const fresh=middle.slice(remaining.length);
@@ -249,7 +255,7 @@ export function observeEditorialStructure(plan:EditorialStructure,blocks:RemoteA
 }
 export function editorialInsertionIds(plan:EditorialStructure,result:RemoteArticleBlock[]){
   if(!Array.isArray(result)||result.length!==plan.insert.length)fail("NOTION_EDITORIAL_APPEND_UNCERTAIN");
-  const ids=result.map(x=>x.id);
+  const ids=result.map(x=>x?.id);
   const original=new Set([...plan.prefix,...plan.remove,...plan.suffix].map(x=>x.id));
   if(ids.some(id=>typeof id!=="string"||!id||original.has(id))||new Set(ids).size!==ids.length)fail("NOTION_EDITORIAL_APPEND_UNCERTAIN");
   return ids;
