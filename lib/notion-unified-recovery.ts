@@ -180,31 +180,39 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
     .first<{agenda:UnifiedSyncAgenda;entity_id:number;field_offset:number;version:number}>();
   if(!cursor)return result;
   let id=cursor.entity_id, offset=cursor.field_offset;
-  const breedCatalog=cursor.agenda==="breeds"?await fields(database,"breeds",0):null;
-  if(breedCatalog){const decoded=decodeBreedCursor(breedCatalog,id,offset);id=decoded.id;offset=decoded.offset;}
+  let breedCatalog:string[]|null=null;
+  const v3=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  // Rotate through existing mappings with the same durable per-agenda cursor.
+  // A V3 tick may inspect twelve positions, but performs at most three
+  // remote field observations here; the existing retry probes are unchanged.
+  const started=Date.now();
+  let observations=0;
+  let decodedBreed=false;
   try{
-    const mapping=await database.prepare(mappingSql[cursor.agenda]).bind(id).first<{id:number;page:string}>();
-    if(!mapping){id=0;offset=0;}
-    else{
+    breedCatalog=cursor.agenda==="breeds"?await fields(database,"breeds",0):null;
+    if(breedCatalog){const decoded=decodeBreedCursor(breedCatalog,id,offset);id=decoded.id;offset=decoded.offset;decodedBreed=true;}
+    for(let step=0;step<(v3?12:1)&&observations<(v3?3:1);step++){
+      if(v3&&step>0&&Date.now()-started>=15_000)break;
+      const mapping=await database.prepare(mappingSql[cursor.agenda]).bind(id).first<{id:number;page:string}>();
+      if(!mapping){id=0;offset=0;break;}
       if(id!==mapping.id){id=mapping.id;offset=0;}
       const catalog=breedCatalog??await fields(database,cursor.agenda,id);
-      if(offset>=catalog.length){id++;offset=0;}
-      else{
-        const key={agenda:cursor.agenda,entityId:String(id),pageId:mapping.page,field:catalog[offset]};
-        offset++;
-        const existing=await readUnifiedFieldState(database,key);
-        if(!existing||existing.status==="SYNCED"){
-          if(!existing)result.seeded++;
-          result.checked++;
-          try{const outcome=await recoverOne(database,bindings,{agenda:key.agenda,entity_id:key.entityId,notion_page_id:key.pageId,field_key:key.field});result[outcome]++;}
-          catch{result.failed++;}
-        }
+      if(offset>=catalog.length){id++;offset=0;continue;}
+      const key={agenda:cursor.agenda,entityId:String(id),pageId:mapping.page,field:catalog[offset]};
+      const existing=await readUnifiedFieldState(database,key);
+      offset++;
+      if(!existing||existing.status==="SYNCED"){
+        observations++;
+        if(!existing)result.seeded++;
+        result.checked++;
+        try{const outcome=await recoverOne(database,bindings,{agenda:key.agenda,entity_id:key.entityId,notion_page_id:key.pageId,field_key:key.field});result[outcome]++;}
+        catch{result.failed++;}
       }
     }
   }catch{result.failed++;}
   finally{
     await database.prepare("UPDATE notion_unified_recovery_cursor SET entity_id=?,field_offset=?,lease_until=NULL WHERE agenda=? AND version=?")
-      .bind(id,breedCatalog?encodeBreedCursor(breedCatalog,offset):offset,cursor.agenda,cursor.version).run();
+      .bind(id,breedCatalog&&decodedBreed?encodeBreedCursor(breedCatalog,offset):offset,cursor.agenda,cursor.version).run();
   }
   return result;
 }
