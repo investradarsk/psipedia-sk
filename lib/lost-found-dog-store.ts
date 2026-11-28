@@ -597,8 +597,9 @@ export async function transitionAdminDogReportStatus(
       ...(sourceEvidence?[sourceEvidence.sourceUrl,sourceEvidence.checkedAt,sourceEvidence.sourceUrl]:[]),
     );
   const privateTouch = database.prepare(
-    "UPDATE lost_found_dog_private_details SET updated_by=?,updated_at=? WHERE report_id=?",
-  ).bind(actor, now, id);
+    "UPDATE lost_found_dog_private_details SET updated_by=?,updated_at=? WHERE report_id=?"+
+    (sourceEvidence?" AND EXISTS(SELECT 1 FROM lost_found_dog_reports WHERE id=? AND updated_at=? AND status=?)":""),
+  ).bind(actor, now, id,...(sourceEvidence?[id,now,nextStatus]:[]));
   const [result] = await database.batch([publicUpdate,
     ...(sourceEvidence?[bulkPublicationGuardStatement(database,"lost-found",[id],false,now)]:[]),
     privateTouch]);
