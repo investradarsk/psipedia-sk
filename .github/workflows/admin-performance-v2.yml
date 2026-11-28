@@ -21,13 +21,15 @@ on:
       - "package-lock.json"
       - ".github/workflows/admin-performance-v2.yml"
   workflow_dispatch:
+  schedule:
+    - cron: '37 3 * * 3'
 
 permissions:
   contents: read
 
 concurrency:
-  group: admin-performance-v2-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: admin-performance-v2-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   source-audit:
@@ -58,10 +60,11 @@ jobs:
       - name: Validate captured SQL-plan JSON
         run: node -e 'const data=require("./admin-v2-search-plan.json");if(data.checkedCategories!==8||data.cases.exactId.resultCount!==8||data.cases.tombstonedExactId.resultCount!==7)process.exit(1)'
 
-      - name: Capture reproducible source baseline
+      - name: Capture reproducible source baseline (periodic/manual only)
+        if: github.event_name != 'pull_request'
         run: node scripts/audit-admin-performance-v2.mjs --json > admin-v2-source-baseline.json
 
-      - name: Save source metrics (not runtime/browser metrics)
+      - name: Save regression diagnostics and periodic source metrics (not runtime/browser metrics)
         uses: actions/upload-artifact@v4
         with:
           name: admin-performance-v2-source-baseline

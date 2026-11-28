@@ -80,8 +80,10 @@ jobs:
           set -e
           node scripts/admin-type-regression-gate-step10.mjs "$RUNNER_TEMP/admin-main-types.log" "$RUNNER_TEMP/admin-pr-types.log" "$BASE_EXIT" "$PR_EXIT"
 
+      # Supplemental diagnostic was already continue-on-error. PR builds remain
+      # covered by the mandatory central workflow; run this manually if needed.
       - name: Production-style build diagnostic (never deploy)
-        if: always()
+        if: ${{ always() && github.event_name == 'workflow_dispatch' }}
         continue-on-error: true
         run: npm run build
 

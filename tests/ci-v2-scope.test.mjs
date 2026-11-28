@@ -111,3 +111,40 @@ test("stale PR cancellation is separated from scheduled and manual runs", () => 
   assert.equal([...admin.matchAll(/      - "!tests\/([^"]+\.test\.mjs)"/g)].length,9);
   assert.match(admin,/npm run test:admin-stability-step10/);
 });
+
+
+test("periodic diagnostics do not add ordinary PR checks or weaken functional regressions", () => {
+  const read = name => readFileSync(new URL("../.github/workflows/" + name + ".yml",import.meta.url),"utf8");
+  for (const name of ["knip-audit","public-web-perf-10-final"]) {
+    const source=read(name);
+    const trigger=source.slice(source.indexOf("\non:"),source.indexOf("\npermissions:"));
+    assert.match(trigger,/\n  workflow_dispatch:/);
+    assert.match(trigger,/\n  schedule:/);
+    assert.doesNotMatch(trigger,/\n  pull_request(?:_target)?:|\n  push:/);
+    assert.match(source,/cancel-in-progress: false/);
+    assert.doesNotMatch(source,/secrets\.|wrangler deploy|--remote\b/);
+  }
+  assert.match(read("knip-audit"),/npm run audit:knip:report/);
+  const knip=JSON.parse(readFileSync(new URL("../knip.json",import.meta.url),"utf8"));
+  assert.ok(Array.isArray(knip.entry)&&knip.entry.length>0);
+  assert.ok(Array.isArray(knip.project)&&knip.project.length>0);
+  const perf=read("public-web-perf-10-final");
+  assert.doesNotMatch(perf,/github\.head_ref/);
+  for (const script of ["test:perf-fastpaths","test:homepage-media","test:public-css-scope","test:events-public-ux","test:map-public-ui","test:breed-crawl-hierarchy","test:monetization","test:ai-referral"]) {
+    assert.ok(perf.includes("npm run "+script),script);
+  }
+  const admin=read("admin-performance-v2");
+  assert.match(admin,/\n  pull_request:/);
+  assert.match(admin,/\n  schedule:/);
+  assert.match(admin,/Capture reproducible source baseline \(periodic\/manual only\)\n        if: github.event_name != 'pull_request'/);
+  assert.match(admin,/npm run test:admin-performance-v2/);
+  assert.match(admin,/scripts\/check-admin-v2-types\.mjs/);
+  assert.match(admin,/Validate captured SQL-plan JSON/);
+  const stability=read("admin-stability-regressions");
+  assert.match(stability,/Production-style build diagnostic \(never deploy\)\n        if: \$\{\{ always\(\) && github\.event_name == 'workflow_dispatch' \}\}\n        continue-on-error: true/);
+  assert.match(stability,/npm run test:admin-stability-step10/);
+  assert.match(stability,/admin-type-regression-gate-step10\.mjs/);
+  const central=read("playwright-e2e");
+  for (const name of ["Build, lint and unit/integration tests","Breed CI bootstrap, all-breed regression and Playwright"]) assert.ok(central.includes("name: "+name));
+  assert.match(central,/\n  pull_request:\n    branches: \[main\]/);
+});
