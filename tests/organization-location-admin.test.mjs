@@ -57,6 +57,7 @@ function makeDatabase() {
   sqlite.exec(`CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY);
     CREATE TABLE managed_events (id INTEGER PRIMARY KEY);`);
   sqlite.exec(geoMigration);
+  sqlite.exec(read("../drizzle/0090_geo_google_place_identity.sql"));
   sqlite.exec(`CREATE TABLE moderation_events (
     id TEXT PRIMARY KEY, submission_id TEXT, resource_type TEXT, subject_id TEXT, action TEXT,
     actor_type TEXT, actor_ref TEXT, from_status TEXT, to_status TEXT, reason_code TEXT,
