@@ -1,4 +1,4 @@
-import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
+import { assertProfilePublicationIdentity, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
 import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
@@ -556,6 +556,7 @@ export async function transitionAdminDogReportStatus(
   actor: string,
   expectedUpdatedAt: string,
   databaseInput?: D1Database,
+  sourceEvidence?:{checkedAt:string;sourceUrl:string},
 ) {
   const database = requireD1Binding(databaseInput);
   const row = await database.prepare(`SELECT id,status,updated_at,published_at,expires_at,resolved_at,archived_at
@@ -584,7 +585,7 @@ export async function transitionAdminDogReportStatus(
   }, row.expires_at, now);
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports
     SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=?
-    WHERE id=? AND updated_at=?`).bind(
+    WHERE id=? AND updated_at=?${sourceEvidence?" AND TRIM(COALESCE(source_url,''))=? AND EXISTS(SELECT 1 FROM help_source_checks WHERE entity_type='LOST_FOUND' AND entity_id=lost_found_dog_reports.id AND last_checked_at=? AND source_url=?)":""}`).bind(
       nextStatus,
       now,
       lifecycle.publishedAt,
@@ -593,11 +594,14 @@ export async function transitionAdminDogReportStatus(
       lifecycle.archivedAt,
       id,
       expectedUpdatedAt,
+      ...(sourceEvidence?[sourceEvidence.sourceUrl,sourceEvidence.checkedAt,sourceEvidence.sourceUrl]:[]),
     );
   const privateTouch = database.prepare(
     "UPDATE lost_found_dog_private_details SET updated_by=?,updated_at=? WHERE report_id=?",
   ).bind(actor, now, id);
-  const [result] = await database.batch([publicUpdate, privateTouch]);
+  const [result] = await database.batch([publicUpdate,
+    ...(sourceEvidence?[bulkPublicationGuardStatement(database,"lost-found",[id],false,now)]:[]),
+    privateTouch]);
   const changes = Number(result.meta?.changes ?? 0);
   if (changes !== 1) throw new Error("lost_found_lifecycle_stale");
   return { id: Number(row.id), status: nextStatus, updatedAt: now };
