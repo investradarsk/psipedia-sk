@@ -39,6 +39,7 @@ import { articleHref } from "@/lib/portal";
 import { isBreedArticlePlacementChange, isBreedArticleNotionChange, notionArticleBreedPlacement, type NotionArticleBreedPlacement } from "@/lib/notion-article-breed-placement";
 import {
   buildNotionEditorialPlan,
+  buildEditorialStructure, observeEditorialStructure, editorialInsertionIds,
   notionEditorialBlockShape,
   notionEditorialPropertyText,
   type NotionEditorialPlan,
@@ -2090,17 +2091,24 @@ export async function writeBackDraftArticleContentToNotion(args: {
     }
     const scope=staged?articleEditorialScope(args.before!,article):undefined;
     if(scope?.properties.includes("Perex")&&!writeExcerpt)throw Error("NOTION_ARTICLE_PEREX_REVIEW_REQUIRED");
-    plan = buildNotionEditorialPlan({
-      article: editorProjection,
-      ...(scope?{scope,allowNonDraft:true}:{}), remoteBlocks: selected as RemoteArticleBlock[],
+    const bodyProjection=scope?.body?stagedNativeArticleProjection(args.before!,editorProjection):editorProjection;
+    const build=(body:boolean)=>buildNotionEditorialPlan({
+      article: bodyProjection,
+      ...(scope?{scope:{...scope,body},allowNonDraft:true}:{}), remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
       perex: writeExcerpt ? article.excerpt : undefined,
       seoFields: [], // SEO-only changed-field writer handles all eight properties.
     });
+    try{plan=build(scope?.body??true);}catch(error){
+      if(!scope?.body||!(error instanceof Error)||!["UNSUPPORTED_BLOCK_INSERT_DELETE","UNSUPPORTED_BLOCK_REORDER_OR_TYPE","UNSUPPORTED_TABLE_CHANGE"].includes(error.message))throw error;
+      const structure=buildEditorialStructure(bodyProjection,selected,remoteBlocks,SITE_URL);
+      if(!structure)throw error;
+      plan=build(false);plan.structure=structure;
+    }
     plan.pageGuard = pageGuard(page);
     if(scope){plan.scope=scope;plan.untouchedProperties=untouchedProperties(page,scope.properties);if(!scope.body)plan.untouchedBlocks=JSON.stringify(remoteBlocks);}
     plan.fullBlockOrder = remoteBlocks.map((block) => block.id + ":" + block.type);
-    const changed = plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
+    const changed = Boolean(plan.structure)||plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
     if (!changed){
       if(staged){
         // A completed SEO/placement-only save can acknowledge the editor revision
@@ -2155,6 +2163,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (renewal.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
   }
   function verifySnapshot(blocks: NotionBlock[]) {
+    if(plan.structure){observeEditorialStructure(plan.structure,blocks);return;}
     if (!plan.pageGuard || !Array.isArray(plan.fullBlockOrder) ||
       !Array.isArray(plan.blockSnapshots) || (plan.scope?.body!==false&&plan.blockSnapshots.length === 0)) {
       throw new Error("NOTION_EDITORIAL_JOURNAL_INCOMPATIBLE");
@@ -2245,6 +2254,39 @@ export async function writeBackDraftArticleContentToNotion(args: {
       method: "PATCH", body: JSON.stringify({ properties: fields }),
     });
   }
+  if(plan.structure){
+    const structure=plan.structure;
+    const persistProgress=async()=>{
+      await assertCurrentDraft();await renewLease();
+      const stored=await args.database.prepare("UPDATE article_notion_editorial_outbox SET operations_json=?,updated_at=? WHERE notion_page_id=? AND article_id=? AND article_updated_at=? AND lease_owner=?").bind(JSON.stringify(plan),new Date().toISOString(),page.id,article.id,article.updatedAt,leaseOwner).run();
+      if(stored.meta?.changes!==1)throw Error("NOTION_EDITORIAL_LEASE_LOST");
+    };
+    const readStructure=async()=>{
+      await assertCurrentDraft();
+      const freshPage=await notionRequest<NotionPage>(args.bindings,"/pages/"+encodeURIComponent(page.id));
+      if(!matchesEditorialIdentity(freshPage)||pageGuard(freshPage)!==plan.pageGuard||plan.untouchedProperties!==untouchedProperties(freshPage,plan.scope!.properties))throw Error("NOTION_EDITORIAL_METADATA_CONFLICT");
+      return observeEditorialStructure(structure,await getPageBlocks(args.bindings,page.id));
+    };
+    let progress=await readStructure();
+    if(structure.insert.length&&!structure.insertedIds?.length){
+      if(structure.appendStarted)throw Error("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+      const anchor=structure.remove.at(-1)?.id??structure.prefix.at(-1)?.id;
+      if(!anchor)throw Error("NOTION_EDITORIAL_STRUCTURE_LIMIT");
+      structure.appendStarted=true;await persistProgress();
+      // Append is not idempotent. Never retry an unknown HTTP outcome.
+      const result=await notionSharedRequest<NotionBlocksResponse>(args.bindings,"/blocks/"+encodeURIComponent(page.id)+"/children",{method:"PATCH",body:JSON.stringify({after:anchor,children:structure.insert.map(item=>item.payload)})},{retryTransient:false});
+      structure.insertedIds=editorialInsertionIds(structure,result.results??[]);
+      await persistProgress();progress=await readStructure();
+    }
+    for(const id of progress.remaining){
+      const current=await readStructure();
+      if(!current.remaining.includes(id))continue;
+      if(current.remaining[0]!==id)throw Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+      await renewLease();
+      await notionSharedRequest(args.bindings,"/blocks/"+encodeURIComponent(id),{method:"DELETE"},{retryTransient:false});
+    }
+    if(!(await readStructure()).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
+  }
   for (const op of plan.blocks) {
     await assertCurrentDraft();
     const remote = await notionRequest<RemoteArticleBlock>(
@@ -2271,8 +2313,10 @@ export async function writeBackDraftArticleContentToNotion(args: {
   if(plan.scope&&plan.untouchedProperties!==untouchedProperties(verifiedPage,plan.scope.properties))throw Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
   verifySnapshot(verifiedBlocks);
+  if(plan.structure&&!observeEditorialStructure(plan.structure,verifiedBlocks).complete)throw Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
+  const verifiedProjection=plan.scope?.body&&!plan.structure?stagedNativeArticleProjection(args.before??article,editorProjection):editorProjection;
   const verified = buildNotionEditorialPlan({
-    article: editorProjection, ...(plan.scope?{scope:plan.scope,allowNonDraft:staged}:{}), remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks,hasCompletePublicPhotoCredit(editorProjection.imageCredit,editorProjection.imageCreditUrl)) as RemoteArticleBlock[],
+    article: verifiedProjection, ...(plan.scope?{scope:{...plan.scope,body:plan.structure?false:plan.scope.body},allowNonDraft:staged}:{}), remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks,hasCompletePublicPhotoCredit(editorProjection.imageCredit,editorProjection.imageCreditUrl)) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
     seoFields: [],
     perex: plan.propertyAfter.Perex,
@@ -2328,6 +2372,15 @@ export async function writeBackDraftArticleContentToNotion(args: {
   }
 }
 
+/** The existing manifest remains in its own Notion section. Unchanged
+ * manifest directives and local promos must not enter the native block planner.
+ * Changes to these specialized blocks need a separate manifest reconciliation. */
+function stagedNativeArticleProjection(before:ManagedArticle,article:Parameters<typeof buildNotionEditorialPlan>[0]["article"]){
+  const separate=(block:ArticleBlock)=>block.id.startsWith("notion-manifest-")||block.type==="psipedia-promo"&&!block.id.startsWith("notion-");
+  const old=(before.blocks??[]).filter(separate),next=article.blocks.filter(separate);
+  if(JSON.stringify(old)!==JSON.stringify(next))throw Error("NOTION_ARTICLE_MANIFEST_CHANGE_REVIEW_REQUIRED");
+  return {...article,blocks:article.blocks.filter(block=>!separate(block))};
+}
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");

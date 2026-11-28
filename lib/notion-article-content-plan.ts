@@ -24,7 +24,16 @@ export type NotionEditorialOperation = {
   after: string;
   payload: RecordValue;
 };
+export type EditorialStructure = {
+  prefix: {id:string;fingerprint:string}[];
+  remove: {id:string;fingerprint:string}[];
+  suffix: {id:string;fingerprint:string}[];
+  insert: {shape:string;payload:RecordValue}[];
+  appendStarted?:boolean;
+  insertedIds?:string[];
+};
 export type NotionEditorialPlan = {
+  structure?:EditorialStructure;
   // Immutable page and selected-block baseline. Missing or malformed recovery
   // evidence is a conflict, never permission to force a historic journal.
   pageGuard: string;
@@ -171,6 +180,79 @@ function targetBlocks(article: EditorialArticle, siteUrl: string) {
     } else fail("UNSUPPORTED_ADMIN_BLOCK_" + block.type.toUpperCase().replaceAll("-","_"));
   }
   return all;
+}
+/** Structural fingerprints include the entire block payload and child rows,
+ * excluding volatile top-level provider metadata. */
+function structuralFingerprint(block:RemoteArticleBlock):string{
+  return JSON.stringify([block.type,block.has_children===true,block[block.type],Array.isArray(block.children)?(block.children as RemoteArticleBlock[]).map(structuralFingerprint):null]);
+}
+function structuralSnapshot(block:RemoteArticleBlock){return {id:block.id,fingerprint:structuralFingerprint(block)};}
+function structuralShape(block:RemoteArticleBlock):string{
+  if(block.type!=="table")return notionEditorialBlockShape(block);
+  const body=object(block.table),rows=Array.isArray(block.children)?block.children as RemoteArticleBlock[]:[];
+  if(!rows.length||body.has_column_header!==true||body.has_row_header===true)fail("UNSUPPORTED_TABLE_STRUCTURE");
+  const cells=rows.map(row=>{
+    const values=object(row.table_row).cells;
+    if(row.type!=="table_row"||!Array.isArray(values)||values.length!==body.table_width)fail("UNSUPPORTED_TABLE_STRUCTURE");
+    return values.map(cell=>{
+      const rich=remoteRichText(cell);
+      if(rich.some(node=>object(node.annotations).bold||object(node.annotations).italic||object(object(node.text).link).url))fail("UNSUPPORTED_TABLE_MARK");
+      return rich.map(node=>text(object(node.text).content)).join("");
+    });
+  });
+  return JSON.stringify({type:"table",rows:{headers:cells[0],rows:cells.slice(1)}});
+}
+function structuralPayload(target:RecordValue):RecordValue{
+  const type=String(target.type);
+  let value:RecordValue;
+  if(type==="table"){
+    const rows=object(target.rows),headers=rows.headers,body=rows.rows;
+    if(!Array.isArray(headers)||!headers.length||!Array.isArray(body)||body.length+1>100||body.some(row=>!Array.isArray(row)||row.length!==headers.length))fail("UNSUPPORTED_TABLE_STRUCTURE");
+    value={table_width:headers.length,has_column_header:true,has_row_header:false,children:[headers,...body].map(row=>({object:"block",type:"table_row",table_row:{cells:(row as unknown[]).map(cell=>notionText(String(cell)))}}))};
+  }else if(type==="image")value={type:"external",external:{url:target.url},caption:target.caption};
+  else if(type==="embed")value={url:target.url,caption:target.caption};
+  else value={rich_text:target.rich_text,...(type==="callout"?{icon:{type:"emoji",emoji:target.icon}}:{})};
+  return {object:"block",type,[type]:value};
+}
+/** Replace only the changed contiguous middle, leaving private notes and
+ * unchanged blocks with their original identities. */
+export function buildEditorialStructure(article:EditorialArticle,selected:RemoteArticleBlock[],full:RemoteArticleBlock[],siteUrl:string):EditorialStructure|undefined{
+  const desired=targetBlocks(article,siteUrl),old=selected.map(structuralShape),next=desired.map(value=>JSON.stringify(value));
+  let start=0;while(start<old.length&&start<next.length&&old[start]===next[start])start++;
+  if(start===old.length&&start===next.length)return undefined;
+  let tail=0;while(tail<old.length-start&&tail<next.length-start&&old[old.length-1-tail]===next[next.length-1-tail])tail++;
+  const offset=full.findIndex(block=>block.id===selected[0]?.id);
+  if(offset<0||!selected.length||selected.some((block,i)=>full[offset+i]?.id!==block.id))fail("NOTION_EDITORIAL_BODY_NOT_CONTIGUOUS");
+  const remove=selected.slice(start,selected.length-tail),insert=desired.slice(start,desired.length-tail).map(value=>({shape:JSON.stringify(value),payload:structuralPayload(value)}));
+  const prefix=full.slice(0,offset+start).map(structuralSnapshot),suffix=full.slice(offset+selected.length-tail).map(structuralSnapshot);
+  if(insert.length>100||(!remove.length&&!prefix.length&&insert.length))fail("NOTION_EDITORIAL_STRUCTURE_LIMIT");
+  return {prefix,remove:remove.map(structuralSnapshot),suffix,insert};
+}
+/** Only a known original suffix or a verified insertion may survive a retry.
+ * No guessed IDs, unrelated block changes, reorder or duplicate IDs. */
+export function observeEditorialStructure(plan:EditorialStructure,blocks:RemoteArticleBlock[]){
+  const ids=blocks.map(block=>block.id);
+  if(new Set(ids).size!==ids.length)fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+  const inserted=plan.insertedIds??[];
+  if(inserted.length&&inserted.length!==plan.insert.length)fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+  const same=(actual:RemoteArticleBlock|undefined,wanted:{id:string;fingerprint:string})=>actual?.id===wanted.id&&structuralFingerprint(actual)===wanted.fingerprint;
+  if(!plan.prefix.every((x,i)=>same(blocks[i],x))||!plan.suffix.every((x,i)=>same(blocks[blocks.length-plan.suffix.length+i],x)))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+  const middle=blocks.slice(plan.prefix.length,blocks.length-plan.suffix.length);
+  const remaining=middle.filter(block=>plan.remove.some(x=>x.id===block.id));
+  const expected=plan.remove.slice(plan.remove.length-remaining.length);
+  if(!expected.every((x,i)=>same(remaining[i],x))||!remaining.every((b,i)=>middle[i]?.id===b.id))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+  const fresh=middle.slice(remaining.length);
+  if(!inserted.length){
+    if(fresh.length||remaining.length!==plan.remove.length&&plan.insert.length)fail("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+  }else if(fresh.length!==inserted.length||fresh.some((b,i)=>b.id!==inserted[i]||structuralShape(b)!==plan.insert[i].shape))fail("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+  return {remaining:remaining.map(b=>b.id),complete:remaining.length===0&&inserted.length===plan.insert.length};
+}
+export function editorialInsertionIds(plan:EditorialStructure,result:RemoteArticleBlock[]){
+  if(!Array.isArray(result)||result.length!==plan.insert.length)fail("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+  const ids=result.map(x=>x.id);
+  const original=new Set([...plan.prefix,...plan.remove,...plan.suffix].map(x=>x.id));
+  if(ids.some(id=>typeof id!=="string"||!id||original.has(id))||new Set(ids).size!==ids.length)fail("NOTION_EDITORIAL_APPEND_UNCERTAIN");
+  return ids;
 }
 export function notionEditorialPropertyText(rawValue: unknown, type: "title" | "rich_text" | "url") {
   const raw = object(rawValue);

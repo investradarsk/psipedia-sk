@@ -16,7 +16,7 @@ const seoUrl = asUrl(await compile("../lib/notion-article-seo-properties.ts"));
 const contentPlanSource = (await compile("../lib/notion-article-content-plan.ts"))
   .replace('from "./notion-article-seo-properties"', 'from "' + seoUrl + '"');
 const {
-  buildNotionEditorialPlan, EditorialSyncConflict,
+  buildNotionEditorialPlan, EditorialSyncConflict, buildEditorialStructure, observeEditorialStructure, editorialInsertionIds,
   notionEditorialBlockShape, notionEditorialPropertyText,
 } = await import(asUrl(contentPlanSource));
 
@@ -301,4 +301,34 @@ test("staged scheduled and published editorial planning touches only selected ce
     assert.equal(plan.blockSnapshots.length,0);
     assert.throws(()=>buildNotionEditorialPlan({article:a,remoteBlocks:originalBlocks(),pageProperties:p,siteUrl:"https://psipedia.sk",allowNonDraft:true,scope:{properties:["Kredit fotografie"],body:false},seoFields:[]}),/NOTION_ARTICLE_PROPERTY_MISSING/);
   }
+});
+
+test("structural middle insertion preserves original notes and unchanged block identities",()=>{
+  const a=article();a.blocks.splice(1,0,{id:"new",type:"text",content:"Nový odsek."});
+  const body=originalBlocks(),note=block("private","heading_2","SEO");
+  const plan=buildEditorialStructure(a,body,[...body,note],"https://psipedia.sk");
+  assert.equal(plan.remove.length,0);assert.equal(plan.insert.length,1);
+  assert.deepEqual(plan.prefix.map(b=>b.id),["intro","h"]);assert.deepEqual(plan.suffix.map(b=>b.id),["p","private"]);
+  assert.equal(observeEditorialStructure(plan,[...body,note]).complete,false);
+  const newBlock=block("remote-new","paragraph","Nový odsek.");
+  plan.insertedIds=editorialInsertionIds(plan,[newBlock]);
+  assert.equal(observeEditorialStructure(plan,[body[0],body[1],newBlock,body[2],note]).complete,true);
+  assert.throws(()=>observeEditorialStructure(plan,[body[0],body[1],newBlock,body[2],block("private","heading_2","Changed")]));
+});
+test("structural delete and reorder preserve unrelated notes and reject unknown append",()=>{
+  const a=article();a.blocks.reverse();
+  const body=originalBlocks(),note=block("private","heading_2","SEO");
+  const plan=buildEditorialStructure(a,body,[...body,note],"https://psipedia.sk");
+  assert.deepEqual(plan.remove.map(b=>b.id),["h","p"]);
+  assert.equal(plan.insert.length,2);
+  const added=[block("new-p","paragraph",a.blocks[0].content),block("new-h","heading_2",a.blocks[1].text)];
+  assert.throws(()=>observeEditorialStructure(plan,[...body,...added,note]),/NOTION_EDITORIAL_APPEND_UNCERTAIN/);
+  plan.insertedIds=editorialInsertionIds(plan,added);
+  assert.deepEqual(observeEditorialStructure(plan,[...body,...added,note]).remaining,["h","p"]);
+  assert.deepEqual(observeEditorialStructure(plan,[body[0],body[2],...added,note]).remaining,["p"]);
+  assert.equal(observeEditorialStructure(plan,[body[0],...added,note]).complete,true);
+  const shorter=article();shorter.blocks.pop();
+  const deletion=buildEditorialStructure(shorter,body,[...body,note],"https://psipedia.sk");
+  assert.equal(deletion.insert.length,0);assert.deepEqual(deletion.remove.map(b=>b.id),["p"]);
+  assert.equal(observeEditorialStructure(deletion,[body[0],body[1],note]).complete,true);
 });
