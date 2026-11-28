@@ -338,7 +338,12 @@ const unifiedLabels: Record<string,string> = {
 };
 const unifiedReasonLabels: Record<string,string> = {
   BASELINE_UNAVAILABLE:"Chýba potvrdená východisková hodnota",
-  MISSING_FIELD:"Chýba alebo je neplatné pole",
+  MISSING_FIELD:"Pole sa nepodarilo úplne načítať – hodnotu v D1 nemeníme",
+  INVALID_NOTION_FIELD:"Neplatná alebo neúplná hodnota v Notione – hodnotu v D1 nemeníme",
+  LOCKED:"Ochranný zámok alebo neoverené vlastníctvo – bez automatického prepisu",
+  PROTECTED_FIELD:"Chránené alebo nemapované pole – bez automatického prepisu",
+  NOTION_SYNC_DISABLED:"Synchronizácia agendy je vypnutá",
+  NOTION_SYNC_NOT_CONFIGURED:"Chýba konfigurácia synchronizácie",
   UNVERIFIED_NOTION_CLEAR:"Prázdne pole v Notione – ochrana SQL",
   UNVERIFIED_ADMIN_CLEAR:"Chýba potvrdenie vymazania v Admine",
   RECOVERY_DIVERGED:"Nepotvrdený prenos – hodnoty sa líšia",
