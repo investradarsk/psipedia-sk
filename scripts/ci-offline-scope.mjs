@@ -37,6 +37,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     ...suites.map(s => s.id + "=" + ids.has(s.id)),
     "node22=" + selected.some(s => s.node === "22"),
     "node22_16=" + selected.some(s => s.node === "22.16.0"),
+    "node22_19=" + selected.some(s => s.node === "22.19.0"),
     ""
   ].join("\n"));
   console.log("Selected offline suites:", [...ids].join(", ") || "(none)");

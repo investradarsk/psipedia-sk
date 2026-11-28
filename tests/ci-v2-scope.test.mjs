@@ -98,11 +98,14 @@ test("stale PR cancellation is separated from scheduled and manual runs", () => 
   const central=read("playwright-e2e");
   assert.match(central,/group: playwright-e2e-\$\{\{ github\.event_name \}\}-/);
   assert.match(central,/github\.event\.pull_request\.number \|\| \(github\.event_name == 'push' && github\.ref\) \|\| github\.run_id/);
-  for(const name of ["admin-stability-regressions","public-html-cache-safety-guard","code-quality-policy","sitemap-edge-resilience","breed-sql-0174-offline","notion-quality-ci"]) {
+  for(const name of ["admin-stability-regressions","notion-quality-ci"]) {
     const source=read(name);
     assert.match(source,/group: [^\n]+github\.event_name[^\n]+github\.event\.pull_request\.number \|\| github\.run_id/);
     assert.match(source,/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   }
+  const offline=read("offline-contracts");
+  assert.match(offline,/group: offline-contracts-\$\{\{ github\.event\.pull_request\.number \|\| github\.run_id \}\}/);
+  assert.match(offline,/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   const admin=read("admin-stability-regressions");
   assert.match(admin,/      - "tests\/\*\*"/);
   for (const match of admin.matchAll(/      - "!tests\/([^"]+\.test\.mjs)"/g)) {

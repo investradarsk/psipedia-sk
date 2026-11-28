@@ -8,7 +8,7 @@ const workflow = read(".github/workflows/offline-contracts.yml");
 const ids = files => selectOfflineSuites(suites, files).map(s => s.id);
 
 test("historical offline suites retain scope and all are wired into the shared job", () => {
-  assert.equal(suites.length, 11);
+  assert.equal(suites.length, 15);
   assert.equal(new Set(suites.map(s=>s.id)).size, suites.length);
   for (const s of suites) {
     assert.match(workflow, new RegExp("steps\\.scope\\.outputs\\." + s.id + " == 'true'"));
@@ -36,4 +36,22 @@ test("complete PR diff includes removed and added paths; unavailable range fails
   }}),{files:["old.ts","new.ts"],trusted:true});
   assert.deepEqual(resolveOfflineRange({base,head,git:()=>{throw Error("missing")}}),{files:[],trusted:false});
   assert.deepEqual(resolveOfflineRange({base:"invalid",head}),{files:[],trusted:false});
+});
+
+test("absorbed cache, code quality, sitemap and breed contracts preserve selectors", () => {
+  const cases = [
+    ["worker/index.ts", "public_html_cache_safety_guard"],
+    ["tests/code-quality-policy.test.mjs", "code_quality_policy"],
+    ["lib/sitemap-xml-validator.ts", "sitemap_edge_resilience"],
+    ["lib/breed-sql-v2-preview.ts", "breed_sql_0174_offline"],
+    ["tests/breed-sql-v2-legacy-drop.test.mjs", "breed_sql_0174_offline"]
+  ];
+  for (const [path, id] of cases) assert.ok(ids([path]).includes(id), id);
+  assert.ok(!ids(["worker/index.ts"]).includes("sitemap_edge_resilience"));
+  for (const s of suites.slice(-4)) {
+    assert.ok(ids([".github/workflows/" + s.original]).includes(s.id));
+    assert.match(workflow,new RegExp("steps\\.scope\\.outputs\\." + s.id + " == 'true'"));
+  }
+  assert.match(workflow,/node-version: '22\.19\.0'/);
+  assert.match(workflow,/admin_perf_comparator_v2 == 'true' && steps\.scope\.outputs\.admin_perf_url_guard != 'true'/);
 });

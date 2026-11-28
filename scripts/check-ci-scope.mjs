@@ -186,7 +186,6 @@ const workerDomainSuites = [
   "data-automation-ci.yml",
   "notion-quality-ci.yml",
   "services-v3-hourly-auto-sync.yml",
-  "sitemap-edge-resilience.yml",
 ];
 for (const name of workerDomainSuites) {
   assert.equal(prWorkflowWouldRun(name, ["worker/index.ts"]), false,
@@ -194,8 +193,11 @@ for (const name of workerDomainSuites) {
   assert.equal(prWorkflowWouldRun(name, [`.github/workflows/${name}`]), true,
     `${name}: edits to its own workflow must still validate`);
 }
-assert.equal(prWorkflowWouldRun("public-html-cache-safety-guard.yml", ["worker/index.ts"]), true,
-  "cache safety guard must stay on shared worker changes");
+// Cache and sitemap routing now lives in the consolidated offline manifest.
+// The mandatory ci-v2-offline-scope.test.mjs checks both exact selectors.
+assert.ok(workflows.has("offline-contracts.yml"));
+assert.ok(!workflows.has("public-html-cache-safety-guard.yml"));
+assert.ok(!workflows.has("sitemap-edge-resilience.yml"));
 assert.equal(prWorkflowWouldRun("gemini-global-stop-ci.yml", ["worker/index.ts"]), true,
   "Gemini global stop guard must stay on shared worker changes");
 assert.equal(prWorkflowWouldRun("pr-visual-evidence.yml", ["lib/notion-article-sync.ts"]), false,

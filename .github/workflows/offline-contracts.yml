@@ -14,8 +14,8 @@ concurrency:
 jobs:
   contracts:
     name: Offline unit and source contracts
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,6 +79,41 @@ jobs:
         if: steps.scope.outputs.services_v3_public_canonical_filter == 'true'
         run: |
           node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs
+      - name: "sitemap-edge-resilience: Validate sitemap last-good cache offline"
+        if: steps.scope.outputs.sitemap_edge_resilience == 'true'
+        run: |
+          node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs
+      - name: "breed-sql-0174-offline: Verify frozen contiguous migration chain"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node scripts/check-migration-safety.mjs
+      - name: "breed-sql-0174-offline: Verify full 90-field storage contract and SQL schema"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/breed-sql-v2-cutover-gate.test.mjs
+      - name: "breed-sql-0174-offline: Verify owner-only legacy cleanup, before/post DROP SQLite compatibility"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --check scripts/production-d1-breed-0175.mjs
+          node --test tests/breed-sql-v2-legacy-drop.test.mjs tests/breed-json-legacy-audit.test.mjs
+      - name: "breed-sql-0174-offline: Verify post-backfill shadow readiness and its SELECT-only runner"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --check scripts/production-breed-sql-v2-shadow-audit.mjs
+          node --test tests/breed-sql-v2-shadow-readiness.test.mjs
+      - name: "breed-sql-0174-offline: Verify isolated owner-only production schema 0174 runner"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --check scripts/production-d1-breed-0174.mjs
+          node --test tests/production-d1-breed-0174.test.mjs
+      - name: "breed-sql-0174-offline: Verify SQL-primary Admin/public projections and canonical SEO"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --experimental-strip-types --test tests/breed-sql-v2-primary-read.test.mjs
+      - name: "breed-sql-0174-offline: Verify stage-4 public and Admin fallback runtime"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --experimental-strip-types --test tests/breed-sql-v2-preview-runtime.test.mjs
       - uses: actions/setup-node@v4
         if: steps.scope.outputs.node22 == 'true'
         with:
@@ -118,7 +153,7 @@ jobs:
         run: |
           node --check scripts/admin-perf-analyze.mjs && node --check tests/admin-perf-analyze.test.mjs
       - name: "admin-perf-comparator-v2: Comparator and existing V1 regressions"
-        if: steps.scope.outputs.admin_perf_comparator_v2 == 'true'
+        if: steps.scope.outputs.admin_perf_comparator_v2 == 'true' && steps.scope.outputs.admin_perf_url_guard != 'true'
         run: |
           node --test tests/admin-perf-analyze.test.mjs tests/admin-perf-tooling.test.mjs
       - name: "gemini22-dedupe-gate-tests: Run offline checks"
@@ -137,6 +172,10 @@ jobs:
         if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
         run: |
           node --test tests/gemini-external-worker-offline.test.mjs
+      - name: "code-quality-policy: Offline contract"
+        if: steps.scope.outputs.code_quality_policy == 'true'
+        run: |
+          node --test tests/code-quality-policy.test.mjs
       - uses: actions/setup-node@v4
         if: steps.scope.outputs.node22_16 == 'true'
         with:
@@ -145,3 +184,11 @@ jobs:
         if: steps.scope.outputs.service_catalog_contract_ci == 'true'
         run: |
           node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs tests/service-catalog-d1-foundation.test.mjs tests/service-catalog-admin-api-contract.test.mjs tests/service-catalog-admin-lifecycle.test.mjs tests/service-catalog-admin-editor.test.mjs
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.node22_19 == 'true'
+        with:
+          node-version: '22.19.0'
+      - name: "public-html-cache-safety-guard: Run cache and Worker regressions offline"
+        if: steps.scope.outputs.public_html_cache_safety_guard == 'true'
+        run: |
+          node --experimental-strip-types --test tests/public-html-cache-safety.test.mjs tests/public-html-cache.test.mjs tests/worker-performance.test.mjs

@@ -408,5 +408,96 @@
       "tests/service-catalog-contract.test.mjs",
       "tests/service-catalog-d1-foundation.test.mjs"
     ]
+  },
+  {
+    "id": "public_html_cache_safety_guard",
+    "original": "public-html-cache-safety-guard.yml",
+    "node": "22.19.0",
+    "mainOnly": false,
+    "manual": false,
+    "paths": [
+      ".github/workflows/public-html-cache-safety-guard.yml",
+      "tests/public-html-cache-safety.test.mjs",
+      "tests/public-html-cache.test.mjs",
+      "tests/worker-performance.test.mjs",
+      "worker/index.ts"
+    ]
+  },
+  {
+    "id": "code_quality_policy",
+    "original": "code-quality-policy.yml",
+    "node": "22",
+    "mainOnly": false,
+    "manual": true,
+    "paths": [
+      ".github/workflows/code-quality-policy.yml",
+      ".prettierignore",
+      ".prettierrc.json",
+      "AGENTS.md",
+      "docs/AI-CODE-QUALITY.md",
+      "tests/code-quality-policy.test.mjs"
+    ]
+  },
+  {
+    "id": "sitemap_edge_resilience",
+    "original": "sitemap-edge-resilience.yml",
+    "node": "24.18.0",
+    "mainOnly": false,
+    "manual": true,
+    "paths": [
+      ".github/workflows/sitemap-edge-resilience.yml",
+      "app/sitemap.ts",
+      "lib/sitemap-edge-cache.ts",
+      "lib/sitemap-xml-validator.ts",
+      "tests/sitemap-edge-cache.test.mjs",
+      "tests/sitemap-xml-hardening.test.mjs"
+    ]
+  },
+  {
+    "id": "breed_sql_0174_offline",
+    "original": "breed-sql-0174-offline.yml",
+    "node": "24.18.0",
+    "mainOnly": true,
+    "manual": false,
+    "paths": [
+      ".github/workflows/breed-sql-0174-offline.yml",
+      ".github/workflows/production-breed-sql-v2-backfill.yml",
+      ".github/workflows/production-breed-sql-v2-shadow-audit.yml",
+      ".github/workflows/production-d1-breed-0174.yml",
+      "db/breed-storage-schema.ts",
+      "docs/BREEDS-SQL-JSON-STEP3-20261119.md",
+      "docs/BREEDS-SQL-JSON-STEP4-20261119.md",
+      "docs/BREEDS-SQL-JSON-STEP5-20261119.md",
+      "drizzle/0174_breeds_sql_json_foundation.sql",
+      "lib/breed-canonical.ts",
+      "lib/breed-sql-v2-backfill.mjs",
+      "lib/breed-sql-v2-bridge.mjs",
+      "lib/breed-sql-v2-cutover-gate.mjs",
+      "lib/breed-sql-v2-preview.ts",
+      "lib/breed-sql-v2-primary-read.mjs",
+      "lib/breed-sql-v2-shadow-readiness.mjs",
+      "lib/breed-sql-v2-writer.mjs",
+      "lib/breed-storage-decision.mjs",
+      "lib/breed-store.ts",
+      "lib/notion-breed-workcopy-controlled.ts",
+      "lib/notion-breed-workcopy-direct-field.ts",
+      "scripts/check-migration-safety.mjs",
+      "scripts/production-breed-sql-v2-backfill.mjs",
+      "scripts/production-breed-sql-v2-shadow-audit.mjs",
+      "scripts/production-d1-breed-0174.mjs",
+      "scripts/production-d1-breed-0175.mjs",
+      "tests/breed-json-legacy-audit.test.mjs",
+      "tests/breed-sql-0174-foundation.test.mjs",
+      "tests/breed-sql-v2-atomic-writers.test.mjs",
+      "tests/breed-sql-v2-backfill.test.mjs",
+      "tests/breed-sql-v2-bridge.test.mjs",
+      "tests/breed-sql-v2-cutover-gate.test.mjs",
+      "tests/breed-sql-v2-legacy-drop.test.mjs",
+      "tests/breed-sql-v2-preview-runtime.test.mjs",
+      "tests/breed-sql-v2-primary-read.test.mjs",
+      "tests/breed-sql-v2-shadow-readiness.test.mjs",
+      "tests/breed-storage-decision.test.mjs",
+      "tests/production-d1-breed-0174.test.mjs"
+    ]
   }
 ]
