@@ -1,3 +1,4 @@
+import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { directoryAuthorityWriteGuard, profileAuthorityTextFieldAllowed } from "./notion-profile-authority.ts";
 import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
 import { planDirectoryAdminReceipts, directoryMetadataReceiptField } from "./notion-directory-admin-receipts.ts";
@@ -4071,6 +4072,18 @@ export async function runNotionDirectorySyncSweep(input: {
     pages = [targetPage];
   } else {
     pages = await recentNotionPages(input.bindings, dataSourceId);
+    if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const older=await rotateNotionDiscovery<NotionPage>({
+          database:input.database,bindings:input.bindings,agenda:"directory",sourceId:dataSourceId,limit:20,
+        });
+        pages=mergeNotionDiscovery(older,pages);
+      }catch{
+        // Preserve the recent safety net; surface incomplete rotation.
+        summary.failed++;
+        console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"directory"});
+      }
+    }
     // The normal recent-page window alone can starve older Gemini drafts.
     // Drain the immutable provenance queue in bounded oldest-first batches,
     // reusing the SAME mapping/duplicate/conflict path as ordinary sync.
