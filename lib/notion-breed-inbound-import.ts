@@ -59,7 +59,7 @@ export async function importNewBreedWorkCopy(input:{
       if(legacy)return "review-required";
       const decoded=readInboundBreedDraft(page,BREED_NOTION_SCHEMA);
       if(!decoded)return "not-ready";
-      const draft=decoded.payload;
+      const draft:typeof decoded.payload&{image?:unknown;gallery?:unknown}=decoded.payload;
       const duplicate=await db.prepare("SELECT 1 AS found FROM managed_breeds WHERE slug=? OR lower(trim(name))=lower(trim(?)) OR (? IS NOT NULL AND fci_number=?) "+
         "UNION ALL SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND (record_slug=? OR lower(trim(record_name))=lower(trim(?)) OR (? IS NOT NULL AND record_external_key=CAST(? AS TEXT))) LIMIT 1")
         .bind(draft.slug,draft.name,draft.fciNumber,draft.fciNumber,draft.slug,draft.name,draft.fciNumber,draft.fciNumber).first<{found:number}>();
@@ -77,7 +77,7 @@ export async function importNewBreedWorkCopy(input:{
       if(await notionPageIsTombstoned(db,pageId))return "review-required";
       uncertain=true;
       const local=await createNotionWorkOnlyBreedDraft({database:db,payload:payload as ManagedBreedInput,
-        controlled:decoded.controlled,pageId:page.id,sourceId,remoteRevision:page.last_edited_time!,lockOwnerPage:releasePage.owner});
+        controlled:{...decoded.controlled},pageId:page.id,sourceId,remoteRevision:page.last_edited_time!,lockOwnerPage:releasePage.owner});
       link=await mapping();
       if(!link||link.breed_id!==local.id||link.updated_at!==local.revision||link.work_last_error_code!==pending)
         throw Error("BREED_INBOUND_MAPPING_UNVERIFIED");
