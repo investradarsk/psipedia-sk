@@ -378,7 +378,7 @@ function QueueDiagnosticsView({queues,view}:{queues:NotionQueueDiagnostics;view:
       <table className={styles.table}>
         <thead><tr><th>Agenda / záznam</th><th>Smer</th><th>Stav</th><th>Dôvod</th><th>Posledná evidencia</th><th>Ďalší pokus</th></tr></thead>
         <tbody>{queues.issues.map((item,index)=><tr key={item.source+":"+index}>
-          <td>{item.agenda?unifiedLabels[item.agenda]??item.agenda:"Mapovanie neoverené"}{" "}{item.editorHref?<Link href={item.editorHref} prefetch={false}>#{item.entityId}</Link>:item.entityId?"#"+item.entityId:null}</td>
+          <td>{item.agenda?unifiedLabels[item.agenda]??item.agenda:item.mappingState==="AMBIGUOUS"?"Nejednoznačné mapovanie":item.mappingState==="MISSING"?"Bez mapovania":"Mapovanie neoverené"}{" "}{item.editorHref?<Link href={item.editorHref} prefetch={false}>#{item.entityId}</Link>:item.entityId?"#"+item.entityId:null}</td>
           <td>{item.source==="webhook"?"Notion → Admin":"Admin → Notion"}</td>
           <td>{item.state==="REVIEW"?"Na kontrolu":item.state==="PROCESSING"?"Spracováva sa":"Čaká"}{item.attempts===null?"":" · pokusov "+item.attempts}</td>
           <td>{unifiedReasonLabels[item.reason]??item.reason}</td>
