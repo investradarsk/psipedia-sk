@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
+import { AdminBulkStatusActions } from "@/components/admin-bulk-status-actions";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
@@ -38,7 +39,7 @@ function href(filters: Filters, page = 1, status = filters.status) {
     ["direction", filters.direction && filters.direction !== "desc" ? filters.direction : ""],
   ], page);
 }
-export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [] }: { result: Result; counts: Counts | null; filters: Filters; reviewedIds?: number[] | null }) {
+export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [], bulkStatusEnabled = false }: { result: Result; counts: Counts | null; filters: Filters; reviewedIds?: number[] | null; bulkStatusEnabled?: boolean }) {
   const router = useRouter();
   const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; expectedUpdatedAt: string; dogName: string } | null>(null);
@@ -84,6 +85,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
     {selected.size > 0 && <div className={styles.gridSelection}>
       <strong>Označené: {selected.size}</strong>
       <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
+      {bulkStatusEnabled&&<AdminBulkStatusActions agenda="lost-found" items={result.items.filter(item=>selected.has(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}))} disabled={busy||Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>}
       <AdminRecordBulkDelete kind="lost-found" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
         onFinished={ids => {
           setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
