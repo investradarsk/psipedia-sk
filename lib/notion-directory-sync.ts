@@ -2162,7 +2162,7 @@ async function syncUnifiedDirectoryOperationalFields(input: {
       local = readDirectoryPublicMetadataValue(profile.importData, key);
     } else {
       const def = getDirectoryFilterDefinition(item.field);
-      if (!def || (def.category !== profile.category && !(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text" && profile.additionalCategories?.includes(def.category)))) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
+      if (!def || (def.category !== profile.category && !(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text" && profile.additionalCategories?.some(category=>category===def.category)))) throw Error("DIRECTORY_UNIFIED_FILTER_SCOPE");
       key = breederFacetNotionProperties[item.field];
       if (!key || !directoryUnifiedRawPropertyPresent(page, key) || !Object.hasOwn(property(page, key) ?? {}, "select"))
         throw Error("DIRECTORY_UNIFIED_FILTER_SCHEMA");
