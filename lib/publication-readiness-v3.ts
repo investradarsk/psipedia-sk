@@ -17,12 +17,12 @@ export function enteringPublicStatus(agenda:ProfileDuplicateAgenda,before:unknow
  * or an explicit transition from a nonpublic status. */
 export async function assertProfilePublicationIdentity(db:D1Database,agenda:ProfileDuplicateAgenda,before:unknown,after:unknown,payload:unknown,id?:number){
  if(!publicationV3Enabled()||!enteringPublicStatus(agenda,before,after))return;
- const duplicate=await findProfileDuplicate(db,agenda,{...profileIdentityFromInput(agenda,payload),id});
+ const duplicate=await findProfileDuplicate(db,agenda,{...profileIdentityFromInput(agenda,payload),id},statuses[agenda]);
  if(duplicate)throw Error("Publikovanie zastavené – možná duplicita záznamu #"+duplicate.id+". "+duplicate.reason+".");
 }
 export async function assertSavedProfilePublicationIdentity(db:D1Database,agenda:ProfileDuplicateAgenda,id:number){
  if(!publicationV3Enabled())return;
- const duplicate=await readProfileDuplicateById(db,agenda,id);
+ const duplicate=await readProfileDuplicateById(db,agenda,id,statuses[agenda]);
  if(duplicate)throw Error("Publikovanie zastavené – možná duplicita záznamu #"+duplicate.id+". "+duplicate.reason+".");
 }
 // Partner approval performs a direct status mutation, so verify the saved
