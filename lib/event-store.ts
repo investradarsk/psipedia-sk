@@ -1,4 +1,4 @@
-import { assertProfilePublicationIdentity, assertBulkPublicationIdentities } from "./publication-readiness-v3.ts";
+import { assertProfilePublicationIdentity, assertBulkPublicationIdentities, publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
@@ -802,7 +802,8 @@ export async function bulkUpdateEventStatus(input: unknown, editorEmail: string)
   const statusValue = field === "status" ? String(value) : "";
   const eventTypeValue = field === "eventType" ? String(value) : "";
   const cancelledValue = field === "cancelled" && value === true ? 1 : 0;
-  const result = await requireD1Binding().prepare(bulkEventUpdateSql)
+  const db=requireD1Binding();
+  const statement=db.prepare(bulkEventUpdateSql)
     .bind(
       JSON.stringify(events),
       field, statusValue,
@@ -811,7 +812,8 @@ export async function bulkUpdateEventStatus(input: unknown, editorEmail: string)
       now, editorEmail,
       field, statusValue, now,
       events.length,
-    ).all<{ id: number }>();
+    );
+  const result=publicationV3Enabled()&&field==="status"?(await db.batch<{id:number}>([statement,bulkPublicationGuardStatement(db,"events",events.map(event=>event.id),value==="published",now)]))[0]:await statement.all<{id:number}>();
   if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
   if (field === "status" || field === "cancelled") {
     const database = requireD1Binding();
