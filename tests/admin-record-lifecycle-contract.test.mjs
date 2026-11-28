@@ -231,14 +231,20 @@ test("V3 proposals preserve lifecycle data, mappings and guards in isolated SQLi
   const bSource=source("drizzle/0159_breed_notion_workcopy_links.sql");
   const triggers=source("drizzle/0181_notion_unified_scope_invalidation.sql").match(/CREATE TRIGGER IF NOT EXISTS unified_scope_breed_notion_workcopy_links_\w+[\s\S]*?\nEND;/g);
   assert.equal(triggers?.length,3);
-  const breedProposal=source("docs/proposals/notion-v3-breed-workonly-links-UNNUMBERED_PROPOSAL.sql");
-  const lifecycleProposal=source("docs/proposals/notion-v3-eshop-lifecycle-UNNUMBERED_PROPOSAL.sql");
+  const breedProposal=source("drizzle/0182_notion_v3_breed_workonly_links.sql");
+  const lifecycleProposal=source("drizzle/0183_notion_v3_eshop_lifecycle.sql");
+  const webhookProposal=source("drizzle/0184_notion_v3_webhook_deletion.sql");
+  const cursorProposal=source("drizzle/0185_notion_v3_discovery_cursor.sql");
+  for(const [slug,sql] of [["breed-workonly-links",breedProposal],["eshop-lifecycle",lifecycleProposal],["webhook-deletion",webhookProposal],["discovery-cursor",cursorProposal]]){
+    assert.equal(sql,source("docs/proposals/notion-v3-"+slug+"-UNNUMBERED_PROPOSAL.sql"));
+  }
+  const bundle=[breedProposal,lifecycleProposal,webhookProposal,cursorProposal].join("\n");
   function fixture(){
     const db=new DatabaseSync(":memory:");
     db.exec("PRAGMA foreign_keys=ON;");
     for(const table of tables)db.exec("CREATE TABLE "+table+"(id INTEGER PRIMARY KEY,slug TEXT,status TEXT,import_key TEXT,fci_number INTEGER,website_url TEXT,fci_group INTEGER NOT NULL DEFAULT 0,"+ratings.map(r=>r+" INTEGER NOT NULL DEFAULT 0").join(",")+")");
     db.exec("CREATE TABLE notion_unified_scope_invalidation(agenda TEXT,entity_id TEXT,invalidated_at TEXT,PRIMARY KEY(agenda,entity_id));CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,baseline_version INTEGER,baseline_json TEXT,notion_json TEXT,psipedia_json TEXT,notion_edit_json TEXT,psipedia_edit_json TEXT,status TEXT,reason TEXT,version INTEGER,updated_at TEXT,recovery_after TEXT);CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT);");
-    db.exec(bSource);db.exec(triggers.join("\n"));db.exec(migration);
+    db.exec(bSource);db.exec(triggers.join("\n"));db.exec(migration);db.exec(source("drizzle/0145_notion_webhook_inbox.sql"));
     return db;
   }
   const apply=(db,sql)=>{db.exec("BEGIN");try{db.exec(sql);db.exec("COMMIT");}catch(error){db.exec("ROLLBACK");throw error;}};
@@ -250,9 +256,16 @@ test("V3 proposals preserve lifecycle data, mappings and guards in isolated SQLi
       db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,record_name,record_category,state,created_by,created_at,updated_at) VALUES(?,?,?,?,?,'COMPLETE','actor','created','updated')").run(kind,100+i,"old-"+kind,"Name","cat");
       db.prepare("INSERT INTO admin_record_publication_guards VALUES(?,?,'SYNCED',NULL,'t')").run(kind,100+i);
     }
-    const names=["breed_notion_workcopy_links","admin_record_tombstones","admin_record_publication_guards"];
-    const before=names.map(name=>db.prepare("SELECT * FROM "+name+" ORDER BY 1,2").all());
-    apply(db,breedProposal);apply(db,lifecycleProposal);
+    db.exec("INSERT INTO notion_webhook_inbox(event_key,page_id,event_type,status,attempts,outcome) VALUES('old-event','old-page','page.properties_updated','DONE',2,'APPLIED')");
+    const names=["breed_notion_workcopy_links","admin_record_tombstones","admin_record_publication_guards","notion_webhook_inbox"];
+    const snapshot=()=>names.map(name=>db.prepare("SELECT * FROM "+name+" ORDER BY 1,2").all());
+    const catalog=()=>db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY name").all();
+    const before=snapshot(),beforeCatalog=catalog();
+    assert.throws(()=>apply(db,bundle+"\nSELECT json_extract('V3_ROLLBACK_PROBE','$');"),/malformed JSON/i);
+    assert.deepEqual(snapshot(),before);
+    assert.deepEqual(catalog(),beforeCatalog);
+    apply(db,bundle);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_discovery_cursor").get().n,0);
     assert.deepEqual(names.map(name=>db.prepare("SELECT * FROM "+name+" ORDER BY 1,2").all()),before);
     assert.equal(db.prepare("PRAGMA integrity_check").get().integrity_check,"ok");
     assert.equal(db.prepare("PRAGMA foreign_key_check").all().length,0);
@@ -277,6 +290,7 @@ test("V3 proposals preserve lifecycle data, mappings and guards in isolated SQLi
     ["breed_notion_workcopy_links",breedProposal,"breed_id","breed_id INTEGER"],
     ["admin_record_tombstones",lifecycleProposal,"kind,record_id","kind TEXT,record_id INTEGER"],
     ["admin_record_publication_guards",lifecycleProposal,"kind,record_id","kind TEXT,record_id INTEGER"],
+    ["notion_webhook_inbox",webhookProposal,"event_key","event_key TEXT"],
   ]){
     const db=fixture();
     try{
