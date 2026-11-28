@@ -62,6 +62,12 @@ export async function POST(request: Request) {
       (data.entity?.type !== "page" && data.entity?.entity_type !== "page")) {
     return Response.json({ received: true, result: "ignored" });
   }
+  // V3 must not fall back to an unfenced inline writer when its durable
+  // inbox is unavailable. Keep the existing legacy behaviour until cutover.
+  if (bindings.NOTION_PROFILE_AUTHORITY_MODE === "validated-text" &&
+      bindings.NOTION_WEBHOOK_INBOX_ENABLED !== "true") {
+    return new Response(null, { status: 503 });
+  }
   // Safe staged rollout: this PR can be merged before protected migration
   // 0145. Until D1 is provisioned and the owner enables the flag, preserve
   // the previously deployed synchronous contract rather than returning 503.
@@ -85,6 +91,17 @@ export async function POST(request: Request) {
       await enqueueNotionWebhook(bindings.DB, data, body);
       return Response.json({ received: true, result: "queued" });
     } catch {
+      return new Response(null, { status: 503 });
+    }
+  }
+  // V3: every signed profile event uses the same durable minute queue.
+  // Avoid competing inline/cron writers and acknowledge only after D1 commit.
+  if (bindings.NOTION_PROFILE_AUTHORITY_MODE === "validated-text") {
+    try {
+      await enqueueNotionWebhook(bindings.DB, data, body);
+      return Response.json({ received: true, result: "queued" });
+    } catch {
+      console.error("notion_webhook_inbox_write_failed");
       return new Response(null, { status: 503 });
     }
   }
