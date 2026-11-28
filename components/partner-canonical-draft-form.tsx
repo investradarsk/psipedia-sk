@@ -309,8 +309,9 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
         </div>
       </div>
       {duplicateReview&&!submitted&&<div role="alert" className="partner-form-message is-error">
-        <p>Našli sme podobný profil. Pred odoslaním skontrolujte, či ho už nespravujete.
-          <Link href="/partner/prevziat"> Požiadať o správu existujúceho profilu</Link>.</p>
+        <p>Našli sme podobný záznam. Pred odoslaním skontrolujte, či už neexistuje.
+          {(type==="DIRECTORY_PROFILE"||type==="HELP_ORGANIZATION")&&<Link href="/partner/prevziat"> Požiadať o správu existujúceho profilu</Link>}
+          {" "}Potvrdenie znamená len odoslanie na redakčnú kontrolu, nie zverejnenie.</p>
         <button type="button" className="button button--dark" disabled={busy}
           onClick={()=>void perform("SUBMIT",true)}>Skontroloval som to – napriek tomu odoslať</button>
       </div>}
