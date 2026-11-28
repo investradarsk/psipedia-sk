@@ -5,7 +5,7 @@ const CLAIM_SECONDS = 600;
 const COMPLETED_RETENTION_SECONDS = 7 * 24 * 3600;
 export type NotionWebhookInboxResult =
   | "processed" | "ignored" | "metadata-only" | "out-of-scope"
-  | "review-required" | "deferred" | "disabled" | "not-configured";
+  | "review-required" | "remote-deleted" | "deferred" | "disabled" | "not-configured";
 
 type InboxRow = {
   event_key: string; page_id: string; event_type: string;
@@ -34,10 +34,11 @@ export async function enqueueNotionWebhook(
     subscriptionId: event.subscription_id && UUID.test(event.subscription_id) ? event.subscription_id : undefined,
   };
   // D1 COMMIT must succeed BEFORE returning HTTP 200. No property values are stored.
-  await database.prepare(
-    "INSERT OR IGNORE INTO notion_webhook_inbox " +
-    "(event_key,page_id,event_type,changed_properties_json) VALUES (?,?,?,?)",
+  const saved=await database.prepare(
+    "INSERT INTO notion_webhook_inbox " +
+    "(event_key,page_id,event_type,changed_properties_json) VALUES (?,?,?,?) ON CONFLICT(event_key) DO NOTHING",
   ).bind(key, pageId.toLowerCase(), event.type, JSON.stringify(envelope)).run();
+  if(saved.success===false)throw Error("NOTION_WEBHOOK_INBOX_WRITE_FAILED");
 }
 
 export async function runNotionWebhookInboxSweep(input: {
@@ -95,12 +96,12 @@ export async function runNotionWebhookInboxSweep(input: {
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
       ).bind(outcome, finishedAt, row.event_key, row.attempts).run();
       totals.done += 1;
-    } else if (outcome === "review-required" || row.attempts >= MAX_ATTEMPTS) {
+    } else if (outcome === "review-required" || outcome === "remote-deleted" || row.attempts >= MAX_ATTEMPTS) {
       await input.database.prepare(
         "UPDATE notion_webhook_inbox SET status='REVIEW', outcome=?, " +
         "last_error_code=?, lease_until=NULL, updated_at=? " +
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
-      ).bind(outcome, outcome === "failed" ? "DISPATCH_FAILED" : "NEEDS_REVIEW",
+      ).bind(outcome, outcome === "remote-deleted" ? "NOTION_REMOTE_DELETED" : outcome === "failed" ? "DISPATCH_FAILED" : "NEEDS_REVIEW",
         finishedAt, row.event_key, row.attempts).run();
       totals.review += 1;
     } else {
