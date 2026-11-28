@@ -168,7 +168,7 @@ function targetBlocks(article: EditorialArticle, siteUrl: string) {
         caption: notionText(block.caption || block.title || "") });
     } else if (block.type === "table") {
       all.push({ type: "table", rows: { headers: block.headers, rows: block.rows } });
-    } else fail("UNSUPPORTED_ADMIN_BLOCK_" + block.type);
+    } else fail("UNSUPPORTED_ADMIN_BLOCK_" + block.type.toUpperCase().replaceAll("-","_"));
   }
   return all;
 }
@@ -187,8 +187,11 @@ export function notionEditorialPropertyText(rawValue: unknown, type: "title" | "
     return text(raw.url);
   }
   if (!Array.isArray(raw[type])) fail("NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT");
-  return raw[type].map((record: unknown) =>
-    text(object(record).plain_text) || text(object(object(record).text).content)).join("");
+  return raw[type].map((record: unknown) => {
+    const node=object(record),content=object(node.text).content;
+    if(node.type!==undefined&&node.type!=="text"||typeof node.plain_text!=="string"&&typeof content!=="string")fail("NOTION_ARTICLE_PROPERTY_INCOMPLETE");
+    return typeof node.plain_text==="string"?node.plain_text:String(content);
+  }).join("");
 }
 export function buildNotionEditorialPlan(args: {
   article: EditorialArticle;

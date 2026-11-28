@@ -1428,7 +1428,8 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   if (before.id !== article.id || before.slug !== article.slug) {
     throw new Error("NOTION_ARTICLE_CATEGORY_IDENTITY_CONFLICT");
   }
-  if (article.status !== "draft" && article.status !== "published") {
+  const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
+  if (article.status !== "draft" && article.status !== "published" && !articleEditorialWritebackEligible(bindings,article.status)) {
     throw new Error("NOTION_ARTICLE_CATEGORY_STATUS_REVIEW_REQUIRED");
   }
   const originalPlacement = notionArticleBreedPlacement(before);
@@ -1437,8 +1438,8 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
     throw new Error("NOTION_ARTICLE_CATEGORY_DESTINATION_UNSUPPORTED");
   }
   const mapping = await database.prepare(
-    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
-  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+    "SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
   const receipt = decodeArticleSeoReceipt(mapping.content_hash);
   const readPage = () => notionRequest<NotionPage>(
@@ -1452,6 +1453,7 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
           page.parent.data_source_id !== bindings.NOTION_ARTICLES_DATA_SOURCE_ID)) {
       throw new Error("NOTION_ARTICLE_CATEGORY_IDENTITY_CONFLICT");
     }
+    if(staged&&(!stagedArticlePageOwned(bindings,page)||!articleEditorialPageApproved(bindings,article.status,page)))throw Error("NOTION_ARTICLE_CATEGORY_NOT_APPROVED");
     const state = selectProperty(page, "Stav");
     if (article.status === "draft"
       ? state !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia")
@@ -1567,11 +1569,11 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
     "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? " +
     "AND content_hash = ?",
   ).bind(encodeArticleSeoReceipt(finalHash, verified), verified.last_edited_time ?? null,
-    now, now, verified.id, article.id, mapping.content_hash).run();
+    staged?mapping.last_synced_at:now, now, verified.id, article.id, mapping.content_hash).run();
   if (receiptWrite.meta?.changes !== 1) {
     throw new Error("NOTION_ARTICLE_CATEGORY_MAPPING_CONFLICT");
   }
-  await updateNotionSyncState(bindings, verified.id, {
+  if(!staged)await updateNotionSyncState(bindings, verified.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: now,
   });
   return { linked: true, updated: !alreadyNew || !newRelationMatches };
@@ -1601,6 +1603,7 @@ export async function writeBackPublishedArticleToNotion(args: {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" as const };
   }
+  const staged=args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
   const now = args.now ?? new Date().toISOString();
   const dueScheduled = args.article.status === "scheduled"
     && Boolean(args.article.publishedAt)
@@ -1640,6 +1643,8 @@ export async function writeBackPublishedArticleToNotion(args: {
       && richTextProperty(page, "Psipedia ID") !== String(args.article.id))) {
     throw new Error("NOTION_ARTICLE_PUBLICATION_IDENTITY_CONFLICT");
   }
+  if(staged&&(!stagedArticlePageOwned(args.bindings,page)||richTextProperty(page,"Psipedia ID")!==String(args.article.id)||richTextProperty(page,"Slug")!==args.article.slug))throw Error("NOTION_ARTICLE_PUBLICATION_IDENTITY_CONFLICT");
+  if(staged){const pending=await args.database.prepare("SELECT article_id FROM article_notion_editorial_outbox WHERE notion_page_id=? LIMIT 1").bind(page.id).first<{article_id:number}>();if(pending)throw Error("NOTION_EDITORIAL_WRITEBACK_PENDING");}
   const notionState = selectProperty(page, "Stav");
   const remoteUrl = urlProperty(page, "URL Psipedia");
   const date = propertyRecord(page, "Dátum publikácie")?.date;
@@ -1677,8 +1682,8 @@ export async function writeBackPublishedArticleToNotion(args: {
   }
 
   const alreadySynced = publishedMatches
-    && selectProperty(page, "Sync stav") === "Synchronizované"
-    && !richTextProperty(page, "Sync chyba");
+    && (staged||(selectProperty(page, "Sync stav") === "Synchronizované"
+    && !richTextProperty(page, "Sync chyba")));
   if (!alreadySynced) {
     // Read-before-write alone cannot prove the remote PATCH completed.
     // Verify the returned page ID and exact canonical publication properties
@@ -1693,9 +1698,9 @@ export async function writeBackPublishedArticleToNotion(args: {
             "Stav": { select: { name: "Publikované" } },
             "Dátum publikácie": { date: { start: publishedAt } },
             "URL Psipedia": { url: publicUrl },
-            "Sync stav": { select: { name: "Synchronizované" } },
+            ...(staged?{}:{"Sync stav": { select: { name: "Synchronizované" } },
             "Sync chyba": notionTextValue(""),
-            "Posledný sync": { date: { start: now } },
+            "Posledný sync": { date: { start: now } }}),
           },
         }),
       },
@@ -1707,6 +1712,7 @@ export async function writeBackPublishedArticleToNotion(args: {
       || !echoed.properties
       || (richTextProperty(echoed, "Psipedia ID")
         && richTextProperty(echoed, "Psipedia ID") !== String(args.article.id))
+      || (staged&&(!stagedArticlePageOwned(args.bindings,echoed)||richTextProperty(echoed,"Psipedia ID")!==String(args.article.id)||richTextProperty(echoed,"Slug")!==args.article.slug))
       || selectProperty(echoed, "Stav") !== "Publikované"
       || urlProperty(echoed, "URL Psipedia") !== publicUrl
       || typeof echoedPublishedAt !== "string"
@@ -1717,7 +1723,10 @@ export async function writeBackPublishedArticleToNotion(args: {
 
   // Mark only a successfully repaired/already correct mapping. This timestamp
   // also rotates the bounded Cron scan instead of repeatedly checking page 1.
-  await args.database.prepare(
+  if(staged){
+    // Publication is not evidence that editorial content matches D1.
+    await args.database.prepare("UPDATE article_notion_sync SET updated_at = ? WHERE notion_page_id = ? AND article_id = ?").bind(now,mapping.notion_page_id,args.article.id).run();
+  }else await args.database.prepare(
     "UPDATE article_notion_sync SET last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ?",
   ).bind(now, now, mapping.notion_page_id, args.article.id).run();
 
@@ -1746,6 +1755,7 @@ export async function writeBackArticleSeoToNotion(args: {
     return { linked: false, updated: false, reason: "disabled" };
   }
   const { before, article } = args;
+  const staged=args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
   if (before.id !== article.id || before.slug !== article.slug) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   }
@@ -1755,8 +1765,8 @@ export async function writeBackArticleSeoToNotion(args: {
   const changed = articleSeoChangedFields(before, article);
   if (!changed.length) return { linked: true, updated: false, reason: "unchanged" };
   const mapping = await args.database.prepare(
-    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
-  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+    "SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
   const receipt = decodeArticleSeoReceipt(mapping.content_hash);
   const confirmedSeo = receipt.seo;
@@ -1933,9 +1943,9 @@ export async function writeBackArticleSeoToNotion(args: {
     "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, " +
     "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? AND content_hash = ?",
   ).bind(encodeArticleSeoReceipt(finalHash, verifiedPage), verifiedPage.last_edited_time ?? null,
-    now, now, verifiedPage.id, article.id, mapping.content_hash).run();
+    staged?mapping.last_synced_at:now, now, verifiedPage.id, article.id, mapping.content_hash).run();
   if (saved.meta?.changes !== 1) throw new Error("NOTION_ARTICLE_SEO_MAPPING_CONFLICT");
-  await updateNotionSyncState(args.bindings, verifiedPage.id, {
+  if(!staged)await updateNotionSyncState(args.bindings, verifiedPage.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: now,
   });
   return { linked: true, updated: written > 0 };
@@ -1966,8 +1976,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     return { linked: false, updated: false, reason: "import-disabled" };
   }
   const mapping = await args.database.prepare(
-    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
-  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+    staged?"SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1":"SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at?:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
 
   type Journal = {
@@ -2051,6 +2061,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   } else {
     const remoteBlocks = await getPageBlocks(args.bindings, page.id);
     if(staged&&(!args.before||args.before.id!==article.id||args.before.slug!==article.slug||args.before.updatedAt===article.updatedAt))throw Error("NOTION_ARTICLE_EDITOR_PREIMAGE_REQUIRED");
+    if(staged&&args.before!.updatedBy!==SYNC_ACTOR&&(!mapping.last_synced_at||!Number.isFinite(Date.parse(mapping.last_synced_at))||!Number.isFinite(Date.parse(args.before!.updatedAt))||Date.parse(args.before!.updatedAt)>Date.parse(mapping.last_synced_at)))throw Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
     const current = notionPageToManagedArticleInput(page, remoteBlocks, staged?args.before:article,
       decodeArticleSeoReceipt(mapping.content_hash).seo);
     const currentContentHash = await sha256(JSON.stringify({
@@ -2090,7 +2101,18 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if(scope){plan.scope=scope;plan.untouchedProperties=untouchedProperties(page,scope.properties);if(!scope.body)plan.untouchedBlocks=JSON.stringify(remoteBlocks);}
     plan.fullBlockOrder = remoteBlocks.map((block) => block.id + ":" + block.type);
     const changed = plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
-    if (!changed) return { linked: true, updated: false, reason: "unchanged" };
+    if (!changed){
+      if(staged){
+        // A completed SEO/placement-only save can acknowledge the editor revision
+        // only after the same verified source hash and scoped no-op checks.
+        await assertCurrentDraft();
+        const now=new Date().toISOString();
+        const receipt=await args.database.prepare("UPDATE article_notion_sync SET last_synced_at=?,updated_at=? WHERE notion_page_id=? AND article_id=? AND content_hash=? AND EXISTS(SELECT 1 FROM managed_articles WHERE id=? AND status=? AND updated_at=?) AND NOT EXISTS(SELECT 1 FROM article_notion_editorial_outbox WHERE article_id=?)").bind(now,now,page.id,article.id,mapping.content_hash,article.id,article.status,article.updatedAt,article.id).run();
+        if(receipt.meta?.changes!==1)throw Error("NOTION_EDITORIAL_MAPPING_CONFLICT");
+        await updateNotionSyncState(args.bindings,page.id,{state:"Synchronizované",articleId:article.id,syncedAt:now});
+      }
+      return { linked: true, updated: false, reason: "unchanged" };
+    }
     const now = new Date().toISOString();
     // INSERT OR IGNORE arbitrates simultaneous retries. The winner's revision
     // and immutable operation preimages are always read back and checked.
@@ -2329,11 +2351,11 @@ async function upsertMapping(
       notion_page_id, article_id, notion_last_edited_time, content_hash, last_synced_at, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(notion_page_id) DO UPDATE SET
-      article_id = excluded.article_id,
       notion_last_edited_time = excluded.notion_last_edited_time,
       content_hash = excluded.content_hash,
       last_synced_at = excluded.last_synced_at,
       updated_at = excluded.updated_at
+    WHERE article_notion_sync.article_id=excluded.article_id
   `).bind(
     page.id,
     articleId,
@@ -2567,6 +2589,7 @@ async function syncOneNotionPage(
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
   if(staged&&mapping&&mappedExisting&&richTextProperty(page,"Psipedia ID")!==String(mappedExisting.id))throw Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+  if(staged&&mapping&&mappedExisting&&mappedExisting.updatedBy!==SYNC_ACTOR&&(!Number.isFinite(Date.parse(mapping.last_synced_at))||!Number.isFinite(Date.parse(mappedExisting.updatedAt))||Date.parse(mappedExisting.updatedAt)>Date.parse(mapping.last_synced_at)))throw Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
   if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
   // A past-due scheduled article is public but intentionally remains "scheduled"
   // in D1. Permit inbound editorial edits only for its verified published Notion
@@ -2660,7 +2683,7 @@ async function syncOneNotionPage(
   const authorityPayload = existing && mapping && signedFields === null
     ? applyArticleAuthority(inboundPayload,existing,articleModes) : inboundPayload;
   const basePayload = existing && mapping && signedFields !== null
-    ? articleApplySignedFields(inboundPayload, existing, signedFields)
+    ? (staged?preserveNotionUnrepresentableStyles(articleApplySignedFields(inboundPayload,existing,signedFields),existing,{}):articleApplySignedFields(inboundPayload, existing, signedFields))
     : existing && mapping
       ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
       : authorityPayload;
@@ -2927,6 +2950,7 @@ export async function runNotionArticleSyncSweep(args: {
       // The content-writeback outbox is authoritative while unfinished.
       // Do not overwrite its Notion status with an import-sweep error.
       if (message === "NOTION_EDITORIAL_WRITEBACK_PENDING") continue;
+      if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&message==="NOTION_ARTICLE_TARGET_UNSAFE")continue;
       console.error(JSON.stringify({
         event: "notion_article_sync_failed",
         notionPageId: page.id,

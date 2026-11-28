@@ -157,7 +157,7 @@ test("unsupported Notion children/marks and unsafe Admin blocks never disappear"
   assert.throws(() => build(article(), withChildren), /UNSUPPORTED_NOTION_CHILDREN/);
   const a = article();
   a.blocks[1] = { id: "g", type: "gallery", images: [] };
-  assert.throws(() => build(a), /UNSUPPORTED_ADMIN_BLOCK_gallery/);
+  assert.throws(() => build(a), /UNSUPPORTED_ADMIN_BLOCK_GALLERY/);
   const underlined = originalBlocks();
   underlined[2].paragraph.rich_text[0].annotations.underline = true;
   assert.throws(() => build(article(), underlined), /UNSUPPORTED_NOTION_MARK/);

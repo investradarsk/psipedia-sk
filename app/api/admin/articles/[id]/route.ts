@@ -50,6 +50,8 @@ function notionStepReceipt(result: NotionArticleResult): ArticleFollowupReceipt 
 }
 function notionStepFailure(error: unknown): ArticleFollowupReceipt {
   const raw = error instanceof Error ? error.message : "";
+  const http=/^Notion API (\d{3}):/.exec(raw);
+  if(http)return {status:"failed",code:"NOTION_ARTICLE_HTTP_"+http[1]};
   return { status: "failed", code: /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
     ? raw : "REMOTE_WRITEBACK_FAILED" };
 }
@@ -239,9 +241,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       };
       const reportError = (step: NotionArticleStep, error: unknown, event: string) => {
         notionSteps[step] = notionStepFailure(error);
-        const raw = error instanceof Error ? error.message : "";
-        const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
-          ? raw : "REMOTE_WRITEBACK_FAILED";
+        const code=notionSteps[step]?.code??"REMOTE_WRITEBACK_FAILED";
         notionEditorialWriteback = { status: "blocked", code };
         console.error(event, { articleId: article.id, code });
       };
@@ -434,9 +434,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
             notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
           }
         } catch (error) {
-          const raw = error instanceof Error ? error.message : "";
-          const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
-            ? raw : "REMOTE_WRITEBACK_FAILED";
+          const code=notionStepFailure(error).code??"REMOTE_WRITEBACK_FAILED";
           notionEditorialWriteback = { status: "blocked", code };
           console.error("notion_article_inline_writeback_failed", { articleId: id, code });
         }
