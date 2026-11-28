@@ -133,3 +133,24 @@ test("remote deletion of any mapped page requires review without touching local 
     await assert.rejects(notionRemoteDeletionNeedsReview(f.db,unrelated),/no such table/);
   }finally{f.close();}
 });
+
+test("staged removal refuses a concurrent first-copy fence, changed revision or different mapping",async()=>{
+  const {stagedProfileRemovalGuard}=await import("../lib/admin-record-lifecycle.ts");
+  const f=fixture();
+  try{
+    f.sqlite.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,updated_at TEXT); CREATE TABLE notion_unified_manual_fence(agenda TEXT,entity_id TEXT); ALTER TABLE directory_notion_sync ADD COLUMN content_hash TEXT DEFAULT '';");
+    f.sqlite.prepare("INSERT INTO directory_profiles VALUES(7,'r1')").run();
+    f.sqlite.prepare("INSERT INTO directory_notion_sync(directory_profile_id,notion_page_id) VALUES(7,?)").run(oldId);
+    const verify=()=>stagedProfileRemovalGuard(f.db,"directory",7,"r1",[{pageId:oldDashed,sourceId:unrelated}]).first();
+    assert.equal((await verify()).verified,1);
+    f.sqlite.prepare("INSERT INTO notion_unified_manual_fence VALUES('directory','7')").run();
+    await assert.rejects(verify);
+    f.sqlite.exec("DELETE FROM notion_unified_manual_fence; UPDATE directory_profiles SET updated_at='r2'");
+    await assert.rejects(verify);
+    f.sqlite.exec("UPDATE directory_profiles SET updated_at='r1'");
+    f.sqlite.prepare("UPDATE directory_notion_sync SET content_hash='INBOUND_ID_PENDING'").run();
+    await assert.rejects(verify);
+    f.sqlite.prepare("UPDATE directory_notion_sync SET content_hash='',notion_page_id=?").run(workId);
+    await assert.rejects(verify);
+  }finally{f.close();}
+});
