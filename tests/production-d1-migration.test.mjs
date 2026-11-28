@@ -708,7 +708,7 @@ test("production D1 targets account for every canonical migration, including una
     .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
     .sort();
   assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, ...UNACTIVATED_PRODUCTION_TARGETS].sort(), canonicalTargets);
-  // 0158–0181 are not selectable to generic APPLY; generic production APPLY remains disabled.
+  // 0158–0185 are not selectable to generic APPLY; generic production APPLY remains disabled.
   assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, [
     "0158_admin_directory_list_indexes.sql",
     "0159_breed_notion_workcopy_links.sql",
@@ -734,6 +734,10 @@ test("production D1 targets account for every canonical migration, including una
     "0179_notion_unified_admin_edits.sql",
     "0180_notion_unified_help_receipts.sql",
     "0181_notion_unified_scope_invalidation.sql",
+    "0182_notion_v3_breed_workonly_links.sql",
+    "0183_notion_v3_eshop_lifecycle.sql",
+    "0184_notion_v3_webhook_deletion.sql",
+    "0185_notion_v3_discovery_cursor.sql",
   ]);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0157_facebook_weekly_plan_marks.sql");
   for (const target of UNACTIVATED_PRODUCTION_TARGETS) {

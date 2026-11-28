@@ -72,6 +72,10 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
     "0179_notion_unified_admin_edits.sql",
     "0180_notion_unified_help_receipts.sql",
     "0181_notion_unified_scope_invalidation.sql",
+    "0182_notion_v3_breed_workonly_links.sql",
+    "0183_notion_v3_eshop_lifecycle.sql",
+    "0184_notion_v3_webhook_deletion.sql",
+    "0185_notion_v3_discovery_cursor.sql",
   ]);
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0177_profile_review_verification_settings.sql"));
