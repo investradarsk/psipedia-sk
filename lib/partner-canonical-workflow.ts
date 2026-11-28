@@ -1,3 +1,4 @@
+import { readProfileDuplicateById, type ProfileDuplicateAgenda } from "./profile-duplicate-review.ts";
 /**
  * Partneri V2: one canonical D1 draft row, one moderation workflow row.
  * New submissions never clone their draft on approval. This deliberately
@@ -426,8 +427,8 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
       displayName:String(draft.values.name??""),
       categoryOrType:String(draft.values.category??draft.values.type??""),
       values:draft.values as PartnerProfilePatch,
-    },db);
-    const candidates=scan.candidates.filter(candidate=>candidate.canonicalId!==row.canonicalId);
+    },db,row.canonicalId);
+    const candidates=scan.candidates;
     const confidence=candidates.some(candidate=>candidate.confidence==="HIGH")?"HIGH":
       candidates.some(candidate=>candidate.confidence==="MEDIUM")?"MEDIUM":"NONE";
     if(confidence==="HIGH"&&input.confirmDuplicate!==true)
@@ -437,6 +438,16 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
     duplicateStatements.push(db.prepare("UPDATE partner_new_profile_metadata SET duplicate_confidence=?1,duplicate_candidates_json=?2 "+
       "WHERE submission_id=?3 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='SUBMITTED')")
       .bind(confidence,JSON.stringify(candidates.map(partnerSafeDuplicateCandidate)),row.id));
+  }
+  if((env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&
+    row.resourceType!=="DIRECTORY_PROFILE"&&row.resourceType!=="HELP_ORGANIZATION"){
+    const agenda:ProfileDuplicateAgenda=row.resourceType==="MANAGED_EVENT"?"events":row.resourceType==="ADOPTION_DOG"?"adoptions":row.resourceType==="LOST_FOUND_DOG"?"lost-found":"help-cases";
+    const duplicate=await readProfileDuplicateById(db,agenda,row.canonicalId);
+    if(duplicate){
+      if(input.confirmDuplicate!==true)throw new PartnerCanonicalWorkflowError("Našli sme podobný záznam. Skontrolujte údaje alebo potvrďte odoslanie na redakčnú kontrolu.",409,"DUPLICATE_CONFIRMATION_REQUIRED");
+      // Store only a risk flag, not another partner's identity or contacts.
+      duplicateStatements.push(db.prepare("UPDATE moderation_submissions SET risk_flags_json=CASE WHEN EXISTS(SELECT 1 FROM json_each(COALESCE(risk_flags_json,'[]')) WHERE value='POSSIBLE_DUPLICATE') THEN risk_flags_json ELSE json_insert(COALESCE(risk_flags_json,'[]'),'$[#]','POSSIBLE_DUPLICATE') END WHERE id=? AND status='SUBMITTED'").bind(row.id));
+    }
   }
   const now=input.now??new Date(),nowIso=now.toISOString(),eventId=crypto.randomUUID();
   await applyAtomicModerationTransition(db,{
