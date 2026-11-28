@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { planDirectoryAdminReceipts } from "./notion-directory-admin-receipts.ts";
 import type { BreederEditorialField } from "./notion-breeder-field-events.ts";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
@@ -2156,6 +2157,7 @@ export async function updateManagedDirectoryProfile(
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
+  await assertProfilePublicationIdentity(database,"directory",existing.status,normalizedForMirrors.status,normalizedForMirrors,id);
   const canonicalStatement = buildManagedDirectoryProfileUpdateStatement(
     database,
     id,
