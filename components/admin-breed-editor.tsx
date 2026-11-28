@@ -1,4 +1,8 @@
 "use client";
+
+import { AdminEditorSyncReceipt } from "@/components/admin-editor-sync-status";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
@@ -105,6 +109,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
   const [uploading,setUploading]=useState(false);
   const uploadPending = useRef(false);
   const [message,setMessage]=useState("");
+  const [lastNotionReceipt, setLastNotionReceipt] = useState<string>();
   const [error,setError]=useState("");
   const [activeBreedSection,setActiveBreedSection]=useState("breed-overview");
   const chooseBreedSection = useProfileEditorSectionPager(activeBreedSection, setActiveBreedSection);
@@ -285,6 +290,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
         if (formEditRevisionRef.current === submittedRevision) setDirty(false);
       }
       const notionStatus=data.notionEditorialWriteback?.status;
+      setLastNotionReceipt(notionStatus);
       const notionPending=notionStatus==="pending" ||
         notionStatus==="workcopy-inactive" ||
         notionStatus==="not-linked" || notionStatus==="disabled";
@@ -436,7 +442,8 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       onClose={()=>{ setDirty(false); router.push(returnHref); }}
       closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na plemená"}
       actions={<EditorActionBar
-        message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
+        dirty={dirty} pending={saving} uploading={uploading}
+        sync={<AdminEditorSyncReceipt status={lastNotionReceipt} scope="Posledný prenos redakčných polí" />}
         secondary={
           <details className={styles.moreActions} data-breed-more-actions>
             <summary>Ďalšie akcie</summary>
@@ -482,7 +489,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-overview" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>01 · O plemene</h2><p>Štyri samostatné texty: úvod, prehľad, charakter a história.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>01 · O plemene</h2><p>Štyri samostatné texty: úvod, prehľad, charakter a história.</p></div></div>
         <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={e=>changeName(e.target.value)}/></label>
         <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField rows={3} value={form.intro} onChange={next=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
         <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={5} value={form.editorial.overview??""} onChange={next=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
@@ -495,7 +502,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-basic" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>02 · Plemeno v skratke</h2><p>Najdôležitejšie fakty o plemene na jednom mieste. Bez dvojitého vypĺňania.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>02 · Plemeno v skratke</h2><p>Najdôležitejšie fakty o plemene na jednom mieste. Bez dvojitého vypĺňania.</p></div></div>
         <div className={styles.basicTop}>
           {breed && controlledRevision!==null ? <>
             {renderControlled("originCountries")}
@@ -610,7 +617,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-character" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>03 · Povaha v číslach</h2><p>Osem nezávislých hodnotení od 1 do 5.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>03 · Povaha v číslach</h2><p>Osem nezávislých hodnotení od 1 do 5.</p></div></div>
         <div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}>
           <span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={e=>change(key,Number(e.target.value))}/></label>)}</div>
       </div>
@@ -618,7 +625,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-practical" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>04 · Život a starostlivosť</h2><p>Praktické informácie pre budúceho majiteľa. Texty je možné editovať samostatne.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>04 · Život a starostlivosť</h2><p>Praktické informácie pre budúceho majiteľa. Texty je možné editovať samostatne.</p></div></div>
         <label className="admin-field"><span>Každodenné potreby plemena</span><AdminLexicalTextField rows={4} value={form.needs} onChange={next=>change("needs",next)} ariaLabel="Potreby plemena" /></label>
         <label className="admin-field"><span>Potreba pohybu</span><AdminLexicalTextField rows={5} value={form.exercise} onChange={next=>change("exercise",next)} ariaLabel="Potreba pohybu" /></label>
         <label className="admin-field"><span>Výcvik</span><AdminLexicalTextField rows={5} value={form.training} onChange={next=>change("training",next)} ariaLabel="Výcvik" /></label>
@@ -634,7 +641,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-health" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>05 · Zdravie plemena</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>05 · Zdravie plemena</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
         <label className="admin-field"><span>Zdravie a prevencia</span><AdminLexicalTextField rows={7} value={form.health} onChange={(next)=>change("health",next)} ariaLabel="Zdravie" /></label>
         <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><AdminLexicalTextField rows={5} value={form.healthRisks} onChange={(next)=>change("healthRisks",next)} ariaLabel="Typické zdravotné riziká — jedna položka na riadok" /></label>
       </div>
@@ -642,7 +649,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-fit" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>06 · Je toto plemeno pre mňa?</h2><p>Dve samostatné skupiny odporúčaní, rovnako ako na verejnom profile.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>06 · Je toto plemeno pre mňa?</h2><p>Dve samostatné skupiny odporúčaní, rovnako ako na verejnom profile.</p></div></div>
         <div className={styles.fitEditGrid}>
           <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={next=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
           <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={next=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
@@ -652,7 +659,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-fci" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>07 · FCI štandard</h2><p>Samostatné odborné údaje podľa FCI. Každý text má svoje vlastné pole.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>07 · FCI štandard</h2><p>Samostatné odborné údaje podľa FCI. Každý text má svoje vlastné pole.</p></div></div>
         {fciSections.map(section=><details className={styles.fciGroup} key={section.title}>
           <summary>{section.title} <span className={styles.groupCount}>{section.fields.length} polí</span></summary>
           <div className={styles.fciFields}>
@@ -670,7 +677,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-media" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>08 · Fotografie, športy a zdroje</h2><p>Obrázky, priradené aktivity a odborné zdroje na jednom mieste.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>08 · Fotografie, športy a zdroje</h2><p>Obrázky, priradené aktivity a odborné zdroje na jednom mieste.</p></div></div>
         <h3 className={styles.subheading}>Titulná fotografia a galéria</h3>
         <div className={styles.mediaGrid}>
           <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(form.image, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px"/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
@@ -717,7 +724,7 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
 
     <AdminEditorSection id="breed-settings" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>09 · Publikovanie a SEO</h2><p>Stav profilu, URL, redakčná kontrola a metaúdaje.</p></div></div>
+        <div className={styles.heading} data-admin-profile-heading><div><h2>09 · Publikovanie a SEO</h2><p>Stav profilu, URL, redakčná kontrola a metaúdaje.</p></div></div>
         <label className="admin-check"><input type="checkbox" checked={form.editorialComplete} onChange={e=>change("editorialComplete",e.target.checked)}/><span>Editorial complete – redakčne overený profil</span></label>
         <div className={styles.basicBottom}>
           <label className="admin-field"><span>URL profil / slug</span><input readOnly={Boolean(breed)} value={form.slug} onChange={e=>change("slug",slugify(e.target.value))}/></label>
@@ -733,17 +740,8 @@ export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { bre
       </div>
     </AdminEditorSection>
 
-    <div data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami plemena">
-      <AdminActionButton variant="neutral" disabled={editorNavigation[0].id===activeBreedSection}
-        onClick={()=>chooseBreedSection(editorNavigation[Math.max(0,editorNavigation.findIndex(item=>item.id===activeBreedSection)-1)].id)}>
-        ← Predchádzajúca
-      </AdminActionButton>
-      <span>{editorNavigation.findIndex(item=>item.id===activeBreedSection)+1} / {editorNavigation.length}</span>
-      <AdminActionButton variant="secondary" disabled={editorNavigation[editorNavigation.length-1].id===activeBreedSection}
-        onClick={()=>chooseBreedSection(editorNavigation[Math.min(editorNavigation.length-1,editorNavigation.findIndex(item=>item.id===activeBreedSection)+1)].id)}>
-        Ďalšia →
-      </AdminActionButton>
-    </div>
+    <AdminEditorSectionPager sections={editorNavigation} index={editorNavigation.findIndex(item => item.id === activeBreedSection)} onNavigate={chooseBreedSection}
+        ariaLabel="Prechod medzi sekciami plemena" ready={hydrated} />
 
 
     <AdminDrawer

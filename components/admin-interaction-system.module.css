@@ -612,3 +612,11 @@
   .action { transition: none; }
   .action[data-loading="true"]::after { animation: none; }
 }
+
+/* Compact common selection toolbar; modal forms remain unchanged. */
+.bulkToolbar { box-sizing: border-box; max-width: 100%; width: 100%; }
+.bulkSummary { min-width: 0; }
+@media (min-width: 821px) and (pointer: fine) {
+  .bulkToolbar { padding: 0.45rem 0.65rem; gap: 0.45rem; }
+  .bulkActions, .primaryGroup, .secondaryGroup, .destructiveGroup { gap: 0.35rem; }
+}

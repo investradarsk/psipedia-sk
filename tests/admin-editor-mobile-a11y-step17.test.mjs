@@ -51,7 +51,7 @@ test("EDITOR-17: 320px navigation, section focus, motion and shared action bar a
   assert.match(footerCss, /min-height: 44px/);
   assert.match(footerCss, /max-width: 100%/);
   assert.match(footerCss, /overflow-wrap: anywhere/);
-  assert.match(footer, /aria-busy=\{pending\}/);
+  assert.match(footer, /aria-busy=\{busy\}/);
   assert.match(footer, /role="status" aria-live="polite"/);
 });
 
@@ -112,7 +112,7 @@ test("EDITOR-STEP2: all seven profile families share cards, pager and actions wi
     "components/admin-organization-editor.tsx",
   ]) {
     const source = read(path);
-    assert.equal((source.match(/data-admin-editor-pager/g) ?? []).length, 1, path);
+    assert.equal((source.match(/<AdminEditorSectionPager/g) ?? []).length, 1, path);
     assert.match(source, /AdminEditorSection|EditorWorkspace/, path);
   }
   const article = read("components/admin-article-editor.tsx");
@@ -238,4 +238,25 @@ test("EDITOR-STEP5: mobile fields avoid iOS zoom, touch targets meet 44px and se
   const browser = read("tests/e2e/admin-ux-unification.spec.ts");
   assert.match(browser, /mobile editor controls avoid input zoom and preserve keyboard flow/);
   assert.match(browser, /getComputedStyle\(element\)\.fontSize/);
+});
+
+test("3/10 profile editors use one pager and one profile layout contract", () => {
+  const pager = read("components/admin-editor-section-pager.tsx");
+  assert.match(pager, /data-admin-editor-pager/);
+  assert.match(pager, /type="button"/);
+  assert.match(pager, /useSyncExternalStore/);
+  assert.match(pager, /onNavigate\(sections\[current \+ 1\]\.id\)/);
+  for (const name of ["directory", "adoption", "organization", "lost-found", "help"]) {
+    const editor = read("components/admin-" + name + "-editor.tsx");
+    assert.match(editor, /data-admin-profile-editor-layout/);
+    assert.match(editor, /data-admin-profile-editor-content/);
+    assert.match(editor, /<AdminEditorSectionPager/);
+  }
+  const eshop = read("components/admin-eshop-editor.tsx");
+  assert.match(eshop, /sectionMode="switch"/);
+  assert.match(eshop, /<AdminEditorSectionPager/);
+  assert.equal((eshop.match(/<EditorSection id="eshop-/g) ?? []).length, 4);
+  const workspace = read("components/admin-editor-workspace.tsx");
+  assert.match(workspace, /data-admin-profile-editor-layout=\{mode === "page" && sectionMode === "switch" && !articleLayout/);
+  assert.match(read("app/admin/admin-unified-forms.css"), /--admin-profile-sidebar: minmax\(172px, 204px\)/);
 });

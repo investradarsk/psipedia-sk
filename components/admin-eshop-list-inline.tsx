@@ -8,7 +8,7 @@ import styles from "./admin-eshop-list-inline.module.css";
 
 /** Only identity text and website URL: never copy the full e-shop profile into
  * an inline mutation. The Lexical description stays in its canonical editor. */
-export function AdminEshopListInline({ shop }: { shop: ManagedEshop }) {
+export function AdminEshopListInline({ shop, onEditingChange }: { shop: ManagedEshop; onEditingChange?: (editing: boolean) => void }) {
   const router = useRouter();
   const [saved, setSaved] = useState({ name: shop.name, websiteUrl: shop.websiteUrl, updatedAt: shop.updatedAt });
   const [editing, setEditing] = useState(false);
@@ -24,6 +24,7 @@ export function AdminEshopListInline({ shop }: { shop: ManagedEshop }) {
     setWebsiteUrl(saved.websiteUrl);
     setError("");
     setEditing(false);
+    onEditingChange?.(false);
   }
   function begin() {
     setName(saved.name);
@@ -31,6 +32,7 @@ export function AdminEshopListInline({ shop }: { shop: ManagedEshop }) {
     setNotice("");
     setError("");
     setEditing(true);
+    onEditingChange?.(true);
   }
   async function save() {
     if (busy || !editing) return;
@@ -53,6 +55,7 @@ export function AdminEshopListInline({ shop }: { shop: ManagedEshop }) {
       setName(body.shop.name);
       setWebsiteUrl(body.shop.websiteUrl);
       setEditing(false);
+    onEditingChange?.(false);
       setNotice("Názov a web boli uložené.");
       router.refresh();
     } catch (cause) {
@@ -65,12 +68,12 @@ export function AdminEshopListInline({ shop }: { shop: ManagedEshop }) {
   return <>
     <div className={styles.heading}>
       <h2>{saved.name}</h2>
-      <div className={styles.desktopOnly}>
+      <div className={styles.desktopOnly} data-editing={editing}>
         <AdminInlineRowActions editing={editing} busy={busy}
           onEdit={begin} onCancel={cancel} onSave={() => void save()} />
       </div>
     </div>
-    {editing && <div className={styles.desktopOnly}>
+    {editing && <div className={styles.desktopOnly} data-editing={editing}>
       <div className={styles.fields}>
         <label>
           <span>Názov e-shopu</span>

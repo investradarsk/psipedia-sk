@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
+import { AdminBulkActionToolbar } from "@/components/admin-interaction-system";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordId } from "./admin-record-id";
 import { AdminRecordTable } from "./admin-record-table";
@@ -104,8 +105,8 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
     <AdminInlineDraftGuard active={Boolean(inlineDraft)} stale={Boolean(inlineDraft && !activeInline)} busy={busy} onCancel={() => setInlineDraft(null)} />
     <nav className={`${styles.tabs} ${styles.adoptionTabs}`} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
     <form className={styles.filters} method="get" role="search" aria-label="Filtrovať adopcie" data-admin-list-filters data-admin-content-module="adoptions-list">
-      <input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
-      <button type="button" className={styles.advancedToggle} aria-controls="admin-adoption-advanced-filters"
+      <input data-admin-list-search name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
+      <button type="button" className={styles.advancedToggle} data-admin-list-toggle aria-controls="admin-adoption-advanced-filters"
         aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
         {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
       </button>
@@ -120,15 +121,11 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <button type="submit">Filtrovať</button>
     </form>
     {message && <p role="status">{message}</p>}
-    {selected.size > 0 && <div className={styles.gridSelection}>
-        <strong>Označené: {selected.size}</strong>
-        <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
-        <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
+    {selected.size > 0 && <AdminBulkActionToolbar selectedCount={selected.size} selectionDescription="Výber platí pre aktuálnu stranu." onClear={() => setSelected(new Set())} destructiveAction={<AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
           onFinished={ids => {
             setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
             router.refresh();
-          }} />
-    </div>}
+          }} />} />}
     <div className={styles.adoptionTableRegion}>
       <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií – tabuľka">
         {result.items.length ? <AdminRecordTable

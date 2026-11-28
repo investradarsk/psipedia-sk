@@ -95,6 +95,8 @@ export const articlePromoTopicRules: readonly TopicPromoRule[] = [
 
 export const articlePromoSubsectionCandidates = {
   "starostlivost/zdravie": ["veterinari", "fyzioterapia"],
+  "starostlivost/zdravotny-kalendar": ["veterinari"],
+  "starostlivost/kalkulacky": ["recenzie", "veterinari"],
   "starostlivost/vyziva": ["recenzie", "veterinari"],
   "starostlivost/vycvik": ["treneri", "kynologicke-kluby"],
   "starostlivost/spravanie": ["treneri", "veterinari"],
@@ -102,6 +104,7 @@ export const articlePromoSubsectionCandidates = {
   "starostlivost/senior": ["fyzioterapia", "veterinari"],
 
   "steniatka/pred-kupou-psa": ["plemena", "chovatelske-stanice"],
+  "steniatka/vybava": ["recenzie", "veterinari"],
   "steniatka/vyber-plemena": ["plemena", "chovatelske-kluby"],
   "steniatka/vyber-chovatela": ["chovatelske-stanice", "chovatelske-kluby"],
   "steniatka/prve-dni": ["veterinari", "treneri"],
