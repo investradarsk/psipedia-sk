@@ -1,3 +1,4 @@
+import { publicationV3Enabled } from "@/lib/publication-readiness-v3";
 import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
 import { profileWorkspace } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
@@ -38,7 +39,7 @@ async function LostFoundContent({ resultPromise, countsPromise, filters }: {
   return <>
     {counts === null && <p role="alert">Súhrnné počty hlásení sú dočasne nedostupné.</p>}
     {reviewedIds === null && <p role="alert">Stav redakčnej kontroly nie je dostupný; nie je označený ako neoverený.</p>}
-    <AdminLostFoundDashboard result={result} counts={counts} filters={filters} reviewedIds={reviewedIds} />
+    <AdminLostFoundDashboard bulkStatusEnabled={publicationV3Enabled()} result={result} counts={counts} filters={filters} reviewedIds={reviewedIds} />
   </>;
 }
 
