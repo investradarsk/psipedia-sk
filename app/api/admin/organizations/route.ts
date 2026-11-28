@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationAdminValidationError } from "@/lib/help-organization-admin-input";
 import {
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
   const user = auth.user;
   if (!expectsJson(request)) return Response.json({ error: "Očakáva sa JSON požiadavka." }, { status: 415 });
   try {
-    const item = await createOrganizationFromAdmin(await request.json(), user.email);
+    const payload=await request.json();
+    const duplicate=await adminProfileDuplicateResponse("organizations",payload);if(duplicate)return duplicate;
+    const item = await createOrganizationFromAdmin(payload, user.email);
     return Response.json({ item }, { status: 201 });
   } catch (error) {
     if (error instanceof OrganizationAdminValidationError) {
