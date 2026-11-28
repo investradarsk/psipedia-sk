@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { commitAdoptionV2AdminEdit } from "./notion-adoption-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
 import { readImageDisplayConfig } from "./image-display.ts";
@@ -319,6 +320,7 @@ export async function prepareAdoptionWritePayload(
     organizationName: organization.organizationId === null ? normalized.organizationName : organization.organizationName,
     organizationSlug: organization.organizationId === null ? normalized.organizationSlug : organization.organizationSlug,
   };
+  await assertProfilePublicationIdentity(database as unknown as D1Database,"adoptions",existing?.status,normalized.status,preparedBase,existing?.id);
   const searchText = buildAdoptionSearchText(preparedBase);
   const timestamp = now.toISOString();
   const publishedAt = (adoptionPublicStatuses as readonly AdoptionStatus[]).includes(normalized.status)
