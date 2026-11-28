@@ -34,9 +34,10 @@ async function compiledModule(path, services, globals = {}) {
 }
 
 const syncDependencies = {
+  "./notion-selective-property-patch": { sameNotionProperty: (a,b) => JSON.stringify(a)===JSON.stringify(b) },
   "./article-similarity-review.ts": { findSimilarArticles: async () => {throw Error("Unexpected similarity scan in publication reconciliation");}, strongArticleDuplicate: () => null },
   "./notion-discovery-cursor.ts": { rotateNotionDiscovery: async () => {throw Error("Unexpected discovery scan in publication reconciliation");}, mergeNotionDiscovery: (a,b) => [...a,...b] },
-  "./admin-record-lifecycle": { notionPageIsTombstoned: async () => false },
+  "./admin-record-lifecycle": { notionPageIsTombstoned: async () => false, notionPageMustSkipInboundSync: async () => false },
   "@/lib/article-effective-status": {
     effectiveArticleStatus(status, publishedAt, now = Date.now()) {
       if (status !== "scheduled" || !publishedAt) return status;
