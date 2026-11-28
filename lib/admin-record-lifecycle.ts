@@ -308,7 +308,7 @@ async function requireOwnedNotionPage(
   }
   return page;
 }
-function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
+function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>,canonicalStatus?:string) {
   // Work-copy breeds have no publication state in their 60+2 schema:
   // publication is D1-owned there; do not fabricate a Notion property.
   if (kind==="breeds" && !(page.properties as Record<string,unknown>|undefined)?.["Stav"])
@@ -317,8 +317,11 @@ function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
   if (!(page.properties as Record<string,unknown>|undefined)?.[name])
     throw Error("NOTION_PUBLICATION_PROPERTY_MISSING");
   // Articles must remain Ready so the existing approved Admin republish flow can succeed.
-  const value=kind==="help"?"draft":kind==="lost-found"?"DRAFT":
-    kind==="articles"?"Ready":kind==="breeds"?"Na kontrolu":"Koncept";
+  // Closed cases must not be represented as fresh drafts. These are the
+  // existing canonical source mappings; no new Notion option is invented.
+  const value=kind==="lost-found"?(canonicalStatus??"DRAFT"):
+    (kind==="adoptions"||kind==="organizations"||kind==="eshops")&&["ADOPTED","ARCHIVED","archived"].includes(canonicalStatus??"")?"Archív":
+    kind==="help"?"draft":kind==="articles"?"Ready":kind==="breeds"?"Na kontrolu":"Koncept";
   const property=(page.properties as Record<string,unknown>)[name] as {type?:string};
   const publicationField=property.type==="status"?{status:{name:value}}:{select:{name:value}};
   // Directory mirrors two distinct fields: Psipedia publication vs editorial
@@ -331,17 +334,19 @@ function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
   }
   return { [name]:publicationField };
 }
-async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,targets:NotionTarget[]) {
+async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,targets:NotionTarget[],canonicalStatus?:string,assertCurrent?:()=>Promise<void>) {
   if (!targets.length) return "UNLINKED" as const;
   let changed=0;
   for (const target of targets) {
     const page=await requireOwnedNotionPage(bindings,target,id,false);
-    const properties=notionDraftProperties(kind,page);
+    const properties=notionDraftProperties(kind,page,canonicalStatus);
     if (!properties) continue;
+    await assertCurrent?.();
     await notionRequest(bindings,"/pages/"+encodeURIComponent(target.pageId),{
       method:"PATCH",body:JSON.stringify({properties}),
     });
     const verified=await requireOwnedNotionPage(bindings,target,id,false);
+    await assertCurrent?.();
     for(const expected of Object.entries(properties)) {
     const p=(verified.properties as Record<string,unknown>|undefined)?.[expected[0]] as
       {select?:{name?:string};status?:{name?:string}}|undefined;
@@ -354,6 +359,60 @@ async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordK
   }
   return changed?"SYNCED" as const:"NOT_APPLICABLE" as const;
 }
+/** Retry only the remote side of a confirmed local lifecycle change.
+ * Existing minute sweep, existing guard table; no replay of canonical writes.
+ * The timestamp claim bounds retries and prevents stale acknowledgments. */
+export async function retryPendingPublicationGuards(db:D1Database,bindings:LifecycleBindings,now=new Date()){
+  const summary={attempted:0,synced:0,pending:0};
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!bindings.NOTION_API_TOKEN)return summary;
+  const cutoff=new Date(now.getTime()-5*60*1000).toISOString();
+  let rows;
+  try{
+    rows=await db.prepare("SELECT kind,record_id,updated_at FROM admin_record_publication_guards WHERE remote_state='PENDING' AND updated_at<=? ORDER BY updated_at LIMIT 2").bind(cutoff).all<{kind:string;record_id:number;updated_at:string}>();
+  }catch(error){
+    if(error instanceof Error&&/no such table: admin_record_publication_guards/i.test(error.message))return summary;
+    throw error;
+  }
+  for(const item of rows.results??[]){
+    if(!isRecordKind(item.kind)||!validateId(item.record_id))continue;
+    const kind=item.kind,id=item.record_id,claim=new Date().toISOString();
+    const lease=await db.prepare("UPDATE admin_record_publication_guards SET updated_at=? WHERE kind=? AND record_id=? AND remote_state='PENDING' AND updated_at=?").bind(claim,kind,id,item.updated_at).run();
+    if(lease.meta.changes!==1)continue;
+    summary.attempted++;
+    let state:"PENDING"|"SYNCED"|"UNLINKED"|"NOT_APPLICABLE"="PENDING",code:string|null=null;
+    try{
+      const row=await canonical(db,kind,id);
+      if(!row||await tombstone(db,kind,id))throw Error("NOTION_PUBLICATION_TARGET_UNAVAILABLE");
+      const status=clean(row.status);
+      const closed=kind==="lost-found"?["RESOLVED","EXPIRED","ARCHIVED","REJECTED","PENDING"].includes(status):
+        kind==="adoptions"?["ADOPTED","ARCHIVED"].includes(status):
+        kind==="organizations"?status==="ARCHIVED":kind==="eshops"?status==="archived":false;
+      if(status!==specs[kind].draft&&!closed)throw Error("NOTION_PUBLICATION_GUARD_STALE");
+      const targets=await mappedTargets(db,bindings,kind,id);
+      assertNotionTargetsConfigured(targets);
+      const assertCurrent=async()=>{
+        const current=await canonical(db,kind,id);
+        const receipt=await db.prepare("SELECT updated_at,remote_state FROM admin_record_publication_guards WHERE kind=? AND record_id=?").bind(kind,id).first<{updated_at:string;remote_state:string}>();
+        if(!current||clean(current.status)!==status||receipt?.updated_at!==claim||receipt.remote_state!=="PENDING"||await tombstone(db,kind,id))
+          throw Error("NOTION_PUBLICATION_GUARD_STALE");
+        const actual=await mappedTargets(db,bindings,kind,id);
+        const key=(list:NotionTarget[])=>JSON.stringify(list.map(target=>target.pageId+":"+target.sourceId).sort());
+        if(key(actual)!==key(targets))throw Error("NOTION_MAPPING_AMBIGUOUS");
+      };
+      await assertCurrent();
+      state=await mirrorDraft(db,bindings,kind,id,targets,status,assertCurrent);
+      await assertCurrent();
+    }catch(error){
+      state="PENDING";
+      code=error instanceof Error&&/^NOTION_[A-Z0-9_]+$/.test(error.message)?error.message:"NOTION_WRITEBACK_UNAVAILABLE";
+    }
+    const saved=await db.prepare("UPDATE admin_record_publication_guards SET remote_state=?,error_code=?,updated_at=? WHERE kind=? AND record_id=? AND updated_at=? AND remote_state='PENDING'").bind(state,code,new Date().toISOString(),kind,id,claim).run();
+    if(saved.meta.changes===1&&state!=="PENDING")summary.synced++;
+    else summary.pending++;
+  }
+  return summary;
+}
+
 /** D1 state and a persistent inbound guard are committed before any remote call. */
 export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number) {
   if(kind==="eshops"&&!await lifecycleSchemaReady(db,kind))throw Error("LIFECYCLE_ESHOPS_SCHEMA_REQUIRED");
