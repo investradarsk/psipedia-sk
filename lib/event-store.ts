@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
@@ -735,6 +736,7 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
   const existing = existingEvent ?? await getManagedEventById(id);
   if (!existing) return null;
   const input = normalizeManagedEventInput(payload);
+  await assertProfilePublicationIdentity(database,"events",existing.status,input.status,input,id);
   const contactValues = {
     contactPhone: payload.contactPhone === undefined ? existing.contactPhone ?? null : input.contactPhone,
     contactEmail: payload.contactEmail === undefined ? existing.contactEmail ?? null : input.contactEmail,
