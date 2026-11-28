@@ -24,12 +24,15 @@ const DATABASE="psipedia-sk-db", ID="8f7a0c3e-4d77-4a35-8192-a7bd57147950";
 const ACCOUNT="5ff902d3d80376478b9213b2b8ae8d6e";
 const OUTPUT=resolve(".production-d1-notion-v3"), CONFIG=resolve(OUTPUT,"wrangler.json");
 const MODE=process.argv[2];
+const SCRATCH_NAME="psipedia-notion-v3-rehearsal";
+const SCRATCH_ID=process.env.NOTION_V3_REHEARSAL_DATABASE_ID??"";
+const TARGET=MODE==="rehearse"?SCRATCH_NAME:DATABASE;
 const must=(condition,code)=>{if(!condition)throw Error("NOTION_V3_"+code);};
 const digest=value=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const literal=value=>"'"+String(value).replaceAll("'","''")+"'";
 const read=name=>readFileSync(resolve("drizzle",name),"utf8");
 const catalogSql="SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name";
-let receipt={mode:MODE,sourceCommit:process.env.GITHUB_SHA,database:DATABASE,migrations:FILES,phase:"START",applied:false};
+let receipt={mode:MODE,sourceCommit:process.env.GITHUB_SHA,database:TARGET,migrations:FILES,phase:"START",applied:false};
 
 function report(update){
   receipt={...receipt,...update};
@@ -39,12 +42,17 @@ function report(update){
   console.log(JSON.stringify({phase,applied,auditFingerprint,counts,processing,error}));
 }
 function authorize(){
-  must(["audit","apply"].includes(MODE),"MODE");
+  must(["audit","apply","rehearse"].includes(MODE),"MODE");
   must(process.env.GITHUB_EVENT_NAME==="workflow_dispatch","MANUAL_ONLY");
   must(process.env.GITHUB_REPOSITORY==="investradarsk/psipedia-sk","REPOSITORY");
   must(process.env.GITHUB_REF==="refs/heads/main"&&Boolean(process.env.GITHUB_SHA),"MAIN_ONLY");
   must(process.env.CLOUDFLARE_ACCOUNT_ID===ACCOUNT&&Boolean(process.env.CLOUDFLARE_API_TOKEN),"CREDENTIALS");
-  must(process.env.NOTION_V3_CONFIRMATION===(MODE==="audit"?"AUDIT":"APPLY")+"-0182-0185-psipedia-sk-db","CONFIRMATION");
+  const confirmation=MODE==="rehearse"?"REHEARSE-0182-0185-psipedia-notion-v3-rehearsal":
+    (MODE==="audit"?"AUDIT":"APPLY")+"-0182-0185-psipedia-sk-db";
+  must(process.env.NOTION_V3_CONFIRMATION===confirmation,"CONFIRMATION");
+  if(MODE==="rehearse"){
+    must(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(SCRATCH_ID)&&SCRATCH_ID.toLowerCase()!==ID,"SCRATCH_ID_REQUIRED");
+  }
   if(MODE==="apply"){
     must(/^[a-f0-9]{64}$/.test(process.env.NOTION_V3_AUDIT_FINGERPRINT??""),"AUDIT_RECEIPT_REQUIRED");
     must(process.env.NOTION_V3_WRITERS_PAUSED==="true","PAUSE_WRITERS_FIRST");
@@ -59,7 +67,7 @@ function prepare(){
   mkdirSync(OUTPUT,{recursive:true});
   writeFileSync(CONFIG,JSON.stringify({name:"psipedia-notion-v3-isolated",
     compatibility_date:"2026-11-28",
-    d1_databases:[{binding:"DB",database_name:DATABASE,database_id:ID}]}));
+    d1_databases:[{binding:"DB",database_name:TARGET,database_id:MODE==="rehearse"?SCRATCH_ID:ID}]}));
   return FILES.map(([name,sha])=>{
     const bytes=readFileSync(resolve("drizzle",name));
     const blob=createHash("sha1").update(Buffer.concat([Buffer.from("blob "+bytes.length+"\0"),bytes])).digest("hex");
@@ -67,11 +75,14 @@ function prepare(){
     return bytes.toString("utf8");
   }).join("\n");
 }
-function wrangler(args){
-  const child=spawnSync(process.platform==="win32"?"npx.cmd":"npx",["--no-install","wrangler",...args],{
+function wranglerRaw(args){
+  return spawnSync(process.platform==="win32"?"npx.cmd":"npx",["--no-install","wrangler",...args],{
     encoding:"utf8",maxBuffer:32*1024*1024,
     env:{...process.env,WRANGLER_SEND_METRICS:"false",NO_UPDATE_NOTIFIER:"1"},
   });
+}
+function wrangler(args){
+  const child=wranglerRaw(args);
   must(!child.error&&child.status===0,"WRANGLER_FAILED");
   const raw=(child.stdout??"").trim();
   try{return JSON.parse(raw)}catch{}
@@ -89,7 +100,7 @@ function pages(value){
 }
 function readRemote(sql){
   must((/^\s*SELECT\b/i.test(sql)||["PRAGMA quick_check","PRAGMA foreign_key_check"].includes(sql))&&!sql.includes(";"),"READ_ONLY");
-  const result=pages(wrangler(["d1","execute",DATABASE,"--remote","--config",CONFIG,"--command",sql,"--json"]));
+  const result=pages(wrangler(["d1","execute",TARGET,"--remote","--config",CONFIG,"--command",sql,"--json"]));
   must(result.every(x=>Array.isArray(x.results)),"MISSING_RESULTS");
   return result.flatMap(x=>x.results);
 }
@@ -199,9 +210,60 @@ function transactionGuard(s){
   conditions.push("EXISTS(SELECT 1 FROM d1_migrations WHERE id=163 AND name='0162_lost_found_short_description.sql')");
   return "SELECT CASE WHEN "+conditions.join("\n AND ")+" THEN 1 ELSE json_extract('V3_CONCURRENT_SCHEMA_OR_ROWS','$') END;\n";
 }
+function rehearse(bundle){
+  // Only a separate, explicitly named, empty D1 database is allowed.
+  const info=wrangler(["d1","info",TARGET,"--config",CONFIG,"--json"]);
+  const metadata=Array.isArray(info)?info[0]:info;
+  must(metadata?.name===SCRATCH_NAME&&String(metadata.uuid??metadata.id).toLowerCase()===SCRATCH_ID.toLowerCase(),"SCRATCH_IDENTITY");
+  must(readRemote("SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'").length===0,"SCRATCH_NOT_EMPTY");
+  const ratings=["energy","trainability","family","children","other_dogs","apartment","grooming","shedding","prey_drive"];
+  const base=DEPENDENCIES.slice(0,9).map(name=>"CREATE TABLE "+name+
+    "(id INTEGER PRIMARY KEY,slug TEXT,status TEXT,import_key TEXT,fci_number INTEGER,website_url TEXT,fci_group INTEGER NOT NULL DEFAULT 0,"+
+    ratings.map(r=>r+" INTEGER NOT NULL DEFAULT 0").join(",")+");").join("\n");
+  const scopeTables="CREATE TABLE notion_unified_scope_invalidation(agenda TEXT,entity_id TEXT,invalidated_at TEXT,PRIMARY KEY(agenda,entity_id));"+
+    "CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,baseline_version INTEGER,baseline_json TEXT,notion_json TEXT,psipedia_json TEXT,notion_edit_json TEXT,psipedia_edit_json TEXT,status TEXT,reason TEXT,version INTEGER,updated_at TEXT,recovery_after TEXT);"+
+    "CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT);";
+  const source=read("0181_notion_unified_scope_invalidation.sql");
+  const start=source.indexOf("CREATE TRIGGER IF NOT EXISTS unified_scope_breed_notion_workcopy_links_insert");
+  const end=source.indexOf("CREATE TRIGGER IF NOT EXISTS unified_scope_notion_agenda_sync_insert",start);
+  must(start>=0&&end>start,"SCOPE_TRIGGER_SOURCE");
+  const ledger=readdirSync("drizzle").filter(n=>/^\d{4}_.+\.sql$/.test(n)&&Number(n.slice(0,4))<=162).sort();
+  must(ledger.length===163,"FIXTURE_LEDGER");
+  const seed=[
+    "INSERT INTO managed_breeds(id,slug,status,fci_number) VALUES(1,'old-breed','draft',1);",
+    "INSERT INTO breed_notion_workcopy_links(breed_id,original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id,canonical_slug,fci_number,original_sync_receipt) VALUES(1,'original','work','os','ws','old-breed',1,'receipt');",
+    "INSERT INTO admin_record_tombstones(kind,record_id,record_slug,record_name,record_category,state,created_by,created_at,updated_at) VALUES('directory',10,'old','Name','cat','COMPLETE','actor','created','updated');",
+    "INSERT INTO admin_record_publication_guards VALUES('directory',10,'SYNCED',NULL,'t');",
+    "INSERT INTO notion_webhook_inbox(event_key,page_id,event_type,status,attempts,outcome) VALUES('old-event','old-page','page.properties_updated','DONE',2,'APPLIED');",
+    "CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL);",
+    "INSERT INTO d1_migrations(id,name) VALUES "+ledger.map((name,i)=>"("+(i+1)+","+literal(name)+")").join(",")+";",
+  ].join("\n");
+  const setup=[base,scopeTables,read("0159_breed_notion_workcopy_links.sql"),read("0164_admin_record_lifecycle.sql"),
+    read("0145_notion_webhook_inbox.sql"),source.slice(start,end),seed].join("\n");
+  const importArgs=file=>["d1","execute",TARGET,"--remote","--config",CONFIG,"--file",file,"--yes","--json"];
+  const makeFile=(name,sql)=>{const p=resolve(OUTPUT,name);writeFileSync(p,sql);return p;};
+  pages(wrangler(importArgs(makeFile("rehearsal-fixture.sql",setup))));
+  const before=state(bundle);
+  must(!before.installed&&TABLES.every(name=>before.counts[name]===1),"SCRATCH_FIXTURE_COUNTS");
+  const snapshot=()=>TABLES.map(name=>readRemote("SELECT * FROM "+name+" ORDER BY 1,2"));
+  const original=snapshot();
+  report({phase:"REHEARSAL_FIXTURE",counts:before.counts});
+  const guarded=transactionGuard(before)+bundle;
+  const failed=wranglerRaw(importArgs(makeFile("rehearsal-failure.sql",guarded+"\nSELECT json_extract('V3_ROLLBACK_PROBE','$');")));
+  must(!failed.error&&failed.status!==0&&/malformed JSON/i.test((failed.stderr??"")+"\n"+(failed.stdout??"")),"EXPECTED_SQL_FAILURE_NOT_PROVEN");
+  const restored=state(bundle);
+  must(!restored.installed&&restored.fingerprint===before.fingerprint&&same(snapshot(),original),"REMOTE_ROLLBACK_FAILED");
+  report({phase:"REHEARSAL_ROLLBACK",remoteRollback:"PASS"});
+  pages(wrangler(importArgs(makeFile("rehearsal-success.sql",guarded))));
+  const after=state(bundle);
+  must(after.installed&&same(after.ledger,before.ledger)&&same(snapshot(),original)&&after.counts[CURSOR]===0,"REMOTE_MIGRATION_PARITY");
+  report({phase:"REHEARSAL_PASS",remoteRollback:"PASS",remoteImport:"PASS",counts:after.counts,
+    scratchDatabaseId:SCRATCH_ID,productionActivation:false,applied:false});
+}
 function main(){
   authorize();
   const bundle=prepare();
+  if(MODE==="rehearse")return rehearse(bundle);
   const initial=state(bundle);
   report({phase:"AUDIT",installed:initial.installed,auditFingerprint:initial.fingerprint,
     counts:initial.counts,processing:initial.processing,fixtureRollback:"PASS",historicalLedger:"0162"});
@@ -218,7 +280,7 @@ function main(){
   report({phase:"RECOVERY_POINT",recoveryBookmark:bookmark,counts:fresh.counts,applied:null,
     isolatedD1Evidence:process.env.NOTION_V3_ISOLATED_D1_EVIDENCE});
   // One remote SQL file import. No separate DDL calls, no replay or ledger writes.
-  pages(wrangler(["d1","execute",DATABASE,"--remote","--config",CONFIG,"--file",file,"--yes","--json"]));
+  pages(wrangler(["d1","execute",TARGET,"--remote","--config",CONFIG,"--file",file,"--yes","--json"]));
   report({phase:"IMPORTED",applied:true});
   const after=state(bundle);
   must(after.installed&&same(after.ledger,fresh.ledger),"POSTFLIGHT_SCHEMA_OR_LEDGER");

@@ -10,11 +10,16 @@ on:
         default: audit
         options:
           - audit
+          - rehearse
           - apply
       confirmation:
-        description: AUDIT-0182-0185-psipedia-sk-db or APPLY-0182-0185-psipedia-sk-db
+        description: Exact AUDIT/APPLY confirmation or REHEARSE-0182-0185-psipedia-notion-v3-rehearsal
         type: string
         required: true
+      rehearsal_database_id:
+        description: UUID of a new empty D1 named psipedia-notion-v3-rehearsal (rehearse only)
+        type: string
+        required: false
       audit_fingerprint:
         description: Schema and ledger fingerprint from successful audit (apply only)
         type: string
@@ -43,6 +48,7 @@ jobs:
     env:
       NOTION_V3_MODE: ${{ inputs.mode }}
       NOTION_V3_CONFIRMATION: ${{ inputs.confirmation }}
+      NOTION_V3_REHEARSAL_DATABASE_ID: ${{ inputs.rehearsal_database_id }}
       NOTION_V3_AUDIT_FINGERPRINT: ${{ inputs.audit_fingerprint }}
       NOTION_V3_WRITERS_PAUSED: ${{ inputs.writers_paused }}
       NOTION_V3_ISOLATED_D1_EVIDENCE: ${{ inputs.isolated_d1_evidence }}
