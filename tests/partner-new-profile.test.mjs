@@ -651,7 +651,8 @@ test("HIGH duplicate requires explicit Partner confirmation and server rescans o
   assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\/adresar"\)/);
   assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
   assert.match(canonicalWorkflow,/scanPartnerNewProfileDuplicates/);
-  assert.match(canonicalWorkflow,/\},db,row\.canonicalId\)/);\n  assert.match(domain,/if\(row\.id===excludeCanonicalId\)continue;/);
+  assert.match(canonicalWorkflow,/\},db,row\.canonicalId\)/);
+  assert.match(domain,/if\(row\.id===excludeCanonicalId\)continue;/);
   assert.match(canonicalWorkflow,/confidence==="HIGH"&&input\.confirmDuplicate!==true/);
   assert.match(canonicalWorkflow,/DUPLICATE_CONFIRMATION_REQUIRED/);
   assert.match(canonicalApi,/confirmDuplicate:data\.confirmDuplicate===true/);
