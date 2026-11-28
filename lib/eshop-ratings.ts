@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { findProfileDuplicate } from "./profile-duplicate-review.ts";
 import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { commitEshopV2AdminEdit, type EshopV2Field } from "./notion-eshop-v2-contract.ts";
@@ -283,6 +284,7 @@ export async function updateManagedEshop(
   const focusTags = normalizeEshopFocusTags(input.focusTags);
   const status = input.status === "published" || input.status === "archived" ? input.status : "draft";
   const now = unifiedExpectedRevision===undefined?new Date().toISOString():nextHelpV2Revision(unifiedExpectedRevision);
+  await assertProfilePublicationIdentity(db,"eshops",current.status,status,{name,slug,websiteUrl},id);
   const publishedAt = status === "published" ? (current.publishedAt ?? now) : current.publishedAt;
 
   try {
