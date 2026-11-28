@@ -196,6 +196,8 @@ export type NotionDirectorySyncSummary = {
   pushedToNotion: number;
   unchanged: number;
   failed: number;
+  reviewRequired?: number;
+  duplicateCandidates?: number;
   /** Only present when an explicit Admin choice save requests Services V3 sync. */
   serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled" | "merged";
 };
@@ -4159,7 +4161,7 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error), "NOTION_TO_ADMIN");
         }
       }
-      continue;
+      if(mapped||input.bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text")continue;
     }
     let page = candidate;
     let release: (() => Promise<void>) | null = null;
@@ -4208,7 +4210,12 @@ export async function runNotionDirectorySyncSweep(input: {
           const identityRows=await input.database.prepare("SELECT id,name,category,status,city,website_url,public_phone AS phone,public_email AS email,NULL AS additional_categories_json FROM directory_profiles ORDER BY id LIMIT 5001").all<DirectoryAuditRow>();
           if(!identityRows.success||identityRows.results.length>5000)throw Error("DIRECTORY_DUPLICATE_SCAN_INCOMPLETE");
           const duplicate=findDirectoryInboundDuplicate({name:desired.name,category:desired.category,status:"draft",city:desired.city,website_url:desired.websiteUrl,phone:desired.publicPhone,email:desired.publicEmail,additional_categories_json:null},identityRows.results);
-          if(slugDuplicate||duplicate)throw Error("DIRECTORY_INBOUND_DUPLICATE_REVIEW");
+          if(slugDuplicate||duplicate){
+            summary.reviewRequired=(summary.reviewRequired??0)+1;
+            summary.duplicateCandidates=(summary.duplicateCandidates??0)+1;
+            await markPageError(input.bindings,fresh.id,Error("DIRECTORY_INBOUND_DUPLICATE_REVIEW"),fresh);
+            continue;
+          }
           page=fresh;
         }
         const creation = await createProfileFromNotion({
