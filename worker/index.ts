@@ -503,7 +503,7 @@ const worker = {
     // Independent waitUntil means Facebook publication cannot delay or cancel
     // one-record Notion imports. The hourly scan remains a safety net.
     if (controller.cron === "* * * * *") {
-      if(env.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      if((env as Env&{NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
         _ctx.waitUntil(retryPendingPublicationGuards(env.DB,env)
           .then(summary=>console.info(JSON.stringify({event:"notion_publication_guard_recovery",...summary})))
           .catch(()=>console.error(JSON.stringify({event:"notion_publication_guard_recovery",result:"failed"}))));
