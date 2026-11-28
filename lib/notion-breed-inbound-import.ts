@@ -1,3 +1,4 @@
+import { normalizeProfileIdentity } from "./directory-duplicate-audit.ts";
 import { prepareBreedMediaProofs, physicalBreedMediaValue } from "./notion-profile-owned-media.ts";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
 import { createNotionWorkOnlyBreedDraft, type ManagedBreedInput } from "./breed-store";
@@ -63,6 +64,10 @@ export async function importNewBreedWorkCopy(input:{
         "UNION ALL SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND (record_slug=? OR lower(trim(record_name))=lower(trim(?)) OR (? IS NOT NULL AND record_external_key=CAST(? AS TEXT))) LIMIT 1")
         .bind(draft.slug,draft.name,draft.fciNumber,draft.fciNumber,draft.slug,draft.name,draft.fciNumber,draft.fciNumber).first<{found:number}>();
       if(duplicate)return "review-required";
+      const names=await db.prepare("SELECT name FROM managed_breeds UNION ALL SELECT record_name AS name FROM admin_record_tombstones WHERE kind='breeds' LIMIT 5001").all<{name:string|null}>();
+      if(!names.success||names.results.length>5000)throw Error("BREED_DUPLICATE_SCAN_INCOMPLETE");
+      const normalizedName=normalizeProfileIdentity(draft.name);
+      if(normalizedName&&names.results.some(row=>normalizeProfileIdentity(row.name)===normalizedName))return "review-required";
       const media=await prepareBreedMediaProofs("image",draft.image??"","",bindings);
       const gallery=await prepareBreedMediaProofs("gallery",draft.gallery??[],[],bindings);
       const payload={...draft,image:physicalBreedMediaValue("image",draft.image??"",media),imageKey:media[0]?.key??null,
