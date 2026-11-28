@@ -1,3 +1,4 @@
+import { findProfileDuplicate } from "./profile-duplicate-review.ts";
 import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { commitEshopV2AdminEdit, type EshopV2Field } from "./notion-eshop-v2-contract.ts";
 import { nextHelpV2Revision } from "./notion-help-v2-admin-receipts.ts";
@@ -374,6 +375,10 @@ export async function createManagedEshop(
   const status = input.status === "published" || input.status === "archived" ? input.status : "draft";
   const now = new Date().toISOString();
   const publishedAt = status === "published" ? now : null;
+  if((env as unknown as {NOTION_PROFILE_AUTHORITY_MODE?:string}).NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+    const duplicate=await findProfileDuplicate(db,"eshops",{name,slug,website:websiteUrl});
+    if(duplicate)throw new EshopRatingError("Možná duplicita e-shopu #"+duplicate.id+". Najprv over existujúci profil.",409,"DUPLICATE_PROFILE_REVIEW");
+  }
 
   try {
     const row = await db.prepare(`
