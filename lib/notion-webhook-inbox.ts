@@ -45,10 +45,14 @@ export async function runNotionWebhookInboxSweep(input: {
   process: (event: NotionWebhookEvent) => Promise<NotionWebhookInboxResult>;
   now?: number; limit?: number;
 }) {
-  const now = Math.floor((input.now ?? Date.now()) / 1000);
+  // Refresh the clock per claim and per completion, not once for the batch.
+  // A slow preceding remote request must not shorten the next event's lease
+  // or make its retry eligible earlier than the intended backoff.
+  const clock = () => input.now ?? Date.now();
   const limit = Math.min(8, Math.max(1, input.limit ?? 5));
   const totals = { claimed: 0, done: 0, review: 0, retried: 0 };
   for (let i = 0; i < limit; i += 1) {
+    const now = Math.floor(clock() / 1000);
     // One atomic claim; a concurrent cron cannot claim the same row.
     const row = await input.database.prepare(
       "UPDATE notion_webhook_inbox SET status='PROCESSING', attempts=attempts+1, " +
@@ -83,12 +87,13 @@ export async function runNotionWebhookInboxSweep(input: {
       // Do not log provider bodies or Notion field values.
       outcome = "failed";
     }
+    const finishedAt = Math.floor(clock() / 1000);
     if (["processed", "ignored", "metadata-only", "out-of-scope"].includes(outcome)) {
       await input.database.prepare(
         "UPDATE notion_webhook_inbox SET status='DONE', outcome=?, " +
         "last_error_code=NULL, lease_until=NULL, updated_at=? " +
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
-      ).bind(outcome, now, row.event_key, row.attempts).run();
+      ).bind(outcome, finishedAt, row.event_key, row.attempts).run();
       totals.done += 1;
     } else if (outcome === "review-required" || row.attempts >= MAX_ATTEMPTS) {
       await input.database.prepare(
@@ -96,7 +101,7 @@ export async function runNotionWebhookInboxSweep(input: {
         "last_error_code=?, lease_until=NULL, updated_at=? " +
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
       ).bind(outcome, outcome === "failed" ? "DISPATCH_FAILED" : "NEEDS_REVIEW",
-        now, row.event_key, row.attempts).run();
+        finishedAt, row.event_key, row.attempts).run();
       totals.review += 1;
     } else {
       const delay = Math.min(3600, 30 * 2 ** Math.min(row.attempts, 7));
@@ -105,13 +110,13 @@ export async function runNotionWebhookInboxSweep(input: {
         "last_error_code=?, next_attempt_at=?, lease_until=NULL, updated_at=? " +
         "WHERE event_key=? AND status='PROCESSING' AND attempts=?",
       ).bind(outcome === "failed" ? "DISPATCH_FAILED" : "RECONCILIATION_DEFERRED",
-        now + delay, now, row.event_key, row.attempts).run();
+        finishedAt + delay, finishedAt, row.event_key, row.attempts).run();
       totals.retried += 1;
     }
   }
   // Never remove pending, processing or manual-review events.
   await input.database.prepare(
     "DELETE FROM notion_webhook_inbox WHERE status='DONE' AND updated_at<?",
-  ).bind(now - COMPLETED_RETENTION_SECONDS).run();
+  ).bind(Math.floor(clock() / 1000) - COMPLETED_RETENTION_SECONDS).run();
   return totals;
 }
