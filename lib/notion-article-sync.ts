@@ -1,3 +1,4 @@
+import { sameNotionProperty } from "./notion-selective-property-patch";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { effectiveArticleStatus } from "@/lib/article-effective-status";
 import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, articleSeoSignedChangedFields, type ArticleSeoRemoteValues, type ArticleNotionSeoKey } from "./notion-article-seo-properties";
@@ -40,6 +41,7 @@ import { isBreedArticlePlacementChange, isBreedArticleNotionChange, notionArticl
 import {
   buildNotionEditorialPlan,
   buildEditorialStructure, observeEditorialStructure, editorialInsertionIds,
+  articleFirstCopyBody, verifyArticleFirstCopyBody,
   notionEditorialBlockShape,
   notionEditorialPropertyText,
   type NotionEditorialPlan,
@@ -1454,6 +1456,7 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
     "SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1",
   ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
   const receipt = decodeArticleSeoReceipt(mapping.content_hash);
   const readPage = () => notionRequest<NotionPage>(
     bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
@@ -1641,6 +1644,7 @@ export async function writeBackPublishedArticleToNotion(args: {
     return { linked: false, updated: false, reason: "not-linked" as const };
   }
 
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
   const publicUrl = SITE_URL + articleHref({
     slug: args.article.slug,
     portalSection: args.article.portalSection,
@@ -1781,6 +1785,7 @@ export async function writeBackArticleSeoToNotion(args: {
     "SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1",
   ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
   const receipt = decodeArticleSeoReceipt(mapping.content_hash);
   const confirmedSeo = receipt.seo;
 
@@ -1992,6 +1997,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     staged?"SELECT notion_page_id, article_id, content_hash, last_synced_at FROM article_notion_sync WHERE article_id = ? LIMIT 1":"SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
   ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string;last_synced_at?:string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  if(mapping.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
 
   type Journal = {
     notion_page_id: string; article_id: number; article_updated_at: string;
@@ -2499,6 +2505,107 @@ function planStagedArticleManifest(before:ManagedArticle,after:ManagedArticle,re
   const original=candidates[0],raw=manifestCodeText(original);
   return {manifest:{id:original.id,original,before:raw,after:desired}};
 }
+/** The unique article mapping also provides a durable first-copy reservation.
+ * A first-copy: prefix is NOT a remote ID. An ambiguous POST is never replayed. */
+export async function ensureFirstArticleNotionCopy(args:{database:D1Database;bindings:NotionSyncBindings;article:ManagedArticle}):Promise<{linked:boolean;updated:boolean;reason?:string}>{
+  const {database:db,bindings,article}=args;
+  if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!flagEnabled(bindings.NOTION_ARTICLE_SYNC_ENABLED)||!flagEnabled(bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED))return {linked:false,updated:false,reason:"disabled"};
+  if(!articleEditorialWritebackEligible(bindings,article.status))return {linked:false,updated:false,reason:"not-editable"};
+  const sourceId=bindings.NOTION_ARTICLES_DATA_SOURCE_ID?.trim();
+  if(!sourceId)throw Error("NOTION_ARTICLE_SOURCE_MISSING");
+  const mapping=()=>db.prepare("SELECT notion_page_id,content_hash FROM article_notion_sync WHERE article_id=? LIMIT 1").bind(article.id).first<{notion_page_id:string;content_hash:string}>();
+  const pendingId="first-copy:"+article.id;
+  const existing=await mapping();
+  if(existing&&existing.notion_page_id!==pendingId)return {linked:true,updated:false,reason:"already-linked"};
+  const eligible=()=>db.prepare("SELECT updated_at FROM managed_articles a WHERE id=? AND updated_at=? AND status=? AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=a.id)").bind(article.id,article.updatedAt,article.status).first<{updated_at:string}>();
+  if(!await eligible())throw Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+  if(!article.title.trim()||article.intro.trim().length<20||article.excerpt.trim().length<20||!(article.blocks??[]).length)throw Error("NOTION_ARTICLE_FIRST_COPY_INCOMPLETE");
+  const placement=notionArticleBreedPlacement({...article,portalSubpage:article.portalSection==="novinky"?article.newsCategory:article.portalSubpage});
+  if(!placement)throw Error("NOTION_ARTICLE_CATEGORY_DESTINATION_UNSUPPORTED");
+  const source=await notionRequest<{properties?:Record<string,{type?:string;select?:{options?:{name:string}[]}}> }>(bindings,"/data_sources/"+encodeURIComponent(sourceId));
+  const props:Record<string,unknown>={};
+  function property(name:string,type:string,value:unknown){
+    const schema=source.properties?.[name];
+    if(schema?.type!==type)throw Error("NOTION_ARTICLE_FIRST_COPY_SCHEMA_MISMATCH");
+    if(type==="select"&&typeof value==="string"&&!schema.select?.options?.some(option=>option.name===value))throw Error("NOTION_ARTICLE_FIRST_COPY_SELECT_MISMATCH");
+    if(type==="rich_text"||type==="title"){
+      if(typeof value!=="string")throw Error("NOTION_ARTICLE_FIRST_COPY_PROPERTY_INVALID");
+      const chars=Array.from(value),items=[];for(let i=0;i<chars.length;i+=900)items.push({type:"text",text:{content:chars.slice(i,i+900).join("")}});
+      if(items.length>=25)throw Error("NOTION_ARTICLE_FIRST_COPY_PROPERTY_LIMIT");
+      props[name]={[type]:items};
+    }else props[name]={[type]:type==="select"?(value?{name:value}:null):type==="date"?(value?{start:value}:null):value};
+  }
+  const absolute=(value:string|null|undefined)=>value?value.startsWith("/")?SITE_URL+value:value:null;
+  property("Názov","title",article.title);property("Slug","rich_text",article.slug);
+  property("Psipedia ID","rich_text",String(article.id));property("Perex","rich_text",article.excerpt);
+  property("Kategória","select",placement.category);property("Podsekcia","select",placement.subsection);
+  if(source.properties?.["Sekcia portálu"])property("Sekcia portálu","select",placement.portalSection);
+  const type=article.portalSection==="novinky"?"Aktuálna novinka":article.portalSection==="recenzie"?"Recenzia":null;
+  if(source.properties?.["Typ obsahu"])property("Typ obsahu","select",type);
+  const publicNow=effectiveArticleStatus(article.status,article.publishedAt)==="published";
+  property("Stav","select",publicNow?"Publikované":"Ready");property("Odoslať na Psipedia","checkbox",true);
+  property("Hlavný obrázok URL","url",absolute(article.image));
+  property("Alt text obrázka","rich_text",article.imageAlt??"");property("Zdroj obrázka","url",article.imageCreditUrl??null);
+  property("Kredit fotografie","rich_text",article.imageCredit??"");property("Popis na sociálne siete","rich_text",article.socialCaption??"");
+  const seo=article.seo;
+  const values:Record<ArticleNotionSeoKey,string|boolean|null>={seoTitle:seo?.title??"",metaDescription:seo?.description??"",focusKeyword:seo?.focusKeyword??"",canonicalUrl:seo?.canonicalUrl||null,noindex:seo?.noindex??false,ogTitle:seo?.ogTitle??"",ogDescription:seo?.ogDescription??"",ogImageUrl:absolute(seo?.ogImage)};
+  for(const [key,definition] of Object.entries(SEO))property(definition.name,definition.type,values[key as ArticleNotionSeoKey]);
+  const relations=await articleBreedWorkcopyPageIds(db,bindings,article.relatedBreedIds??[]);
+  if(relations.length>=25)throw Error("NOTION_ARTICLE_FIRST_COPY_RELATION_LIMIT");
+  property("Prepojené plemená","relation",relations.map(id=>({id})));
+  if(publicNow){
+    if(!article.publishedAt||!Number.isFinite(Date.parse(article.publishedAt)))throw Error("NOTION_ARTICLE_FIRST_COPY_PUBLICATION_DATE");
+    property("Dátum publikácie","date",article.publishedAt);property("URL Psipedia","url",SITE_URL+articleHref(article));
+  }
+  property("Sync stav","select","Chyba");property("Sync chyba","rich_text","ARTICLE_FIRST_COPY_PENDING");
+  const body=articleFirstCopyBody(stagedNativeArticleProjection({...article,blocks:article.blocks??[],seoTitle:seo?.title??"",metaDescription:seo?.description??"",focusKeyword:seo?.focusKeyword??""}),SITE_URL);
+  const manifest=manifestLayout(article.blocks??[]);
+  if(manifest.length>100)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");
+  const manifestText=JSON.stringify(manifest);
+  const heading=(value:string)=>({object:"block",type:"heading_2",heading_2:{rich_text:[{type:"text",text:{content:value}}]}});
+  const children=[heading("Obsah článku"),...body.map(item=>item.payload),...(manifest.length?[heading("Psipedia bloky"),{object:"block",type:"code",code:{language:"json",rich_text:manifestRichText(manifestText)}}]:[])];
+  if(children.length>100)throw Error("NOTION_ARTICLE_FIRST_COPY_BLOCK_LIMIT");
+  const query=async()=>{
+    const result=await notionRequest<NotionQueryResponse>(bindings,"/data_sources/"+encodeURIComponent(sourceId)+"/query",{method:"POST",body:JSON.stringify({filter:{or:[{property:"Psipedia ID",rich_text:{equals:String(article.id)}},{property:"Slug",rich_text:{equals:article.slug}}]},page_size:3})});
+    if(!Array.isArray(result.results)||result.has_more||result.results.length>1)throw Error("NOTION_ARTICLE_FIRST_COPY_AMBIGUOUS");
+    return result.results[0];
+  };
+  const initial=await query();
+  const intent="FIRST_COPY_PENDING:"+await sha256(JSON.stringify({revision:article.updatedAt,props,children}));
+  if(existing&&existing.content_hash!==intent)throw Error("NOTION_ARTICLE_FIRST_COPY_REVISION_CHANGED");
+  if(!existing){
+    const now=new Date().toISOString();
+    const reserved=await db.prepare("INSERT INTO article_notion_sync(notion_page_id,article_id,content_hash,last_synced_at,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM managed_articles a WHERE id=? AND updated_at=? AND status=? AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=a.id)) ON CONFLICT DO NOTHING").bind(pendingId,article.id,intent,"1970-01-01T00:00:00.000Z",now,now,article.id,article.updatedAt,article.status).run();
+    if(reserved.meta?.changes!==1)throw Error("NOTION_ARTICLE_FIRST_COPY_BUSY");
+  }
+  if(!await eligible()||(await mapping())?.content_hash!==intent)throw Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+  let remote=await query();
+  if(!remote){
+    if(existing||initial)throw Error("NOTION_ARTICLE_FIRST_COPY_UNCERTAIN");
+    remote=await notionSharedRequest<NotionPage>(bindings,"/pages",{method:"POST",body:JSON.stringify({parent:{type:"data_source_id",data_source_id:sourceId},properties:props,children})},{retryTransient:false});
+  }
+  if(!remote?.id)throw Error("NOTION_ARTICLE_FIRST_COPY_UNCERTAIN");
+  const verified=await notionRequest<NotionPage>(bindings,"/pages/"+encodeURIComponent(remote.id));
+  if(verified.id!==remote.id||verified.archived||verified.in_trash||!stagedArticlePageOwned(bindings,verified))throw Error("NOTION_ARTICLE_FIRST_COPY_IDENTITY");
+  for(const [name,value] of Object.entries(props)){
+    const raw=propertyRecord(verified,name),type=Object.keys(value as Record<string,unknown>)[0];
+    if(!raw||raw.type!==type||!Object.hasOwn(raw,type)||!sameNotionProperty(raw,value))throw Error("NOTION_ARTICLE_FIRST_COPY_PROPERTY_CONFLICT");
+  }
+  const blocks=await getPageBlocks(bindings,verified.id);
+  if(blocks.length!==children.length||blocks[0]?.type!=="heading_2"||blockText(blocks[0])!=="Obsah článku")throw Error("NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT");
+  verifyArticleFirstCopyBody(body,blocks.slice(1,1+body.length));
+  if(manifest.length&&(blocks.at(-2)?.type!=="heading_2"||blockText(blocks.at(-2)!)!=="Psipedia bloky"||manifestCodeText(blocks.at(-1)!)!==manifestText))throw Error("NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT");
+  const imported=notionPageToManagedArticleInput(verified,blocks,article);
+  if(imported.category!==article.category||imported.portalSection!==article.portalSection||(imported.portalSubpage??null)!==(article.portalSubpage??null)||(imported.newsCategory??null)!==(article.newsCategory??null)||JSON.stringify(manifestLayout(imported.blocks??[]))!==manifestText)throw Error("NOTION_ARTICLE_FIRST_COPY_ROUNDTRIP_CONFLICT");
+  const hash=await notionArticlePageContentHash(verified,blocks,article,null);
+  if(!await eligible())throw Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+  const now=new Date().toISOString();
+  const saved=await db.prepare("UPDATE article_notion_sync SET notion_page_id=?,content_hash=?,notion_last_edited_time=?,last_synced_at=?,updated_at=? WHERE article_id=? AND notion_page_id=? AND content_hash=? AND EXISTS(SELECT 1 FROM managed_articles a WHERE id=? AND updated_at=? AND status=? AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=a.id))").bind(verified.id,encodeArticleSeoReceipt(hash,verified),verified.last_edited_time??null,now,now,article.id,pendingId,intent,article.id,article.updatedAt,article.status).run();
+  if(saved.meta?.changes!==1)throw Error("NOTION_ARTICLE_FIRST_COPY_MAPPING_CONFLICT");
+  await updateNotionSyncState(bindings,verified.id,{state:"Synchronizované",articleId:article.id,syncedAt:now});
+  return {linked:true,updated:true};
+}
+
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -2752,6 +2859,7 @@ async function syncOneNotionPage(
   }
   const staged=bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text";
   if(staged&&!stagedArticlePageOwned(bindings,page))throw Error("NOTION_ARTICLE_TARGET_UNSAFE");
+  if(staged){const pending=await database.prepare("SELECT article_id FROM article_notion_sync m JOIN managed_articles a ON a.id=m.article_id WHERE m.notion_page_id LIKE 'first-copy:%' AND (CAST(m.article_id AS TEXT)=? OR a.slug=?) LIMIT 1").bind(richTextProperty(page,"Psipedia ID"),richTextProperty(page,"Slug")).first();if(pending)throw Error("NOTION_EDITORIAL_WRITEBACK_PENDING");}
   const mapping = await loadMapping(database, page.id);
   const signedFields = articleSignedNotionFields(page, changedPropertyIds, eventType);
   const legacyUnapprovedReady = selectProperty(page, "Stav") === "Ready"

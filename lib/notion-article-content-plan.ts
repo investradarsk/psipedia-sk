@@ -185,6 +185,15 @@ function targetBlocks(article: EditorialArticle, siteUrl: string) {
   }
   return all;
 }
+/** First copy uses the same native block serializer and verification. */
+export function articleFirstCopyBody(article:EditorialArticle,siteUrl:string){
+  const desired=targetBlocks(article,siteUrl);
+  if(desired.length>95)fail("NOTION_ARTICLE_FIRST_COPY_BLOCK_LIMIT");
+  return desired.map(value=>({shape:JSON.stringify(value),payload:structuralPayload(value)}));
+}
+export function verifyArticleFirstCopyBody(expected:ReturnType<typeof articleFirstCopyBody>,actual:RemoteArticleBlock[]){
+  if(expected.length!==actual.length||new Set(actual.map(block=>block.id)).size!==actual.length||actual.some((block,index)=>structuralShape(block)!==expected[index].shape))fail("NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT");
+}
 /** Structural fingerprints include the entire block payload and child rows,
  * excluding volatile top-level provider metadata. */
 function structuralFingerprint(block:RemoteArticleBlock):string{

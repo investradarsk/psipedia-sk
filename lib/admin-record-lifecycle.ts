@@ -202,6 +202,7 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
     const row=await db.prepare("SELECT notion_page_id FROM "+map.table+" WHERE "+map.entity+"=? LIMIT 1")
       .bind(id).first<{notion_page_id:string}>();
     if (!row?.notion_page_id) return [];
+    if(kind==="articles"&&row.notion_page_id.startsWith("first-copy:"))throw Error("NOTION_ARTICLE_FIRST_COPY_PENDING");
     const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:kind==="eshops"?bindings.NOTION_ESHOPS_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
     return [{pageId:row.notion_page_id,sourceId:clean(source)}];
   }
@@ -1304,6 +1305,10 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
 ) END")]);
         if(result.some(item=>!item.success)||result[1]?.meta.changes!==1)throw Error("RECORD_SYNC_SCOPE_CHANGED");
         hideResult=result[2];
+      }else if(kind==="articles"&&bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+        const expectedPage=targets[0]?.pageId??null;
+        const guard=db.prepare("SELECT CASE WHEN (SELECT notion_page_id FROM article_notion_sync WHERE article_id=?) IS ? THEN 1 ELSE json_extract('ARTICLE_MAPPING_CHANGED','$') END").bind(id,expectedPage);
+        const result=await db.batch([guard,insert,hide]);hideResult=result[2];
       }else{
         const [,legacyHideResult]=await db.batch([insert,hide]);
         hideResult=legacyHideResult;

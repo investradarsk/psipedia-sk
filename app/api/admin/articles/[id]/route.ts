@@ -22,6 +22,7 @@ import {
   writeBackArticleBreedCategoryToNotion,
   writeBackDraftArticleContentToNotion,
   articleEditorialWritebackEligible,
+  ensureFirstArticleNotionCopy,
   writeBackArticleSeoToNotion,
   type NotionSyncBindings,
 } from "@/lib/notion-article-sync";
@@ -245,9 +246,10 @@ export async function PUT(request: Request, { params }: RouteProps) {
         notionEditorialWriteback = { status: "blocked", code };
         console.error(event, { articleId: article.id, code });
       };
+      if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&contentFollowup){try{const first=await ensureFirstArticleNotionCopy({database:bindings.DB,bindings,article});if(first.updated)report("draft",first);}catch(error){reportError("draft",error,"notion_article_first_copy_failed");}}
       // Category/section moves to/from Plemená must be mirrored before the SEO
       // and draft editorial writers use the acknowledged Notion receipt.
-      if (isBreedArticleNotionChange(before, article)) {
+      if (!notionSteps.draft && isBreedArticleNotionChange(before, article)) {
         try {
           report("placement", await writeBackArticleBreedCategoryToNotion({
             database: bindings.DB, bindings, before, article,
@@ -259,7 +261,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       // Only changed SEO properties are sent, for BOTH drafts and published
       // articles. They run before draft body writeback so its Notion hash
       // baseline reflects already-acknowledged SEO changes.
-      if (notionEditorialWriteback?.status !== "blocked" &&
+      if (!notionSteps.draft && notionEditorialWriteback?.status !== "blocked" &&
           articleSeoChangedFields(before, article).length > 0) {
         try {
           report("seo", await writeBackArticleSeoToNotion({
@@ -269,7 +271,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
           reportError("seo", error, "notion_article_seo_writeback_failed");
         }
       }
-      if (contentFollowup &&
+      if (!notionSteps.draft && contentFollowup &&
           notionEditorialWriteback?.status !== "partial" &&
           notionEditorialWriteback?.status !== "blocked") {
         try {
@@ -387,7 +389,8 @@ export async function PATCH(request: Request, { params }: RouteProps) {
             if (!articleEditorialWritebackEligible(bindings,article.status)) {
               return Response.json({ error: "Článok nie je v stave umožňujúcom prenos obsahu." }, { status: 409 });
             }
-            receipt = notionStepReceipt(await writeBackDraftArticleContentToNotion({
+            const first=await ensureFirstArticleNotionCopy({database:bindings.DB,bindings,article});
+            receipt = notionStepReceipt(first.updated?first:await writeBackDraftArticleContentToNotion({
               database: bindings.DB, bindings, article,
               before:before as typeof article|undefined,
               previousExcerpt: before?.id === article.id && before.slug === article.slug &&

@@ -16,7 +16,7 @@ const seoUrl = asUrl(await compile("../lib/notion-article-seo-properties.ts"));
 const contentPlanSource = (await compile("../lib/notion-article-content-plan.ts"))
   .replace('from "./notion-article-seo-properties"', 'from "' + seoUrl + '"');
 const {
-  buildNotionEditorialPlan, EditorialSyncConflict, buildEditorialStructure, observeEditorialStructure, editorialInsertionIds,
+  buildNotionEditorialPlan, EditorialSyncConflict, buildEditorialStructure, observeEditorialStructure, editorialInsertionIds, articleFirstCopyBody, verifyArticleFirstCopyBody,
   notionEditorialBlockShape, notionEditorialPropertyText,
 } = await import(asUrl(contentPlanSource));
 
@@ -335,4 +335,11 @@ test("structural delete and reorder preserve unrelated notes and reject unknown 
   assert.equal(deletion.insert.length,0);assert.deepEqual(deletion.remove.map(b=>b.id),["p"]);
   deletion.deleteStartedIds=["p"];
   assert.equal(observeEditorialStructure(deletion,[body[0],body[1],note]).complete,true);
+});
+
+test("first-copy native serialization uses the same exact readback shapes",()=>{
+  const expected=articleFirstCopyBody(article(),"https://psipedia.sk");
+  assert.equal(expected.length,originalBlocks().length);
+  verifyArticleFirstCopyBody(expected,originalBlocks());
+  assert.throws(()=>verifyArticleFirstCopyBody(expected,originalBlocks().slice(1)),/NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT/);
 });
