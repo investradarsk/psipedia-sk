@@ -32,6 +32,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       service_address_confirmation TEXT,
       source_data_json TEXT
     );
+    CREATE TABLE directory_profile_service_texts (profile_id INTEGER NOT NULL, item_order INTEGER NOT NULL, service_text TEXT NOT NULL);
+    CREATE TABLE directory_profile_qualifications (profile_id INTEGER NOT NULL, item_order INTEGER NOT NULL, qualification_text TEXT NOT NULL);
     CREATE TABLE directory_profile_quality_resolutions (
       profile_id INTEGER NOT NULL,
       quality_field TEXT NOT NULL,

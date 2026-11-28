@@ -58,8 +58,8 @@ test("past-due scheduled articles import editorial changes only through verified
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"[\s\S]*?!dueScheduledPublishedMapping/);
   assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\|\|stagedScheduled\)/);
   assert.match(syncSource, /status: existing\.status,[\s\S]*?publishedAt: existing\.publishedAt/);
-  assert.match(syncSource, /status: dueScheduledPublishedMapping \? "scheduled" : undefined/);
-  assert.match(syncSource, /allowPastDueScheduledContentEdit: dueScheduledPublishedMapping/);
+  assert.match(syncSource, /status: existing\.status==="scheduled" \? "scheduled" : undefined/);
+  assert.match(syncSource, /allowPastDueScheduledContentEdit: existing\.status==="scheduled"&&effectiveArticleStatus\(existing\.status,existing\.publishedAt\)==="published"/);
   assert.match(articleStoreSource, /schedulingPrecondition\?\.allowPastDueScheduledContentEdit === true/);
   assert.match(articleStoreSource, /schedulingPrecondition\.status === "scheduled"/);
   assert.match(articleStoreSource, /existing\.status === "scheduled"/);

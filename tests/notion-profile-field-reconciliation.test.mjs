@@ -1756,7 +1756,7 @@ test("first-create uses a durable fence, verifies the exact copy, and never retr
   const {sameNotionProperty}=await import("../lib/notion-selective-property-patch.ts");
   const {notionPageBelongsToDataSource}=await import("../lib/notion-sync-page-ownership.ts");
   const code=await readFile(new URL("../lib/notion-profile-first-create.ts",import.meta.url),"utf8");
-  const section=code.slice(code.indexOf("type Page=")).replaceAll("export async function ","async function ");
+  const section=code.slice(code.indexOf("type Page=")).replaceAll("export async function ","async function ").replaceAll("export const ","const ");
   const js=ts.transpileModule(section,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const sourceId="76d9ccde-5816-422c-bcfe-863ab69db080";
   const pageId="11111111-1111-4111-8111-111111111111";

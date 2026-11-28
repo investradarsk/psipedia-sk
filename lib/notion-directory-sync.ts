@@ -2426,7 +2426,7 @@ async function syncBreederEvent(input: {
     const facetFields = isDirectoryFieldEventCategory(input.profile.category) || staged
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => {const category=getDirectoryFilterDefinition(id)?.category;
-            return category===input.profile.category||(staged&&!!category&&input.profile.additionalCategories?.includes(category));})
+            return category===input.profile.category||(staged&&!!category&&input.profile.additionalCategories?.some(value=>value===category));})
       : [];
     const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
     const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category) || staged
@@ -3015,7 +3015,7 @@ async function observeUnifiedDirectoryCategories(
     throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
   const slugs=raw.map(option=>directoryCategories.find(c=>c.slug===(option as {name?:unknown}).name||c.label===(option as {name?:unknown}).name)!.slug);
   if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"&&
-    (cell?.type!=="multi_select"||cell.has_more===true||raw.length>=25||new Set(slugs).size!==slugs.length||slugs.includes(profile.category)))
+    (cell?.type!=="multi_select"||cell.has_more===true||raw.length>=25||new Set(slugs).size!==slugs.length||slugs.some(slug=>slug===profile.category)))
     throw Error("DIRECTORY_CATEGORIES_PROPERTY_INVALID");
   const current = await getManagedDirectoryProfileById(profileId, database);
   if (!current || current.updatedAt !== profile.updatedAt ||
