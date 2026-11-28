@@ -1,5 +1,6 @@
 import { assertProfilePublicationIdentity, assertBulkPublicationIdentities, publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
+import { EVENT_SUBSCRIPTION_LIMIT, eventSubscriptionWindow, type EventSubscriptionFilters, type EventSubscriptionRow } from "@/lib/event-subscription";
 import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
 import { eventListingSql, EVENT_PAGE_SIZE, type EventListingFilters } from './event-listing';
@@ -376,6 +377,20 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     cancelled: Boolean(payload.cancelled),
     seo: cleanEditableSeo(payload.seo),
   };
+}
+
+/** One bounded, public-only feed query. Missing DB or overflow must fail rather
+ * than silently publish an empty or truncated subscription. */
+export async function getEventSubscriptionRows(filters: EventSubscriptionFilters, today = bratislavaDateKey()): Promise<EventSubscriptionRow[]> {
+  const database = requireD1Binding();
+  const { from, to } = eventSubscriptionWindow(today);
+  const where = ["status = 'published'", "start_date <> ''", "start_date <= ?", "COALESCE(NULLIF(end_date,''),start_date) >= ?"];
+  const values: (string|number)[] = [to,from];
+  if(filters.region) {where.push("region = ?");values.push(filters.region);}
+  if(filters.type !== "Všetky") {where.push("event_type = ?");values.push(filters.type);}
+  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,end_time,venue,city,region,cancelled,updated_at FROM managed_events WHERE ${where.join(" AND ")} ORDER BY start_date ASC,id ASC LIMIT ?`).bind(...values,EVENT_SUBSCRIPTION_LIMIT+1).all<EventSubscriptionRow>();
+  if(result.results.length > EVENT_SUBSCRIPTION_LIMIT) throw new Error("EVENT_SUBSCRIPTION_LIMIT_EXCEEDED");
+  return result.results;
 }
 
 /** Complete public count and bounded page; no legacy 250-row preselection. */
