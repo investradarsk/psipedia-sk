@@ -3261,7 +3261,8 @@ export async function runNotionArticleSyncSweep(args: {
       const message = error instanceof Error ? error.message : String(error);
       if(message.startsWith("ARTICLE_DUPLICATE_REVIEW_REQUIRED:")){
         summary.reviewRequired=(summary.reviewRequired??0)+1;
-        await updateNotionSyncState(args.bindings,page.id,{state:"Chyba",error:message}).catch(()=>undefined);
+        if(selectProperty(page,"Sync stav")!=="Chyba"||richTextProperty(page,"Sync chyba")!==message)
+          await updateNotionSyncState(args.bindings,page.id,{state:"Chyba",error:message}).catch(()=>undefined);
         continue;
       }
       summary.failed += 1;
