@@ -1,3 +1,4 @@
+import { assertPartnerPublicationReady } from "./publication-readiness-v3.ts";
 import { readProfileDuplicateById, type ProfileDuplicateAgenda } from "./profile-duplicate-review.ts";
 /**
  * Partneri V2: one canonical D1 draft row, one moderation workflow row.
@@ -579,6 +580,9 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
   const outcome=input.action==="APPROVE"?"APPROVED":input.action==="RETURN"?"RETURNED":"REJECTED";
   const extras:D1PreparedStatement[]=[];
   if(input.action==="APPROVE"){
+    const agenda=row.resourceType==="DIRECTORY_PROFILE"?"directory":row.resourceType==="HELP_ORGANIZATION"?"organizations":row.resourceType==="MANAGED_EVENT"?"events":row.resourceType==="ADOPTION_DOG"?"adoptions":row.resourceType==="LOST_FOUND_DOG"?"lost-found":"help-cases";
+    try{await assertPartnerPublicationReady(db,agenda,row.canonicalId,input.now??new Date());}
+    catch(error){throw new PartnerCanonicalWorkflowError(error instanceof Error?error.message:"Kontrolu publikovania sa nepodarilo dokončiť.",409,"PUBLICATION_REVIEW_REQUIRED");}
     // All R2 media remain private until this Admin decision. Safe public copies
     // are made first; canonical URL attachment + asset state is atomic in D1.
     const mediaStatements=await prepareCanonicalDraftMediaApproval({
