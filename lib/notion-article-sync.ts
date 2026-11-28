@@ -1,3 +1,4 @@
+import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { sameNotionProperty } from "./notion-selective-property-patch";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { effectiveArticleStatus } from "@/lib/article-effective-status";
@@ -3219,6 +3220,26 @@ export async function runNotionArticleSyncSweep(args: {
     pages = [page];
   } else {
     pages = await listReadyNotionPages(args.bindings);
+    if(args.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      try{
+        const older=await rotateNotionDiscovery<NotionPage>({
+          database:args.database,bindings:args.bindings,agenda:"articles",
+          sourceId:args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID!,limit:20,
+          filter:{or:[
+            {and:[{property:"Stav",select:{equals:"Ready"}},
+              {property:"Odoslať na Psipedia",checkbox:{equals:true}}]},
+            {property:"Stav",select:{equals:"Publikované"}},
+            {property:"Stav",select:{equals:"Na kontrolu"}},
+          ]},
+        });
+        // Visit older candidates first so the existing 20-write cap cannot
+        // indefinitely starve them. The editorial approval gate is unchanged.
+        pages=mergeNotionDiscovery(older,pages);
+      }catch{
+        summary.failed++;
+        console.warn("NOTION_DISCOVERY_ROTATION_FAILED",{agenda:"articles"});
+      }
+    }
   }
   for (const page of pages) {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
