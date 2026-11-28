@@ -1,3 +1,4 @@
+import { publicationV3Enabled } from "@/lib/publication-readiness-v3";
 import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
 import { profileWorkspace } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
@@ -27,7 +28,7 @@ async function AdoptionContent({ promise, filters }: {
   const reviewedIds = await listReviewedAdminEntityIds("ADOPTION", result.items.map((item) => item.id)).catch(() => null);
   return <>
     {reviewedIds === null && <p role="alert">Stav redakčnej kontroly sa nepodarilo načítať. Označenia zostávajú nedostupné.</p>}
-    <AdminAdoptionDashboard result={result} filters={filters} reviewedIds={reviewedIds} />
+    <AdminAdoptionDashboard bulkStatusEnabled={publicationV3Enabled()} result={result} filters={filters} reviewedIds={reviewedIds} />
   </>;
 }
 
