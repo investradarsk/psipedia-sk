@@ -159,7 +159,7 @@ test("unsupported Notion children/marks and unsafe Admin blocks never disappear"
   a.blocks[1] = { id: "g", type: "gallery", images: [] };
   assert.throws(() => build(a), /UNSUPPORTED_ADMIN_BLOCK_GALLERY/);
   const underlined = originalBlocks();
-  underlined[2].paragraph.rich_text[0].annotations.underline = true;
+  underlined[2].paragraph.rich_text[0].annotations.strikethrough = true;
   assert.throws(() => build(article(), underlined), /UNSUPPORTED_NOTION_MARK/);
 });
 
@@ -342,4 +342,11 @@ test("first-copy native serialization uses the same exact readback shapes",()=>{
   assert.equal(expected.length,originalBlocks().length);
   verifyArticleFirstCopyBody(expected,originalBlocks());
   assert.throws(()=>verifyArticleFirstCopyBody(expected,originalBlocks().slice(1)),/NOTION_ARTICLE_FIRST_COPY_BODY_CONFLICT/);
+});
+
+test("native underline round-trips without flattening italic or bold marks",()=>{
+  const a=article();a.blocks[1].richText={version:2,type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"Pôvodný odsek.",marks:[{type:"underline"},{type:"italic"}]}]}]};
+  const b=originalBlocks();b[2].paragraph.rich_text[0].annotations.underline=true;b[2].paragraph.rich_text[0].annotations.italic=true;
+  assert.equal(build(a,b).blocks.length,0);
+  assert.equal(build(a).blocks[0].payload.paragraph.rich_text[0].annotations.underline,true);
 });

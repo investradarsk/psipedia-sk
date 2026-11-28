@@ -31,6 +31,7 @@ import { notionArticleMainImageSource } from "@/lib/notion-article-image-source"
 import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
 import {
   EDITORIAL_RICH_TEXT_LEGACY_VERSION,
+  EDITORIAL_RICH_TEXT_VERSION,
   sanitizeEditorialHref,
   type EditorialRichTextDocument,
   type EditorialRichTextInline,
@@ -192,6 +193,7 @@ function notionRichTextInline(value: unknown): EditorialRichTextInline[] {
     const marks: EditorialRichTextMark[] = [];
     if (annotations.bold === true) marks.push({ type: "bold" });
     if (annotations.italic === true) marks.push({ type: "italic" });
+    if (annotations.underline === true) marks.push({ type: "underline" });
     const href = richTextHref(record);
     if (href) marks.push({ type: "link", href });
 
@@ -216,7 +218,8 @@ function notionRichTextDocument(
     : type === "blockquote"
       ? { type: "blockquote" as const, content }
       : { type: "callout" as const, tone, content };
-  return { version: EDITORIAL_RICH_TEXT_LEGACY_VERSION, type: "doc", content: [block] };
+  const version=content.some(node=>node.type==="text"&&node.marks?.some(mark=>mark.type==="underline"))?EDITORIAL_RICH_TEXT_VERSION:EDITORIAL_RICH_TEXT_LEGACY_VERSION;
+  return { version, type: "doc", content: [block] };
 }
 
 function notionRichTextMarkdown(value: unknown) {
@@ -2479,8 +2482,8 @@ function manifestRichText(value:string){
 }
 function planStagedArticleManifest(before:ManagedArticle,after:ManagedArticle,remote:NotionBlock[],canonicalRemote:ArticleBlock[]):Pick<NotionEditorialPlan,"manifest"|"manifestCreate">|undefined{
   const old=manifestLayout(before.blocks??[]),next=manifestLayout(after.blocks??[]);
-  const oldLocal=(before.blocks??[]).filter(localPromo),newLocal=(after.blocks??[]).filter(localPromo);
-  if(JSON.stringify(oldLocal)!==JSON.stringify(newLocal))throw Error("NOTION_ARTICLE_LOCAL_PROMO_CHANGE_REVIEW_REQUIRED");
+  // Locally inserted promos are intentionally Admin-only (preserveArticlePromoBlocks).
+  // Their changes do not belong to the Notion manifest or block a mapped edit.
   const remoteLayout=manifestLayout(canonicalRemote);
   // Do not overwrite a separately edited manifest, even if another field is
   // the cause of this Admin save. Compare content and native position.
@@ -2559,6 +2562,7 @@ export async function ensureFirstArticleNotionCopy(args:{database:D1Database;bin
   }
   property("Sync stav","select","Chyba");property("Sync chyba","rich_text","ARTICLE_FIRST_COPY_PENDING");
   const body=articleFirstCopyBody(stagedNativeArticleProjection({...article,blocks:article.blocks??[],seoTitle:seo?.title??"",metaDescription:seo?.description??"",focusKeyword:seo?.focusKeyword??""}),SITE_URL);
+  if(body.length<2)throw Error("NOTION_ARTICLE_FIRST_COPY_INCOMPLETE");
   const manifest=manifestLayout(article.blocks??[]);
   if(manifest.length>100)throw Error("NOTION_ARTICLE_MANIFEST_LIMIT");
   const manifestText=JSON.stringify(manifest);
@@ -2571,6 +2575,7 @@ export async function ensureFirstArticleNotionCopy(args:{database:D1Database;bin
     return result.results[0];
   };
   const initial=await query();
+  if(initial&&(!stagedArticlePageOwned(bindings,initial)||initial.archived||initial.in_trash||richTextProperty(initial,"Psipedia ID")!==String(article.id)||richTextProperty(initial,"Slug")!==article.slug))throw Error("NOTION_ARTICLE_FIRST_COPY_IDENTITY");
   const intent="FIRST_COPY_PENDING:"+await sha256(JSON.stringify({revision:article.updatedAt,props,children}));
   if(existing&&existing.content_hash!==intent)throw Error("NOTION_ARTICLE_FIRST_COPY_REVISION_CHANGED");
   if(!existing){
@@ -2805,7 +2810,7 @@ function hasPsipediaV2Styles(doc: EditorialRichTextDocument | null | undefined) 
   return Boolean(doc?.content.some(block => {
     const inline = "items" in block ? block.items.flat() : block.content;
     return inline.some(node => node.type === "text" &&
-      node.marks?.some(mark => mark.type === "color" || mark.type === "highlight" || mark.type === "underline"));
+      node.marks?.some(mark => mark.type === "color" || mark.type === "highlight"));
   }));
 }
 function preserveNotionUnrepresentableStyles(

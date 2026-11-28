@@ -231,6 +231,7 @@ async function loadWriter(h, overrides = {}, exportName = "writeBackDraftArticle
   }).outputText;
   const exports = {};
   const dependencies = {
+    "./notion-selective-property-patch": {sameNotionProperty:()=>false},
     "./notion-article-seo-properties": {
       ARTICLE_NOTION_SEO_PROPERTIES: { ogImageUrl: { name: "OG obrázok" } },
       articleSeoFromNotion: () => ({

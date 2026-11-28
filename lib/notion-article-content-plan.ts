@@ -82,7 +82,7 @@ function remoteRichText(value: unknown) {
       fail("UNSUPPORTED_NOTION_INLINE");
     }
     const annotations = object(node.annotations);
-    if (annotations.underline === true || annotations.strikethrough === true ||
+    if (annotations.strikethrough === true ||
       annotations.code === true || (annotations.color && annotations.color !== "default")) {
       fail("UNSUPPORTED_NOTION_MARK");
     }
@@ -91,6 +91,7 @@ function remoteRichText(value: unknown) {
     nodes.push(...richNodes([{ type: "text", text: content, marks: [
       ...(annotations.bold === true ? [{ type: "bold" as const }] : []),
       ...(annotations.italic === true ? [{ type: "italic" as const }] : []),
+      ...(annotations.underline === true ? [{ type: "underline" as const }] : []),
       ...(url ? [{ type: "link" as const, href: url }] : []),
     ] }]));
   }
@@ -105,15 +106,16 @@ function richNodes(nodes: EditorialRichTextInline[]): RecordValue[] {
         text(object(output[output.length - 1].text).content) + "\n";
       continue;
     }
-    const annotations = { bold: false, italic: false };
+    const annotations:{bold:boolean;italic:boolean;underline?:boolean} = { bold: false, italic: false };
     let url = "";
     for (const mark of node.marks ?? []) {
       if (mark.type === "bold") annotations.bold = true;
       if (mark.type === "italic") annotations.italic = true;
+      if (mark.type === "underline") annotations.underline = true;
       if (mark.type === "link") url = requireRemoteHttps(mark.href);
       // Notion's fixed color vocabulary cannot represent arbitrary hex codes
-      // or our underline/highlight combinations losslessly. Fail closed.
-      if (mark.type === "color" || mark.type === "highlight" || mark.type === "underline") {
+      // or arbitrary highlights losslessly. Fail closed.
+      if (mark.type === "color" || mark.type === "highlight") {
         fail("UNSUPPORTED_NOTION_EDITORIAL_STYLE");
       }
     }
@@ -210,7 +212,7 @@ function structuralShape(block:RemoteArticleBlock):string{
     if(row.type!=="table_row"||!Array.isArray(values)||values.length!==body.table_width)fail("UNSUPPORTED_TABLE_STRUCTURE");
     return values.map(cell=>{
       const rich=remoteRichText(cell);
-      if(rich.some(node=>object(node.annotations).bold||object(node.annotations).italic||object(object(node.text).link).url))fail("UNSUPPORTED_TABLE_MARK");
+      if(rich.some(node=>object(node.annotations).bold||object(node.annotations).italic||object(node.annotations).underline||object(object(node.text).link).url))fail("UNSUPPORTED_TABLE_MARK");
       return rich.map(node=>text(object(node.text).content)).join("");
     });
   });
