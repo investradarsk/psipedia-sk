@@ -88,7 +88,8 @@ export async function applyRemainingBulkStatus(db:D1Database,actor:string,input:
    const values=[row.id,row.status,item.updatedAt,agenda,row.id];
    let statement:D1PreparedStatement;
    if(agenda==="lost-found"){
-    const published=["ACTIVE","RESOLVED","EXPIRED","ARCHIVED"].includes(target)?row.published_at??now:row.published_at;
+    // Archiving a never-published draft must not create a public detail URL.
+    const published=target==="ACTIVE"?row.published_at??now:row.published_at;
     const expires=target==="ACTIVE"?row.expires_at??defaultLostFoundExpiresAt(new Date(now)):row.expires_at;
     statement=db.prepare("UPDATE lost_found_dog_reports SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=?"+where+" AND duplicate_of_id IS NULL AND COALESCE(source,'')<>?")
      .bind(target,now,published,expires,target==="RESOLVED"?row.resolved_at??now:null,target==="ARCHIVED"?row.archived_at??now:null,...values,LOST_FOUND_PUBLIC_SOURCE);
