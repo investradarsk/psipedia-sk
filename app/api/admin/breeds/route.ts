@@ -1,3 +1,4 @@
+import { adminProfileDuplicateResponse } from "@/lib/admin-profile-duplicate-guard";
 import { env } from "cloudflare:workers";
 import { createNewBreedWorkCopy, type BreedWorkCopyBindings } from "@/lib/notion-breed-workcopy-sync";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -7,7 +8,9 @@ export async function GET(){const user=await getAdminApiUser();return user?Respo
 export async function POST(request:Request){const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;try{
-    const breed=await createManagedBreed(await request.json() as ManagedBreedInput,user.email);
+    const payload=await request.json() as ManagedBreedInput;
+    const duplicate=await adminProfileDuplicateResponse("breeds",payload);if(duplicate)return duplicate;
+    const breed=await createManagedBreed(payload,user.email);
     const bindings=env as unknown as BreedWorkCopyBindings & {DB?:D1Database};
     let notionCreation:"synced"|"pending"|undefined;
     if(breed&&bindings.DB&&bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
