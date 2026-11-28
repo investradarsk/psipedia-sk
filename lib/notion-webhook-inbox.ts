@@ -46,7 +46,7 @@ export async function enqueueNotionWebhook(
     "INSERT INTO notion_webhook_inbox " +
     "(event_key,page_id,event_type,changed_properties_json) VALUES (?,?,?,?) ON CONFLICT(event_key) DO NOTHING",
   ).bind(key, pageId.toLowerCase(), event.type, JSON.stringify(envelope)).run();
-  if(saved.success===false)throw Error("NOTION_WEBHOOK_INBOX_WRITE_FAILED");
+  if((saved as {success?:boolean}).success===false)throw Error("NOTION_WEBHOOK_INBOX_WRITE_FAILED");
 }
 
 export async function runNotionWebhookInboxSweep(input: {
