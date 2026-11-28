@@ -1,11 +1,11 @@
-import { adoptionStatuses, adoptionPublicStatuses, canTransitionAdoptionStatus, type AdoptionStatus } from "./adoption.ts";
-import { getAdoptionById, prepareAdoptionWritePayload } from "./adoption-store.ts";
-import { LOST_FOUND_STATUSES, canTransitionLostFoundStatus, defaultLostFoundExpiresAt, type LostFoundStatus } from "./lost-found-lifecycle.js";
-import { LOST_FOUND_PUBLIC_SOURCE } from "./lost-found-public-submission";
-import { partnerReviewOwnerSql } from "./admin-notion-review-lock.ts";
-import { assertBulkPublicationIdentities, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
-import { lifecycleSchemaReady } from "./admin-record-lifecycle";
-import { getManagedEshopById } from "./eshop-ratings.ts";
+import { adoptionStatuses, canTransitionAdoptionStatus, type AdoptionStatus } from "../adoption.ts";
+import { getAdoptionById, prepareAdoptionWritePayload } from "../adoption-store.ts";
+import { LOST_FOUND_STATUSES, canTransitionLostFoundStatus, defaultLostFoundExpiresAt, type LostFoundStatus } from "../lost-found-lifecycle.js";
+import { LOST_FOUND_PUBLIC_SOURCE } from "../lost-found-public-submission";
+import { partnerReviewOwnerSql } from "../admin-notion-review-lock.ts";
+import { assertBulkPublicationIdentities, bulkPublicationGuardStatement } from "../publication-readiness-v3.ts";
+import { lifecycleSchemaReady } from "../admin-record-lifecycle";
+import { getManagedEshopById } from "../eshop-ratings.ts";
 
 const specs={
  adoptions:{table:"adoption_dogs",statuses:adoptionStatuses,owner:"ADOPTION"},
@@ -35,14 +35,14 @@ export function parseRemainingBulkRequest(raw:unknown){
 export function remainingBulkTransition(agenda:RemainingBulkAgenda,from:string,to:string){
  if(from===to)return false;
  if(agenda==="adoptions")return canTransitionAdoptionStatus(from as AdoptionStatus,to as AdoptionStatus);
- if(agenda==="lost-found")return canTransitionLostFoundStatus(from,to);
+ if(agenda==="lost-found")return canTransitionLostFoundStatus(from as LostFoundStatus,to as LostFoundStatus);
  return (from==="archived"?to==="draft":from==="draft"?["published","archived"].includes(to):["draft","archived"].includes(to));
 }
 const live=(agenda:RemainingBulkAgenda,status:string)=>agenda==="adoptions"?["ACTIVE","RESERVED"].includes(status):agenda==="lost-found"?status==="ACTIVE":status==="published";
 async function readRow(db:D1Database,agenda:RemainingBulkAgenda,id:number){
  const spec=specs[agenda];
  const extra=agenda==="lost-found"?"type AS category,source,duplicate_of_id,expires_at,resolved_at,archived_at":"'' AS category,NULL AS source,NULL AS duplicate_of_id,NULL AS expires_at,NULL AS resolved_at,NULL AS archived_at";
- return db.prepare("SELECT id,status,updated_at,slug,published_at,"+extra+","+partnerReviewOwnerSql(spec.owner,"id")+" AS owned FROM "+spec.table+" WHERE id=?").bind(id).first<Row>();
+ return db.prepare("SELECT id,status,updated_at,slug,published_at,"+extra+","+partnerReviewOwnerSql(spec.owner,spec.table+".id")+" AS owned FROM "+spec.table+" WHERE id=?").bind(id).first<Row>();
 }
 async function validate(db:D1Database,agenda:RemainingBulkAgenda,row:Row,item:Item,target:string,actor:string){
  if(row.updated_at!==item.updatedAt||row.status!==item.status)throw Error("Záznam sa medzičasom zmenil.");
