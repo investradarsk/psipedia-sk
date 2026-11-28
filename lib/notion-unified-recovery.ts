@@ -125,6 +125,16 @@ async function recoverOne(database:D1Database,bindings:Bindings,row:Candidate){
   return state?.status==="SYNCED"?"synced":"review";
 }
 
+/** Requeue only transient provider failures, never replay a stored mutation.
+ * The existing claimed deadline is the compare-and-swap fence; content,
+ * reservation state and manual locks are not modified by this retry. */
+async function rescheduleTransientRecovery(database:D1Database,row:Candidate,table:"notion_unified_field_state"|"notion_unified_admin_field_edits",claimedUntil:string,error:unknown){
+  if(!(error instanceof Error)||!/^Notion API (429|500|502|503|504|529):/.test(error.message))return;
+  const retryAt=new Date(Date.now()+300_000).toISOString();
+  await database.prepare("UPDATE "+table+" SET recovery_after=? WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=? AND recovery_after=?")
+    .bind(retryAt,row.agenda,row.entity_id,row.notion_page_id,row.field_key,claimedUntil).run();
+}
+
 /** Existing minute cron, hard caps: at most two expired/REVIEW fields and
  * one initialization field and one authenticated-edit probe. Never replay the original body of a failed
  * remote write. Durable claims prevent overlapping cron runs from stealing
@@ -150,7 +160,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
     if(!row)break;
     result.checked++;
     try{const outcome=await recoverOne(database,bindings,row);result[outcome]++;}
-    catch{result.failed++;}
+    catch(error){result.failed++;if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")await rescheduleTransientRecovery(database,row,"notion_unified_field_state",next,error).catch(()=>{});}
   }
   // Prioritize authenticated edits even when the first direct writeback failed
   // before reserving any field. No stale receipt is replayed as a mutation.
@@ -168,7 +178,7 @@ export async function runNotionUnifiedRecoverySweep(input:{database:D1Database;b
   if(receipt){
     result.checked++;
     try{const outcome=await recoverOne(database,bindings,receipt);result[outcome]++;}
-    catch{result.failed++;}
+    catch(error){result.failed++;if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text")await rescheduleTransientRecovery(database,receipt,"notion_unified_admin_field_edits",next,error).catch(()=>{});}
   }
   await database.batch(UNIFIED_SYNC_AGENDAS.map(agenda=>database.prepare(
     "INSERT OR IGNORE INTO notion_unified_recovery_cursor(agenda) VALUES(?)").bind(agenda)));
