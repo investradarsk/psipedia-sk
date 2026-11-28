@@ -1,3 +1,5 @@
+import { publicationV3Enabled, assertBulkPublicationIdentities } from "@/lib/publication-readiness-v3";
+import { assertSavedArticleBulkPublication } from "@/lib/article-store";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { BulkPreflightError } from "@/lib/admin-bulk/core";
@@ -32,6 +34,23 @@ export async function POST(request: Request) {
       await adminAuditActorRef(user.email),
       user.email,
       payload,
+      new Date(),
+      publicationV3Enabled()?{
+        lifecycleGuards:true,
+        validate:async(module,items)=>{
+          const db=database as unknown as D1Database;
+          if(module==="directory"){
+            await assertBulkPublicationIdentities(db,"directory",items.map(item=>Number(item.recordId)));
+            return;
+          }
+          // Bound expensive text comparisons in one Worker request.
+          if(items.length>20)throw Error("Naraz možno skontrolovať a publikovať najviac 20 článkov. Zmenši výber.");
+          for(const item of items){
+            if(!item.capturedUpdatedAt)throw Error("Chýba potvrdená verzia článku.");
+            await assertSavedArticleBulkPublication(db,Number(item.recordId),item.capturedUpdatedAt);
+          }
+        },
+      }:undefined,
     );
     if (payload?.module === "directory") {
       for (const item of result.updated) {
@@ -40,7 +59,7 @@ export async function POST(request: Request) {
           targetId: item.id,
           actorRef: user.email,
           actorType: "ADMIN",
-        }, database as unknown as D1Database);
+        }, database as unknown as D1Database).catch(error=>console.error("Bulk GEO follow-up failed after canonical commit",{id:item.id,error}));
       }
     }
     return noStoreJson(result);
