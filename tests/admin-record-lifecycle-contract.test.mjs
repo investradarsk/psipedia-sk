@@ -1,4 +1,5 @@
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -221,4 +222,68 @@ test("Notion UUID spellings and remote provenance are checked before destructive
   assert.match(deletion, /assertNotionTargetsConfigured\(targets\)/);
   assert.match(route, /NOTION_MAPPING_INVALID/);
   assert.match(dialog, /NOTION_DATA_SOURCE_UNCONFIGURED/);
+});
+
+test("V3 proposals preserve lifecycle data, mappings and guards in isolated SQLite",()=>{
+  const oldKinds=["directory","events","help","breeds","articles","adoptions","lost-found","organizations"];
+  const tables=["directory_profiles","managed_events","help_cases","managed_breeds","managed_articles","adoption_dogs","lost_found_dog_reports","help_organizations","managed_eshops"];
+  const ratings=["energy","trainability","family","children","other_dogs","apartment","grooming","shedding","prey_drive"];
+  const bSource=source("drizzle/0159_breed_notion_workcopy_links.sql");
+  const triggers=source("drizzle/0181_notion_unified_scope_invalidation.sql").match(/CREATE TRIGGER IF NOT EXISTS unified_scope_breed_notion_workcopy_links_\w+[\s\S]*?\nEND;/g);
+  assert.equal(triggers?.length,3);
+  const breedProposal=source("docs/proposals/notion-v3-breed-workonly-links-UNNUMBERED_PROPOSAL.sql");
+  const lifecycleProposal=source("docs/proposals/notion-v3-eshop-lifecycle-UNNUMBERED_PROPOSAL.sql");
+  function fixture(){
+    const db=new DatabaseSync(":memory:");
+    db.exec("PRAGMA foreign_keys=ON;");
+    for(const table of tables)db.exec("CREATE TABLE "+table+"(id INTEGER PRIMARY KEY,slug TEXT,status TEXT,import_key TEXT,fci_number INTEGER,website_url TEXT,fci_group INTEGER NOT NULL DEFAULT 0,"+ratings.map(r=>r+" INTEGER NOT NULL DEFAULT 0").join(",")+")");
+    db.exec("CREATE TABLE notion_unified_scope_invalidation(agenda TEXT,entity_id TEXT,invalidated_at TEXT,PRIMARY KEY(agenda,entity_id));CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,baseline_version INTEGER,baseline_json TEXT,notion_json TEXT,psipedia_json TEXT,notion_edit_json TEXT,psipedia_edit_json TEXT,status TEXT,reason TEXT,version INTEGER,updated_at TEXT,recovery_after TEXT);CREATE TABLE notion_unified_admin_field_edits(agenda TEXT,entity_id TEXT);");
+    db.exec(bSource);db.exec(triggers.join("\n"));db.exec(migration);
+    return db;
+  }
+  const apply=(db,sql)=>{db.exec("BEGIN");try{db.exec(sql);db.exec("COMMIT");}catch(error){db.exec("ROLLBACK");throw error;}};
+  const db=fixture();
+  try{
+    db.exec("INSERT INTO managed_breeds(id,slug,status,fci_number) VALUES(1,'old','draft',1),(2,'new','draft',NULL)");
+    db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id,canonical_slug,fci_number,original_sync_receipt) VALUES(1,'original','work','os','ws','old',1,'receipt')");
+    for(const [i,kind] of oldKinds.entries()){
+      db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,record_name,record_category,state,created_by,created_at,updated_at) VALUES(?,?,?,?,?,'COMPLETE','actor','created','updated')").run(kind,100+i,"old-"+kind,"Name","cat");
+      db.prepare("INSERT INTO admin_record_publication_guards VALUES(?,?,'SYNCED',NULL,'t')").run(kind,100+i);
+    }
+    const names=["breed_notion_workcopy_links","admin_record_tombstones","admin_record_publication_guards"];
+    const before=names.map(name=>db.prepare("SELECT * FROM "+name+" ORDER BY 1,2").all());
+    apply(db,breedProposal);apply(db,lifecycleProposal);
+    assert.deepEqual(names.map(name=>db.prepare("SELECT * FROM "+name+" ORDER BY 1,2").all()),before);
+    assert.equal(db.prepare("PRAGMA integrity_check").get().integrity_check,"ok");
+    assert.equal(db.prepare("PRAGMA foreign_key_check").all().length,0);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='trigger' AND name LIKE 'admin_%'").get().n,27);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='trigger' AND name LIKE 'unified_scope_breed_%'").get().n,3);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='index' AND (name LIKE 'admin_record_tombstones_%_idx' OR name='idx_breed_notion_workcopy_status')").get().n,4);
+    db.exec("INSERT INTO breed_notion_workcopy_links(breed_id,work_notion_page_id,work_data_source_id,canonical_slug,status,activated_at) VALUES(2,'newwork','ws','new','ACTIVE','t')");
+    assert.throws(()=>db.exec("UPDATE managed_breeds SET status='published' WHERE id=2"),/BREED_DRAFT_REQUIRED_VALUES/);
+    db.exec("UPDATE managed_breeds SET fci_group=1,"+ratings.map(r=>r+"=3").join(",")+" WHERE id=2");
+    db.exec("UPDATE breed_notion_workcopy_links SET work_last_error_code='INBOUND_ID_PENDING' WHERE breed_id=2");
+    assert.throws(()=>db.exec("UPDATE managed_breeds SET status='published' WHERE id=2"),/BREED_DRAFT_REQUIRED_VALUES/);
+    db.exec("UPDATE breed_notion_workcopy_links SET work_last_error_code=NULL WHERE breed_id=2; UPDATE managed_breeds SET status='published' WHERE id=2;");
+    db.exec("INSERT INTO managed_eshops(id,slug,status,website_url) VALUES(1,'shop','draft','https://shop.test/')");
+    assert.throws(()=>db.exec("DELETE FROM managed_eshops WHERE id=1"),/USE_VERIFIED_LIFECYCLE_DELETE/);
+    db.exec("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,record_external_key,record_name,record_category,state,created_by,created_at,updated_at) VALUES('eshops',1,'shop','https://shop.test','shop','cat','PENDING_NOTION','a','c','u')");
+    assert.throws(()=>db.exec("UPDATE managed_eshops SET status='published' WHERE id=1"),/RECORD_REMOVAL_PENDING/);
+    assert.throws(()=>db.exec("DELETE FROM managed_eshops WHERE id=1"),/USE_VERIFIED_LIFECYCLE_DELETE/);
+    db.exec("UPDATE admin_record_tombstones SET state='READY_LOCAL' WHERE kind='eshops'; DELETE FROM managed_eshops WHERE id=1;");
+    assert.throws(()=>db.exec("INSERT INTO managed_eshops(id,slug,status,website_url) VALUES(2,'new-shop','draft','https://shop.test/')"),/RECORD_TOMBSTONED/);
+  }finally{db.close();}
+  for(const [table,proposal,columns,definitions] of [
+    ["breed_notion_workcopy_links",breedProposal,"breed_id","breed_id INTEGER"],
+    ["admin_record_tombstones",lifecycleProposal,"kind,record_id","kind TEXT,record_id INTEGER"],
+    ["admin_record_publication_guards",lifecycleProposal,"kind,record_id","kind TEXT,record_id INTEGER"],
+  ]){
+    const db=fixture();
+    try{
+      db.exec("CREATE TABLE incoming("+definitions+", FOREIGN KEY("+columns+") REFERENCES "+table+"("+columns+"))");
+      assert.throws(()=>apply(db,proposal));
+      assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table));
+      assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name LIKE '%_v3_new'").get().n,0);
+    }finally{db.close();}
+  }
 });
