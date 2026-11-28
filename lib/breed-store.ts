@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity, assertSavedProfilePublicationIdentity, publicationV3Enabled } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { breedSqlV2DirectFieldStatements, breedSqlV2CasGuard } from "./breed-sql-v2-writer.mjs";
 import { BREED_EVENT_SCALAR_COLUMNS } from "./notion-breed-workcopy-field-sql.mjs";
@@ -1661,6 +1662,7 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
   const database = requireDb();
   await ensure(database);
   const value = clean(input);
+  await assertProfilePublicationIdentity(database,"breeds",null,value.status,value);
   const now = new Date().toISOString();
   const insertColumns=BREED_ROW_VALUE_COLUMNS;
   const insertValues=values(value);
@@ -1776,6 +1778,11 @@ export async function updateManagedBreed(
   const database = requireDb();
   await ensure(database);
   const now = nextBreedVersion(expectedUpdatedAt);
+  if(publicationV3Enabled()&&input.status==="published"){
+    const existing=await database.prepare("SELECT status FROM managed_breeds WHERE id=? AND updated_at=?").bind(id,expectedUpdatedAt).first<{status:string}>();
+    if(!existing)throw new BreedUpdateConflictError();
+    await assertProfilePublicationIdentity(database,"breeds",existing.status,input.status,input,id);
+  }
   try {
     const results = await database.batch(
       buildManagedBreedUpdateStatements(
@@ -1907,6 +1914,9 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
   const { breeds, status } = validateBulkBreedStatus(input);
   const database = requireDb();
   await ensure(database);
+  if(publicationV3Enabled()&&status==="published"){
+    for(const breed of breeds)if(breed.status!=="published")await assertSavedProfilePublicationIdentity(database,"breeds",breed.id);
+  }
   const now = new Date(
     Math.max(Date.now(), ...breeds.map((breed) => Date.parse(breed.updatedAt) + 1)),
   ).toISOString();
