@@ -516,3 +516,34 @@ test("real SQLite inbox claims, processes and deduplicates signed page change", 
     assert.equal(again.claimed, 0);
   } finally { db.close(); }
 });
+
+
+test("remote deletion receipt survives staged migration and remains review-only", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../drizzle/0145_notion_webhook_inbox.sql", import.meta.url), "utf8"));
+    const database = { prepare(sql) {
+      const stmt = db.prepare(sql);
+      return { bind(...args) { return {
+        first: async () => stmt.get(...args) ?? null,
+        run: async () => { const result=stmt.run(...args); return {success:true,meta:{changes:Number(result.changes)}}; },
+      }; } };
+    } };
+    const event = {id:"aaaa1111-bbbb-4ccc-8ddd-eeeeeeeeeeee",type:"page.deleted",
+      entity:{id:"11111111-2222-4333-8444-555555555555",type:"page"}};
+    const old={...event,id:"bbbb1111-bbbb-4ccc-8ddd-eeeeeeeeeeee",type:"page.created"};
+    await enqueueNotionWebhook(database,old,JSON.stringify(old));
+    await assert.rejects(()=>enqueueNotionWebhook(database,event,JSON.stringify(event)));
+    db.exec(await readFile(new URL("../docs/proposals/notion-v3-webhook-deletion-UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8"));
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM notion_webhook_inbox").get().n,1);
+    await enqueueNotionWebhook(database,event,JSON.stringify(event));
+    await enqueueNotionWebhook(database,event,JSON.stringify(event));
+    const summary=await runNotionWebhookInboxSweep({database,now:1_800_000_000_000,
+      process:async e=>e.type==="page.deleted"?"remote-deleted":"processed"});
+    assert.equal(summary.review,1);
+    const row=db.prepare("SELECT status,last_error_code FROM notion_webhook_inbox WHERE event_type='page.deleted'").get();
+    assert.equal(row.status,"REVIEW");
+    assert.equal(row.last_error_code,"NOTION_REMOTE_DELETED");
+    assert.equal(db.prepare("PRAGMA quick_check").get().quick_check,"ok");
+  } finally { db.close(); }
+});
