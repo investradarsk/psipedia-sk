@@ -323,8 +323,8 @@ export function evaluatePartnerDuplicateCandidate(input: {
   if (incomingName && candidateName && incomingName === candidateName && incomingAddress && candidateAddress && incomingAddress === candidateAddress) {
     high("Rovnaký názov a adresa");
   }
-  if (incomingName && candidateName && incomingName === candidateName && incomingCity && candidateCity && incomingCity === candidateCity && input.categoryOrType === input.categoryOrTypeCandidate) {
-    medium("Rovnaký názov, mesto a typ/kategória");
+  if (incomingName && candidateName && incomingName === candidateName && incomingCity && candidateCity && incomingCity === candidateCity) {
+    medium("Rovnaký názov a mesto");
   }
   if (incomingAddress && candidateAddress && incomingAddress === candidateAddress && nameTokenSimilarity(incomingName, candidateName) >= 0.75) {
     medium("Rovnaká adresa a veľmi podobný názov");
@@ -364,6 +364,7 @@ function sortCandidates(items: PartnerDuplicateCandidate[]) {
 export async function scanPartnerNewProfileDuplicates(
   profile: PartnerNewProfileNormalized,
   dbInput?: D1Database,
+  excludeCanonicalId?: number,
 ) {
   const db = database(dbInput);
   const items: PartnerDuplicateCandidate[] = [];
@@ -375,6 +376,7 @@ export async function scanPartnerNewProfileDuplicates(
       ORDER BY id DESC
     `).all<DirectoryCandidateRow>();
     for (const row of rows.results) {
+      if(row.id===excludeCanonicalId)continue;
       const contacts = readDirectorySqlBackedContacts(null, row);
       const candidate = evaluatePartnerDuplicateCandidate({
         resourceType: "DIRECTORY_PROFILE",
@@ -411,6 +413,7 @@ export async function scanPartnerNewProfileDuplicates(
       ORDER BY o.id DESC
     `).all<HelpCandidateRow>();
     for (const row of rows.results) {
+      if(row.id===excludeCanonicalId)continue;
       const candidate = evaluatePartnerDuplicateCandidate({
         resourceType: "HELP_ORGANIZATION",
         incoming: profile.values,
