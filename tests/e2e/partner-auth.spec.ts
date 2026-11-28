@@ -530,11 +530,19 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
     await waitForCanonicalFormHydration(page);
+    const duplicateResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname.startsWith("/api/partner/canonical-drafts/") &&
+      response.request().method() === "PATCH" &&
+      response.request().postDataJSON()?.action === "SUBMIT",
+    );
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
     // The existing seeded organization is intentionally a similar match.
     // Explicit duplicate acknowledgment is required; do not bypass the
     // canonical duplicate safeguard in order to pass the mobile test.
-    const duplicateAlert=page.getByRole("alert").filter({hasText:"Našli sme podobný profil"});
+    const duplicateReply = await duplicateResponse;
+    expect(duplicateReply.status()).toBe(409);
+    expect((await duplicateReply.json()).code).toBe("DUPLICATE_CONFIRMATION_REQUIRED");
+    const duplicateAlert=page.getByRole("alert").filter({hasText:"Našli sme podobný záznam"});
     await expect(duplicateAlert).toBeVisible();
     await duplicateAlert.getByRole("button",{name:"Skontroloval som to – napriek tomu odoslať"}).click();
     await expect(page).toHaveURL(/\/partner\/ziadosti$/);
