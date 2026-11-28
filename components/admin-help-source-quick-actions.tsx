@@ -19,6 +19,7 @@ export function AdminHelpSourceQuickActions({
   const endingLabel = entityType === "ADOPTION" ? "Adoptované" : "Pátranie ukončené";
   async function decide(action: "CONFIRM_ACTIVE" | "MARK_ENDED") {
     if (!checkedAt || pending) return;
+    if(action==="CONFIRM_ACTIVE"&&!window.confirm("Overil si aktuálny zdroj a potvrdzuješ, že prípad stále trvá?"))return;
     if (action === "MARK_ENDED" && !window.confirm(
       entityType === "ADOPTION"
         ? "Overil si zdroj? Naozaj označiť psa ako adoptovaného a ukončiť jeho ponuku?"
@@ -60,7 +61,7 @@ export function AdminHelpSourceQuickActions({
           {pending === "MARK_ENDED" ? "Ukladám…" : endingLabel}
         </button>
       </div>
-      {!checkedAt && <p className={styles.hint}>Zdroj ešte nebol automaticky skontrolovaný.</p>}
+      {!checkedAt && <p className={styles.hint}>Chýba platný odkaz alebo aktuálna automatická kontrola zdroja. Otvor profil a over údaje individuálne.</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {success && <p role="status" className={styles.success}>{success}</p>}
     </div>
