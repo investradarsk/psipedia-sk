@@ -67,3 +67,13 @@ export async function assertBulkPublicationIdentities(db:D1Database,agenda:Profi
   }
  }
 }
+
+/** Existing lifecycle guard table, never a shadow publication state.
+ * Run immediately after a whole-selection CAS update in the same D1 batch.
+ * If the CAS changes zero rows, no guard may be inserted or cleared. */
+export function bulkPublicationGuardStatement(db:D1Database,kind:"directory"|"articles"|"events"|"help"|"breeds"|"organizations",ids:readonly number[],publish:boolean,now:string){
+ const json=JSON.stringify(ids);
+ return publish
+  ?db.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?)) AND changes()=?").bind(kind,json,ids.length)
+  :db.prepare("INSERT INTO admin_record_publication_guards(kind,record_id,remote_state,error_code,updated_at) SELECT ?,CAST(value AS INTEGER),'PENDING',NULL,? FROM json_each(?) WHERE changes()=? ON CONFLICT(kind,record_id) DO UPDATE SET remote_state='PENDING',error_code=NULL,updated_at=excluded.updated_at").bind(kind,now,json,ids.length);
+}
