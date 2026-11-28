@@ -58,10 +58,10 @@ export async function readProfileDuplicateIdentities(db:D1Database,agenda:Profil
  if(!r.success||!Array.isArray(r.results))throw Error("DUPLICATE_SCAN_UNAVAILABLE");
  return {rows:r.results.slice(0,5000),incomplete:r.results.length>5000};
 }
-export async function findProfileDuplicate(db:D1Database,agenda:ProfileDuplicateAgenda,input:Identity){
+export async function findProfileDuplicate(db:D1Database,agenda:ProfileDuplicateAgenda,input:Identity,candidateStatuses?:readonly string[]){
  const {rows,incomplete}=await readProfileDuplicateIdentities(db,agenda);
  if(incomplete)throw Error("DUPLICATE_SCAN_INCOMPLETE");
- for(const row of rows){const reason=profileDuplicateReason(agenda,input,row);if(reason)return {id:row.id,reason};}
+ for(const row of rows){if(candidateStatuses&&!candidateStatuses.includes(String(row.status)))continue;const reason=profileDuplicateReason(agenda,input,row);if(reason)return {id:row.id,reason};}
  return null;
 }
 // Read-only existing-data audit. Group candidate identities rather than
@@ -88,11 +88,11 @@ export async function auditProfileDuplicates(db:D1Database,agenda:ProfileDuplica
  return {scanned:rows.length,incomplete,truncated,pairs};
 }
 
-export async function readProfileDuplicateById(db:D1Database,agenda:ProfileDuplicateAgenda,id:number){
+export async function readProfileDuplicateById(db:D1Database,agenda:ProfileDuplicateAgenda,id:number,candidateStatuses?:readonly string[]){
  const {rows,incomplete}=await readProfileDuplicateIdentities(db,agenda);
  if(incomplete)throw Error("DUPLICATE_SCAN_INCOMPLETE");
  const current=rows.find(row=>row.id===id);
  if(!current)throw Error("DUPLICATE_IDENTITY_UNAVAILABLE");
- for(const row of rows){const reason=profileDuplicateReason(agenda,current,row);if(reason)return {id:row.id,reason};}
+ for(const row of rows){if(candidateStatuses&&!candidateStatuses.includes(String(row.status)))continue;const reason=profileDuplicateReason(agenda,current,row);if(reason)return {id:row.id,reason};}
  return null;
 }
