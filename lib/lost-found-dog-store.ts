@@ -1,3 +1,4 @@
+import { assertProfilePublicationIdentity } from "./publication-readiness-v3.ts";
 import { requireProfileMediaProof, profileMediaCanonicalValue, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { helpAuthorityWriteGuard } from "./notion-profile-authority.ts";
 import type { FieldReservation } from "./notion-unified-field-transfer.ts";
@@ -679,6 +680,7 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const publicContactsReady = await hasPublicContactColumns(database);
   if (!publicContactsReady && [clean.publicPhone,clean.publicEmail,clean.publicWebsiteUrl,clean.publicFacebookUrl,clean.publicInstagramUrl].some(Boolean))
     throw new Error("Verejné kontakty možno uložiť až po migrácii 0165.");
+  await assertProfilePublicationIdentity(database,"lost-found",existing.status,clean.status,clean,id);
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
 
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
