@@ -1,3 +1,4 @@
+import { findSimilarArticles, strongArticleDuplicate } from "@/lib/article-similarity-review";
 import { env } from "cloudflare:workers";
 import { ensureFirstArticleNotionCopy, type NotionSyncBindings } from "@/lib/notion-article-sync";
 import {
@@ -52,8 +53,15 @@ export async function POST(request: Request) {
 
   try {
     const payload = (await request.json()) as ManagedArticleInput;
-    const article = await createManagedArticle(payload, user.email);
     const bindings=env as unknown as NotionSyncBindings&{DB?:D1Database};
+    if(bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
+      if(!bindings.DB)return Response.json({error:"Kontrola podobnosti nie je dostupná."},{status:503});
+      const report=await findSimilarArticles(bindings.DB,payload).catch(()=>null);
+      if(!report||report.incomplete)return Response.json({error:"Kontrola podobnosti článku nie je úplná. Záznam nebol vytvorený.",code:"ARTICLE_SIMILARITY_SCAN_INCOMPLETE"},{status:503});
+      const duplicate=strongArticleDuplicate(report);
+      if(duplicate)return Response.json({error:"Možná duplicita článku #"+duplicate.id+" – "+duplicate.title+". Skontrolujte existujúci článok.",code:"ARTICLE_DUPLICATE_REVIEW_REQUIRED",similarity:report},{status:409});
+    }
+    const article = await createManagedArticle(payload, user.email);
     if(bindings.NOTION_PROFILE_AUTHORITY_MODE!=="validated-text"||!bindings.DB)return Response.json({article},{status:201});
     let receipt:{status:"synced"|"failed"|"skipped";code?:string};
     try{const result=await ensureFirstArticleNotionCopy({database:bindings.DB,bindings,article});receipt=result.updated?{status:"synced"}:{status:"skipped",code:result.reason};}
