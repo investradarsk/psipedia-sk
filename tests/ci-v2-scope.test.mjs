@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { classifyChangedFiles, plannedTestGroups, resolveChangedFiles, reviewPrSelection, REVIEW_PR_PATHS } from "../scripts/ci-scope.mjs";
+import { classifyChangedFiles, plannedTestGroups, resolveChangedFiles, focusedPrE2eFlags, reviewPrSelection, REVIEW_PR_PATHS } from "../scripts/ci-scope.mjs";
 import { GROUPS } from "../scripts/ci-test-groups.mjs";
 import { evaluateCondition, workflowConditions } from "../scripts/ci-scope-conditions.mjs";
 
@@ -71,4 +71,43 @@ test("review workflow path filter equals canonical scope union and predicates ma
     assert.equal(evaluateCondition(condition("validation"), context), result.submission);
     assert.equal(evaluateCondition(condition("shared-build"), context), true);
   }
+});
+
+test("consolidated CI configuration is not application code, but mixed changes remain fail-closed", () => {
+  for (const file of [".github/ci/offline-suites.json", ".github/ci/notion-quality-suites.json", "scripts/ci-offline-scope.mjs", "tests/ci-two-stage-guards.test.mjs"]) {
+    const result = classifyChangedFiles([file]);
+    assert.equal(result.ciControlOnly,true,file);
+    assert.equal(result.fullCore,false,file);
+    assert.equal(result.boundedCore,false,file);
+    assert.equal(classifyChangedFiles([file,"lib/admin-auth.ts"]).fullCore,true,file);
+    assert.equal(classifyChangedFiles([file,"drizzle/9999_new.sql"]).fullCore,true,file);
+    assert.equal(classifyChangedFiles([file,"lib/unclassified-new-engine.ts"]).fullCore,true,file);
+  }
+  assert.equal(classifyChangedFiles([".github/ci/new-unrecognized-config.json"]).fullCore,true);
+});
+
+test("editing public browser specs schedules their own selected browser suite", () => {
+  assert.equal(focusedPrE2eFlags(classifyChangedFiles(["tests/e2e/events-public-v2.spec.ts"])).seoRecovery,true);
+  assert.equal(classifyChangedFiles(["tests/public-details-v2-ui.test.mjs"]).publicDs0b,true);
+  assert.equal(focusedPrE2eFlags(classifyChangedFiles(["tests/e2e/events-public-v2.spec.ts"])).sitemapDiagnostic,false);
+  assert.equal(focusedPrE2eFlags(classifyChangedFiles(["docs/ci.md"])).seoRecovery,false);
+});
+
+test("stale PR cancellation is separated from scheduled and manual runs", () => {
+  const read = name => readFileSync(new URL("../.github/workflows/" + name + ".yml",import.meta.url),"utf8");
+  const central=read("playwright-e2e");
+  assert.match(central,/group: playwright-e2e-\$\{\{ github\.event_name \}\}-/);
+  assert.match(central,/github\.event\.pull_request\.number \|\| \(github\.event_name == 'push' && github\.ref\) \|\| github\.run_id/);
+  for(const name of ["admin-stability-regressions","public-html-cache-safety-guard","code-quality-policy","sitemap-edge-resilience","breed-sql-0174-offline","notion-quality-ci"]) {
+    const source=read(name);
+    assert.match(source,/group: [^\n]+github\.event_name[^\n]+github\.event\.pull_request\.number \|\| github\.run_id/);
+    assert.match(source,/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  }
+  const admin=read("admin-stability-regressions");
+  assert.match(admin,/      - "tests\/\*\*"/);
+  for (const match of admin.matchAll(/      - "!tests\/([^"]+\.test\.mjs)"/g)) {
+    assert.ok(central.includes("tests/"+match[1]),match[1]+" must still run in required CI");
+  }
+  assert.equal([...admin.matchAll(/      - "!tests\/([^"]+\.test\.mjs)"/g)].length,9);
+  assert.match(admin,/npm run test:admin-stability-step10/);
 });

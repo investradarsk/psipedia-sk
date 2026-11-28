@@ -10,7 +10,7 @@ on:
     - cron: "17 5 * * *"
 
 concurrency:
-  group: playwright-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  group: playwright-e2e-${{ github.event_name }}-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 permissions:
@@ -68,7 +68,7 @@ jobs:
       - name: Validate shared-build contract
         run: node --test tests/ci-v2-shared-build.test.mjs
       - name: Validate CI V2 changed-file selection
-        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs tests/ci-v2-unit-integration.test.mjs tests/ci-v2-review-e2e.test.mjs tests/ci-v2-result-gate.test.mjs
+        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs tests/ci-v2-unit-integration.test.mjs tests/ci-v2-review-e2e.test.mjs tests/ci-v2-result-gate.test.mjs tests/ci-v2-offline-scope.test.mjs tests/ci-v2-notion-quality.test.mjs
       - name: Report selected test groups
         env:
           TEST_GROUPS: ${{ steps.required-scope.outputs.test_groups }}
@@ -202,7 +202,7 @@ jobs:
             /^app\/(?:adresar\/|pomoc-psom\/|podujatia\/|recenzie|steniatka\/|starostlivost\/|aktivity\/|\[section\]\/)/,
             /^lib\/(?:directory-|events?(?:-|\.ts$)|editorial-|help-|section-(?:visual|store))/,
             /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment|public-unification-completion)\.test\.mjs$/,
-            /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+            /^tests\/(?:e2e\/directory-unified-layout\.spec\.ts|public-details-v2-ui\.test\.mjs)$/,
             /^\.github\/workflows\/playwright-e2e\.yml$/,
           ];
           const directoryMatrix = [
@@ -212,7 +212,7 @@ jobs:
             /^components\/(?:directory-|home-portal-search\.tsx$|public-visual-system\/unified-section-hero(?:\.|\/))/,
             /^app\/adresar\//,
             /^lib\/directory-/,
-            /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+            /^tests\/(?:e2e\/directory-unified-layout\.spec\.ts|public-details-v2-ui\.test\.mjs)$/,
           ];
           const tokenRequired = files.some(file =>
             file === "app/design-system.css" || file === "tests/public-design-tokens.test.mjs");
