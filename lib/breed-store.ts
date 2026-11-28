@@ -1,4 +1,4 @@
-import { assertProfilePublicationIdentity, assertBulkPublicationIdentities, publicationV3Enabled } from "./publication-readiness-v3.ts";
+import { assertProfilePublicationIdentity, assertBulkPublicationIdentities, publicationV3Enabled, bulkPublicationGuardStatement } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { breedSqlV2DirectFieldStatements, breedSqlV2CasGuard } from "./breed-sql-v2-writer.mjs";
 import { BREED_EVENT_SCALAR_COLUMNS } from "./notion-breed-workcopy-field-sql.mjs";
@@ -1920,7 +1920,7 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
   const now = new Date(
     Math.max(Date.now(), ...breeds.map((breed) => Date.parse(breed.updatedAt) + 1)),
   ).toISOString();
-  const result = await database
+  const statement = database
     .prepare(
       `
     WITH requested AS (
@@ -1958,8 +1958,8 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
     RETURNING id
   `,
     )
-    .bind(JSON.stringify(breeds), status, now, user, status, now, breeds.length, status)
-    .all<{ id: number }>();
+    .bind(JSON.stringify(breeds), status, now, user, status, now, breeds.length, status);
+  const result=publicationV3Enabled()?(await database.batch<{id:number}>([statement,bulkPublicationGuardStatement(database,"breeds",breeds.map(breed=>breed.id),status==="published",now)]))[0]:await statement.all<{id:number}>();
   if (result.results.length !== breeds.length) {
     throw new Error(
       status === "published"
