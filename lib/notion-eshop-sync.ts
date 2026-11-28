@@ -1,3 +1,4 @@
+import { normalizeProfileIdentity, profileIdentityWebsite } from "./directory-duplicate-audit.ts";
 import { rotateNotionDiscovery, mergeNotionDiscovery } from "./notion-discovery-cursor.ts";
 import { prepareProfileMedia, profileMediaSourceAlias, type VerifiedProfileMedia } from "./notion-profile-owned-media.ts";
 import { ensureFirstProfileNotionCopy, acknowledgeInboundProfileIdentity, PROFILE_INBOUND_ID_PENDING } from "./notion-profile-first-create.ts";
@@ -88,6 +89,7 @@ export type NotionEshopSyncSummary = {
   pulledFromNotion: number;
   pushedToNotion: number;
   unchanged: number;
+  reviewRequired?: number;
   failed: number;
 };
 
@@ -499,7 +501,7 @@ async function importUnmappedEshop(input: {
   bindings: NotionEshopSyncBindings;
   page: NotionPage;
   dataSourceId: string;
-}): Promise<"created" | "already-mapped" | "not-ready"> {
+}): Promise<"created" | "already-mapped" | "not-ready" | "review-required"> {
   let releaseAgenda: (() => Promise<void>) | null = null;
   let releasePage: (() => Promise<void>) | null = null;
   let canonicalWriteUncertain = false;
@@ -522,9 +524,10 @@ async function importUnmappedEshop(input: {
 
     if(input.bindings.NOTION_PROFILE_AUTHORITY_MODE==="validated-text"){
       const draft=notionSnapshot(latest);
-      const duplicate=await input.database.prepare("SELECT id FROM managed_eshops WHERE slug=? OR lower(trim(name))=lower(trim(?)) OR (?<>\'\' AND lower(rtrim(trim(website_url),\'/\'))=lower(rtrim(trim(?),\'/\'))) LIMIT 1")
-        .bind(draft.slug,draft.name,draft.websiteUrl,draft.websiteUrl).first<{id:number}>();
-      if(duplicate)return "not-ready";
+      const identities=await input.database.prepare("SELECT id,slug,name,website_url FROM managed_eshops ORDER BY id LIMIT 5001").all<{id:number;slug:string;name:string;website_url:string|null}>();
+      if(!identities.success||identities.results.length>5000)throw Error("ESHOP_DUPLICATE_SCAN_INCOMPLETE");
+      const name=normalizeProfileIdentity(draft.name),site=profileIdentityWebsite(draft.websiteUrl);
+      if(identities.results.some(row=>(!!draft.slug&&row.slug===draft.slug)||(!!name&&normalizeProfileIdentity(row.name)===name)||(!!site&&profileIdentityWebsite(row.website_url)===site)))return "review-required";
     }
     // A lost D1 create acknowledgement is ambiguous: preserve both locks,
     // rather than retrying into an accidental duplicate canonical identity.
@@ -1249,6 +1252,7 @@ export async function runNotionEshopSyncSweep(input: {
           database: input.database, bindings: input.bindings, page, dataSourceId,
         });
         if (imported === "created") summary.createdFromNotion += 1;
+        else if(imported==="review-required")summary.reviewRequired=(summary.reviewRequired??0)+1;
         else summary.unchanged += 1;
         continue;
       }
