@@ -1,4 +1,4 @@
-import { assertProfilePublicationIdentity, assertSavedProfilePublicationIdentity, publicationV3Enabled } from "./publication-readiness-v3.ts";
+import { assertProfilePublicationIdentity, assertBulkPublicationIdentities, publicationV3Enabled } from "./publication-readiness-v3.ts";
 import { reviewOnSaveStatements } from "./admin-review-on-save.ts";
 import { breedSqlV2DirectFieldStatements, breedSqlV2CasGuard } from "./breed-sql-v2-writer.mjs";
 import { BREED_EVENT_SCALAR_COLUMNS } from "./notion-breed-workcopy-field-sql.mjs";
@@ -1915,7 +1915,7 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
   const database = requireDb();
   await ensure(database);
   if(publicationV3Enabled()&&status==="published"){
-    for(const breed of breeds)if(breed.status!=="published")await assertSavedProfilePublicationIdentity(database,"breeds",breed.id);
+    await assertBulkPublicationIdentities(database,"breeds",breeds.filter(breed=>breed.status!=="published").map(breed=>breed.id));
   }
   const now = new Date(
     Math.max(Date.now(), ...breeds.map((breed) => Date.parse(breed.updatedAt) + 1)),
