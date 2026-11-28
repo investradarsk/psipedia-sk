@@ -1679,15 +1679,15 @@ test("authority reservation across all eight mapped agendas rejects missing raw 
       CREATE TABLE partner_resources(id TEXT,entity_type TEXT,directory_profile_id INTEGER,managed_event_id INTEGER,help_organization_id INTEGER);
       CREATE TABLE partner_memberships(resource_id TEXT,revoked_at TEXT);
       CREATE TABLE partner_help_claims(status TEXT,adoption_dog_id INTEGER,lost_found_report_id INTEGER,help_case_id INTEGER);
-      CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT);
-      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT);
+      CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT,content_hash TEXT DEFAULT '');
+      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT,content_hash TEXT DEFAULT '');
       CREATE TABLE breed_notion_workcopy_links(breed_id INTEGER,work_notion_page_id TEXT,status TEXT,work_last_error_code TEXT);
-      CREATE TABLE event_notion_sync(event_id INTEGER,notion_page_id TEXT);
-      CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT);
-      INSERT INTO directory_notion_sync VALUES(1,'p');
+      CREATE TABLE event_notion_sync(event_id INTEGER,notion_page_id TEXT,content_hash TEXT DEFAULT '');
+      CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT,content_hash TEXT DEFAULT '');
+      INSERT INTO directory_notion_sync(directory_profile_id,notion_page_id) VALUES(1,'p');
       INSERT INTO breed_notion_workcopy_links VALUES(1,'p','ACTIVE',NULL);
-      INSERT INTO event_notion_sync VALUES(1,'p');
-      INSERT INTO eshop_notion_sync VALUES(1,'p');
+      INSERT INTO event_notion_sync(event_id,notion_page_id) VALUES(1,'p');
+      INSERT INTO eshop_notion_sync(eshop_id,notion_page_id) VALUES(1,'p');
     `);
     const rows=[
       ["directory","directory_profiles","excerpt",null],
@@ -1756,7 +1756,7 @@ test("first-create uses a durable fence, verifies the exact copy, and never retr
   const {sameNotionProperty}=await import("../lib/notion-selective-property-patch.ts");
   const {notionPageBelongsToDataSource}=await import("../lib/notion-sync-page-ownership.ts");
   const code=await readFile(new URL("../lib/notion-profile-first-create.ts",import.meta.url),"utf8");
-  const section=code.slice(code.indexOf("type Page=")).replace("export async function ensureFirstProfileNotionCopy","async function ensureFirstProfileNotionCopy");
+  const section=code.slice(code.indexOf("type Page=")).replaceAll("export async function ","async function ");
   const js=ts.transpileModule(section,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const sourceId="76d9ccde-5816-422c-bcfe-863ab69db080";
   const pageId="11111111-1111-4111-8111-111111111111";
@@ -2047,11 +2047,11 @@ test("V3 authoritative service set is atomic and preserves unrelated choices",as
       CREATE TABLE partner_memberships(resource_id INTEGER,revoked_at TEXT);
       CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
       CREATE TABLE notion_unified_manual_fence(agenda TEXT,entity_id TEXT);
-      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT);
+      CREATE TABLE directory_notion_sync(directory_profile_id INTEGER,notion_page_id TEXT,content_hash TEXT DEFAULT '');
       CREATE TABLE notion_unified_field_state(agenda TEXT,entity_id TEXT,notion_page_id TEXT,field_key TEXT,version INTEGER,status TEXT);
       INSERT INTO directory_profiles VALUES(1,'treneri','published','2026-11-27T22:00:00.000Z','admin');
       INSERT INTO directory_profile_additional_categories VALUES(1,'veterinari');
-      INSERT INTO directory_notion_sync VALUES(1,'page');
+      INSERT INTO directory_notion_sync(directory_profile_id,notion_page_id) VALUES(1,'page');
       INSERT INTO notion_unified_field_state VALUES('directory','1','page','serviceIds',1,'PENDING');
     `);
     for(const path of ["drizzle/0133_services_canonical_admin_foundation.sql","drizzle/0134_services_admin_change_audit.sql","drizzle/0149_services_builtin_admin_overrides.sql"])sqlite.exec(await migration(path));
