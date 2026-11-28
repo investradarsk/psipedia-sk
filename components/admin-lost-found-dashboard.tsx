@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
+import { AdminBulkActionToolbar } from "@/components/admin-interaction-system";
 import { AdminBulkStatusActions } from "@/components/admin-bulk-status-actions";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
@@ -82,16 +83,11 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
     <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{counts ? tab.count(counts) : "—"}</strong></Link>)}</nav>
     <form className={styles.filters} method="get" role="search" aria-label="Filtrovať stratené a nájdené psy" data-admin-list-filters data-admin-content-module="lost-found-list"><input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">Všetky hlásenia</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<input type="hidden" name="sort" value={filters.sort || "priority"}/><input type="hidden" name="direction" value={filters.direction || "desc"}/><button type="submit">Filtrovať</button></form>
     {message && <p role="status">{message}</p>}
-    {selected.size > 0 && <div className={styles.gridSelection}>
-      <strong>Označené: {selected.size}</strong>
-      <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
-      {bulkStatusEnabled&&<AdminBulkStatusActions agenda="lost-found" items={result.items.filter(item=>selected.has(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}))} disabled={busy||Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>}
-      <AdminRecordBulkDelete kind="lost-found" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
-        onFinished={ids => {
-          setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
-          router.refresh();
-        }} />
-    </div>}
+    {selected.size > 0 && <AdminBulkActionToolbar selectedCount={selected.size}
+      onClear={()=>setSelected(new Set())}
+      primaryAction={bulkStatusEnabled?<AdminBulkStatusActions agenda="lost-found" items={result.items.filter(item=>selected.has(item.id)).map(({id,status,updatedAt})=>({id,status,updatedAt}))} disabled={busy||Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>:undefined}
+      destructiveAction={<AdminRecordBulkDelete kind="lost-found" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)} onFinished={ids=>{setSelected(current=>new Set([...current].filter(id=>!ids.includes(id))));router.refresh();}}/>}/>}
+
     <AdminDataTableRegion className={styles.tableWrap} label="Zoznam hlásení">
       <AdminRecordTable
         stickyActions
