@@ -1,6 +1,9 @@
 "use client";
+
+import { AdminEditorSectionPager } from "@/components/admin-editor-section-pager";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
+import { AdminEditorSyncReceipt, AdminEditorSyncStatus } from "@/components/admin-editor-sync-status";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
@@ -339,6 +342,7 @@ export function AdminDirectoryEditor({
   const navigateDirectoryPager = useProfileEditorSectionPager(currentDirectorySection, chooseDirectorySection);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
+  const [lastNotionReceipt, setLastNotionReceipt] = useState<string>();
   const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -850,6 +854,7 @@ export function AdminDirectoryEditor({
         editedContactsRef.current.clear();
         setFormDirty(false);
       }
+      setLastNotionReceipt(pendingNotionFields ? "pending" : undefined);
       setStatus(savedProfile.status);
       setReviewed(Boolean(savedProfile.reviewed || partnerOwner));
       setReviewedAt(savedProfile.reviewedAt ?? "");
@@ -886,6 +891,7 @@ export function AdminDirectoryEditor({
         error?: string;
       };
       if (!response.ok || !data.profile) throw new Error(data.error || "Stav kontroly sa nepodarilo uložiť.");
+      setLastNotionReceipt(undefined);
       setReviewed(Boolean(data.profile.reviewed));
       setReviewedAt(data.profile.reviewedAt ?? "");
       setMessage(
@@ -1058,10 +1064,10 @@ export function AdminDirectoryEditor({
         {partnerOwnershipUnavailable && <p role="alert">Správcu profilu nemožno overiť. Odomknutie Notionu je preventívne vypnuté.</p>}
 
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
-      <div className={styles.editorWorkspace} data-admin-directory-editor-workspace>
+      <div className={styles.editorWorkspace} data-admin-profile-editor-layout data-admin-directory-editor-workspace>
         <AdminSharedEditorNavigation sections={editorSectionsForProfile} activeId={currentDirectorySection} onNavigate={chooseDirectorySection}
           layout="sidebar" mode="switch" ariaLabel="Sekcie profilu adresára" />
-        <div className={styles.editorWorkspaceContent}>
+        <div className={styles.editorWorkspaceContent} data-admin-profile-editor-content>
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields" onChangeCapture={() => setFormDirty(true)}>
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={profile ? { entityType: "DIRECTORY", canonicalEntityId: profile.id } : undefined} onAccepted={applyAutomationUpdate} />
@@ -1461,13 +1467,8 @@ export function AdminDirectoryEditor({
           <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (publicAddress.trim() || addressStatusText)}</dd></div></dl>
         </aside>
       </div>
-      <nav data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami služby">
-        <AdminActionButton variant="secondary" disabled={activeDirectoryIndex <= 0}
-          onClick={() => navigateDirectoryPager(editorSectionsForProfile[activeDirectoryIndex - 1]?.id ?? editorSectionsForProfile[0].id)}>Predchádzajúca</AdminActionButton>
-        <span role="status">Sekcia {activeDirectoryIndex + 1} z {editorSectionsForProfile.length}</span>
-        <AdminActionButton variant="secondary" disabled={activeDirectoryIndex >= editorSectionsForProfile.length - 1}
-          onClick={() => navigateDirectoryPager(editorSectionsForProfile[activeDirectoryIndex + 1]?.id ?? editorSectionsForProfile[editorSectionsForProfile.length - 1].id)}>Ďalšia</AdminActionButton>
-      </nav>
+      <AdminEditorSectionPager sections={editorSectionsForProfile} index={activeDirectoryIndex} onNavigate={navigateDirectoryPager}
+        ariaLabel="Prechod medzi sekciami služby" />
         </div>
       </div>
 
@@ -1489,7 +1490,9 @@ export function AdminDirectoryEditor({
 
       </NotionDraftFields>
       </AdminEditorSectionVisibility.Provider>
-      <AdminEditorFooter dirty={formDirty} pending={saving}>
+      <AdminEditorFooter dirty={formDirty} pending={saving} uploading={uploading || galleryBusy}
+        activityLabel={reviewSaving ? "Mením stav kontroly…" : undefined}
+        sync={profile && reviewed ? <AdminEditorSyncStatus state="disabled" label="Pozastavená · odkontrolovaný profil" /> : <AdminEditorSyncReceipt status={lastNotionReceipt} scope="Posledné uloženie profilu" />}>
       <div className="admin-editor-actions">
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href={returnHref}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
