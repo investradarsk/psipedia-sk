@@ -1974,6 +1974,7 @@ export async function createManagedDirectoryProfile(
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const input = normalizeManagedDirectoryProfileInput(payload);
+  await assertProfilePublicationIdentity(database,"directory",null,input.status,input);
   const now = new Date().toISOString();
   const secondary = readAdditionalDirectoryCategories(input.sourceData, input.category);
   // Explicit nonempty selections on newly created profiles belong to SQL
