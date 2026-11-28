@@ -36,6 +36,7 @@ export type EditorialStructure = {
 export type NotionEditorialPlan = {
   structure?:EditorialStructure;
   manifest?:{id:string;original:RemoteArticleBlock;before:string;after:string};
+  manifestCreate?:{after:string;anchor?:string;started?:boolean;ids?:string[]};
   otherBlocks?:string;
   // Immutable page and selected-block baseline. Missing or malformed recovery
   // evidence is a conflict, never permission to force a historic journal.
