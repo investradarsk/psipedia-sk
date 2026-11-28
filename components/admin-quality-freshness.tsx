@@ -18,7 +18,7 @@ export async function AdminQualityFreshness({agenda,page}:{agenda:string;page:nu
  return <section id="aktualnost" className="admin-panel" style={{padding:16}}>
   <h2>Kontrola aktuálnosti</h2>
   <p>Upozornenia na staré alebo chýbajúce doklady o kontrole. Neznamenajú, že údaj je nesprávny. Zmena dátumu úpravy nie je overenie zdroja. Automatická kontrola nemení stav záznamu.</p>
-  <div className="admin-table-scroll"><table className="admin-table"><thead><tr><th>Agenda</th><th>Na kontrolu</th><th>Bez dátumu</th><th>Interval</th></tr></thead><tbody>
+  <div className="admin-table-scroll"><table className="admin-table"><thead><tr><th>Agenda</th><th>Po intervale</th><th>Bez dátumu</th><th>Interval</th></tr></thead><tbody>
    {freshnessAgendas.map(item=>{const count=results?.find(r=>r.agenda===item.id)?.counts;return <tr key={item.id}><td><Link href={href(item.id)} prefetch={false} aria-current={item.id===selected.id?"page":undefined}>{item.label}</Link></td><td>{count?count.due:"—"}</td><td>{count?count.unknown:"—"}</td><td>{item.days} dní</td></tr>;})}
   </tbody></table></div>
   <h3>{selected.label} – {selected.basis}</h3>
@@ -30,7 +30,7 @@ export async function AdminQualityFreshness({agenda,page}:{agenda:string;page:nu
    <p>{result.page>1&&<Link href={href(selected.id,result.page-1)} prefetch={false}>Predchádzajúca</Link>} {" · "} Strana {result.page} {" · "} {result.hasMore&&<Link href={href(selected.id,result.page+1)} prefetch={false}>Ďalšia</Link>}</p>
   </>}
   <p>Otvor záznam a over jeho zdroj. Označenie Odkontrolované mení aj autoritu synchronizácie; nepoužívaj ho iba na zrušenie upozornenia.</p>
-  <details><summary>Výsledky automatickej kontroly zdrojov adopcií a pátraní</summary>
+  <details id="zdroje" open={selected.id==="adoptions"||selected.id==="lost-found"}><summary>Výsledky automatickej kontroly zdrojov adopcií a pátraní</summary>
    {checks===null?<p role="status">Evidencia kontroly zdrojov je nedostupná.</p>:<AdminHelpSourceReview items={checks}/>}
   </details>
   <p><Link href="/admin/kvalita" prefetch={false}>Skryť kontrolu aktuálnosti</Link></p>
