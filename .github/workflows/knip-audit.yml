@@ -2,20 +2,16 @@ name: PSIPEDIA — Knip unused-code audit
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - "knip.json"
-      - ".github/workflows/knip-audit.yml"
-      - "package.json"
-      - "docs/audits/knip-step1.md"
+  schedule:
+    # Tuesday, after Monday's link and Lighthouse audits (UTC).
+    - cron: '37 3 * * 2'
 
 permissions:
   contents: read
 
 concurrency:
-  group: knip-audit-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: knip-audit-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   audit:

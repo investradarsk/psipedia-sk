@@ -97,6 +97,43 @@ export function planGroup(name, scripts) {
   return [...plan];
 }
 
+// Skip only a complete, previously executed pure npm test suite. Keep each
+// leaf's npm lifecycle identity and Node flags; never rewrite shell commands.
+// Opaque scripts, lifecycle hooks and cyclic graphs are execution barriers.
+export function planDistinctPackageSuites(names, scripts) {
+  const seen = new Set();
+  const run = [], skipped = [];
+  const leaves = (name, stack = []) => {
+    if (stack.includes(name) || typeof scripts[name] !== "string" ||
+        Object.hasOwn(scripts, "pre" + name) || Object.hasOwn(scripts, "post" + name) ||
+        !/^test(?::[\w:-]+)?$/.test(name)) return null;
+    const out = [];
+    for (const cmd of scripts[name].split(/\s*&&\s*/)) {
+      const child = cmd.match(/^npm run (test(?::[\w:-]+)?)$/);
+      if (child) {
+        const nested = leaves(child[1], [...stack, name]);
+        if (!nested) return null;
+        out.push(...nested);
+      } else if (/^node(?: --experimental-strip-types| --experimental-loader \.\/tests\/[\w.-]+\.mjs)* --test(?: tests\/[\w./-]+\.test\.[cm]?[jt]s)+$/.test(cmd)) {
+        out.push(name + "|" + cmd);
+      } else return null;
+    }
+    return out.length ? out : null;
+  };
+  for (const name of names) {
+    if (typeof scripts[name] !== "string") throw new Error("Missing package script: " + name);
+    const coverage = leaves(name);
+    if (coverage && coverage.every(key => seen.has(key))) {
+      skipped.push(name);
+      continue;
+    }
+    run.push(name);
+    if (!coverage) seen.clear();
+    else for (const key of coverage) seen.add(key);
+  }
+  return { run, skipped };
+}
+
 export function runCli(args, { scripts, npmPath, run = spawnSync, print = console.log, error = console.error } = {}) {
   if (args.length === 0 || (args.length === 1 && args[0] === "--list")) {
     print("Usage: npm run test:ci -- <group> [--plan]");

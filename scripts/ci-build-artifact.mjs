@@ -40,13 +40,21 @@ async function digest(path) {
   return createHash("sha256").update(await readFile(resolve(root, path))).digest("hex");
 }
 
+export function expectedBuildRevision(profile, env) {
+  const explicit = env.CI_BUILD_SOURCE_REVISION;
+  if (explicit && profile !== "local-e2e") throw new Error("Explicit source revision is local-E2E only");
+  const expected = explicit || env.GITHUB_SHA;
+  if (!/^[a-f0-9]{40}$/i.test(expected ?? "")) throw new Error("Missing or invalid expected build revision");
+  return expected;
+}
+
 async function currentIdentity(profile) {
   assertBuildProfile(profile, process.env);
   const revision = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: root,
     encoding: "utf8",
   }).trim();
-  if (!process.env.GITHUB_SHA || revision !== process.env.GITHUB_SHA) {
+  if (revision !== expectedBuildRevision(profile, process.env)) {
     throw new Error("Shared build must use the exact GitHub workflow revision");
   }
   const artifact = await validatePreparedDeployArtifact({ root });

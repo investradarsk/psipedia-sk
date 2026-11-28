@@ -12,6 +12,16 @@ on:
       - "lib/organization-admin-read-state.ts"
       - "public/sw.js"
       - "tests/**"
+      # These exact dependency-free CI contracts are always run by the required gate.
+      - "!tests/ci-v2-notion-quality.test.mjs"
+      - "!tests/ci-v2-npm-groups.test.mjs"
+      - "!tests/ci-v2-offline-scope.test.mjs"
+      - "!tests/ci-v2-result-gate.test.mjs"
+      - "!tests/ci-v2-review-e2e.test.mjs"
+      - "!tests/ci-v2-scope.test.mjs"
+      - "!tests/ci-v2-shared-build.test.mjs"
+      - "!tests/ci-v2-unit-integration.test.mjs"
+      - "!tests/ci-two-stage-guards.test.mjs"
       - "scripts/admin-type-regression-gate-step10.mjs"
       - "scripts/benchmark-admin-step9.mjs"
       - "package.json"
@@ -23,8 +33,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: admin-stability-readonly-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: admin-stability-readonly-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   regression:
@@ -70,8 +80,10 @@ jobs:
           set -e
           node scripts/admin-type-regression-gate-step10.mjs "$RUNNER_TEMP/admin-main-types.log" "$RUNNER_TEMP/admin-pr-types.log" "$BASE_EXIT" "$PR_EXIT"
 
+      # Supplemental diagnostic was already continue-on-error. PR builds remain
+      # covered by the mandatory central workflow; run this manually if needed.
       - name: Production-style build diagnostic (never deploy)
-        if: always()
+        if: ${{ always() && github.event_name == 'workflow_dispatch' }}
         continue-on-error: true
         run: npm run build
 

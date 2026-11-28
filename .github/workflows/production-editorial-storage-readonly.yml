@@ -30,7 +30,6 @@ on:
       - "scripts/editorial-legacy-reader-inventory.mjs"
       - "tests/editorial-legacy-reader-inventory-phase4.test.mjs"
       - "lib/directory-sql-cutover-write.ts"
-      - "lib/directory-sql-cutover-parity.ts"
       - "app/api/admin/directory/[id]/route.ts"
       - "lib/directory-sql-cutover-contract.ts"
       - "docs/proposals/DIRECTORY-HELP-EVENTS-SQL-UNIFICATION-PHASE-2-DRAFT.sql"

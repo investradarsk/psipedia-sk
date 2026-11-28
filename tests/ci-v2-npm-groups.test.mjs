@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { GROUPS, planGroup, runCli } from "../scripts/ci-test-groups.mjs";
+import { GROUPS, planGroup, runCli, planDistinctPackageSuites } from "../scripts/ci-test-groups.mjs";
 
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const { scripts } = readJson("../package.json");
@@ -84,4 +84,38 @@ test("list and plan are read-only; execution stops on first failure", () => {
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0][1], ["/fake/npm-cli.js", "run", GROUPS.admin[0]]);
   assert.equal(runCli(["admin"], { ...opts, run: () => ({ status: null, signal: "SIGTERM" }) }), 1);
+});
+
+test("repeated pure nested npm suites run only once while distinct contexts remain", () => {
+  const map = {
+    "test:a": "node --test tests/a.test.mjs",
+    "test:b": "node --experimental-strip-types --test tests/a.test.mjs",
+    "test:all": "npm run test:a && npm run test:b",
+    "test:other": "node --test tests/a.test.mjs",
+    "test:mixed": "npm run test:a && npm run test:other",
+  };
+  assert.deepEqual(planDistinctPackageSuites(["test:all", "test:a", "test:b", "test:other"], map),
+    { run: ["test:all", "test:other"], skipped: ["test:a", "test:b"] });
+  assert.deepEqual(planDistinctPackageSuites(["test:a", "test:mixed"], map),
+    { run: ["test:a", "test:mixed"], skipped: [] });
+  assert.deepEqual(planDistinctPackageSuites(["test:all", "test:a"], {...map, "pretest:a": "echo setup"}),
+    { run: ["test:all", "test:a"], skipped: [] });
+  assert.deepEqual(planDistinctPackageSuites(["test:a", "test:opaque", "test:a"], {...map, "test:opaque": "echo other"}),
+    { run: ["test:a", "test:opaque", "test:a"], skipped: [] });
+  assert.deepEqual(planDistinctPackageSuites(["test:cycle"], {"test:cycle": "npm run test:cycle"}),
+    { run: ["test:cycle"], skipped: [] });
+  assert.throws(() => planDistinctPackageSuites(["test:missing"], map), /Missing package script/);
+});
+
+test("full shared-worker gate does not run the cache safety file twice", () => {
+  const pair = "node --experimental-strip-types --test|tests/public-html-cache-safety.test.mjs";
+  assert.equal(expand(scripts, "test").filter(entry => entry === pair).length, 1);
+  const source = readFileSync(new URL("../.github/workflows/playwright-e2e.yml", import.meta.url), "utf8");
+  const start = source.indexOf("      - name: Shared-worker cache and sitemap safety contracts");
+  const end = source.indexOf("      - name:", start + 10);
+  assert.ok(start >= 0 && end > start);
+  const step = source.slice(start, end);
+  assert.match(step, /full_core == 'true'/);
+  assert.match(step, /tests\/sitemap-edge-cache\.test\.mjs tests\/sitemap-xml-hardening\.test\.mjs/);
+  assert.doesNotMatch(step, /public-html-cache-safety\.test\.mjs/);
 });

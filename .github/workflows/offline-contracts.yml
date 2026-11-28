@@ -1,0 +1,194 @@
+name: Offline contracts (Admin, public, security, integrations)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-contracts-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  contracts:
+    name: Offline unit and source contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+      - name: Validate offline selection
+        run: node --test tests/ci-v2-offline-scope.test.mjs
+      - name: Select only relevant offline suites
+        id: scope
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-offline-scope.mjs
+      - name: "admin-typography-contracts: Verify safe filtered Admin return navigation"
+        if: steps.scope.outputs.admin_typography_contracts == 'true'
+        run: |
+          node --experimental-strip-types --test tests/admin-return-navigation.test.mjs
+      - name: "admin-typography-contracts: Check admin typography, community queues, content modules, mobile and 28-route inventory"
+        if: steps.scope.outputs.admin_typography_contracts == 'true'
+        run: |
+          node --test tests/admin-compact-global.test.mjs tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/admin-social-visual-step14.test.mjs tests/admin-operations-step15.test.mjs tests/admin-settings-step16.test.mjs tests/admin-knip-cleanup-step17.test.mjs tests/admin-final-visual-step18.test.mjs tests/admin-main-reconciliation.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+      - name: "admin-duplication-inventory: Validate read-only scanner and inventory"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --test tests/admin-duplication-inventory.test.mjs
+      - name: "admin-duplication-inventory: Print read-only inventory indicators"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node scripts/admin-duplication-inventory.mjs
+      - name: "admin-duplication-inventory: Verify point 2 form and confirmation contracts"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --test tests/admin-form-control-unification-point-2.test.mjs
+      - name: "admin-duplication-inventory: Verify point 3 image and editor contracts"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --experimental-strip-types --test tests/admin-media-text-unification-point-3.test.mjs tests/admin-open-source-unification.test.mjs
+      - name: "admin-duplication-inventory: Verify point 4 list and selection equivalence"
+        if: steps.scope.outputs.admin_duplication_inventory == 'true'
+        run: |
+          node --experimental-strip-types --test tests/admin-lists-unification-point-4.test.mjs
+      - name: "public-listings-qa: Validate all public UX regression contracts"
+        if: steps.scope.outputs.public_listings_qa == 'true'
+        run: |
+          node --experimental-strip-types --test \
+            tests/public-pagination-step6.test.mjs \
+            tests/public-subcategory-paging-step7.test.mjs \
+            tests/reviews-hub-step8.test.mjs \
+            tests/public-help-overview-cta-step9.test.mjs \
+            tests/public-banners-step10.test.mjs \
+            tests/mobile-menu-grip-step11.test.mjs \
+            tests/public-final-qa-step12.test.mjs
+      - name: "directory-0176-sql-fields: Validate full SQL schema and field coverage without production access"
+        if: steps.scope.outputs.directory_0176_sql_fields == 'true'
+        run: |
+          node --test tests/directory-0176-sql-schema.test.mjs
+      - name: "services-v3-public-canonical-filter: Canonical SQL, legacy filter compatibility, no inference"
+        if: steps.scope.outputs.services_v3_public_canonical_filter == 'true'
+        run: |
+          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs
+      - name: "sitemap-edge-resilience: Validate sitemap last-good cache offline"
+        if: steps.scope.outputs.sitemap_edge_resilience == 'true'
+        run: |
+          node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs
+      - name: "breed-sql-0174-offline: Verify frozen contiguous migration chain"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node scripts/check-migration-safety.mjs
+      - name: "breed-sql-0174-offline: Verify full 90-field storage contract and SQL schema"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/breed-sql-v2-cutover-gate.test.mjs
+      - name: "breed-sql-0174-offline: Verify owner-only legacy cleanup, before/post DROP SQLite compatibility"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --check scripts/production-d1-breed-0175.mjs
+          node --test tests/breed-sql-v2-legacy-drop.test.mjs tests/breed-json-legacy-audit.test.mjs
+      - name: "breed-sql-0174-offline: Verify post-backfill shadow readiness and its SELECT-only runner"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --check scripts/production-breed-sql-v2-shadow-audit.mjs
+          node --test tests/breed-sql-v2-shadow-readiness.test.mjs
+      - name: "breed-sql-0174-offline: Verify isolated owner-only production schema 0174 runner"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --check scripts/production-d1-breed-0174.mjs
+          node --test tests/production-d1-breed-0174.test.mjs
+      - name: "breed-sql-0174-offline: Verify SQL-primary Admin/public projections and canonical SEO"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --experimental-strip-types --test tests/breed-sql-v2-primary-read.test.mjs
+      - name: "breed-sql-0174-offline: Verify stage-4 public and Admin fallback runtime"
+        if: steps.scope.outputs.breed_sql_0174_offline == 'true'
+        run: |
+          node --experimental-strip-types --test tests/breed-sql-v2-preview-runtime.test.mjs
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.node22 == 'true'
+        with:
+          node-version: '22'
+      - name: "admin-v5-mutation-origin: Syntax check"
+        if: steps.scope.outputs.admin_v5_mutation_origin == 'true'
+        run: |
+          node --check tests/admin-v5-mutation-loader.mjs
+          node --check tests/admin-v5-mutation-origin.test.mjs
+          node --experimental-strip-types --check lib/admin-mutation-origin.ts
+      - name: "admin-v5-mutation-origin: Test origin, Fetch Metadata, identity and write side effects"
+        if: steps.scope.outputs.admin_v5_mutation_origin == 'true'
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/admin-v5-mutation-loader.mjs --test tests/admin-v5-mutation-origin.test.mjs
+      - name: "admin-legacy-mutation-csrf: Syntax check"
+        if: steps.scope.outputs.admin_legacy_mutation_csrf == 'true'
+        run: |
+          node --check tests/admin-legacy-csrf-loader.mjs
+          node --check tests/admin-legacy-mutation-csrf.test.mjs
+          node --experimental-strip-types --check lib/admin-mutation-origin.ts
+      - name: "admin-legacy-mutation-csrf: Guard and route regression"
+        if: steps.scope.outputs.admin_legacy_mutation_csrf == 'true'
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/admin-legacy-csrf-loader.mjs --test tests/admin-legacy-mutation-csrf.test.mjs
+      - name: "admin-perf-url-guard: Syntax checks (no browser or application launch)"
+        if: steps.scope.outputs.admin_perf_url_guard == 'true'
+        run: |
+          node --check scripts/admin-perf-run.mjs
+          node --check scripts/admin-perf-core.mjs
+          node --check tests/admin-perf-url.test.mjs
+      - name: "admin-perf-url-guard: Offline regressions (no Playwright browser, fixture, network or secrets)"
+        if: steps.scope.outputs.admin_perf_url_guard == 'true'
+        run: |
+          node --test tests/admin-perf-url.test.mjs tests/admin-perf-tooling.test.mjs tests/admin-perf-analyze.test.mjs
+      - name: "admin-perf-comparator-v2: Syntax check"
+        if: steps.scope.outputs.admin_perf_comparator_v2 == 'true'
+        run: |
+          node --check scripts/admin-perf-analyze.mjs && node --check tests/admin-perf-analyze.test.mjs
+      - name: "admin-perf-comparator-v2: Comparator and existing V1 regressions"
+        if: steps.scope.outputs.admin_perf_comparator_v2 == 'true' && steps.scope.outputs.admin_perf_url_guard != 'true'
+        run: |
+          node --test tests/admin-perf-analyze.test.mjs tests/admin-perf-tooling.test.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --check scripts/gemini-notion-preflight.mjs && node --check scripts/gemini-notion-agent.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --test tests/gemini-notion-preflight.test.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --experimental-strip-types --test tests/gemini-external-dedupe.test.mjs tests/gemini-external-help-dedupe.test.mjs tests/gemini-external-quality-proposals.test.mjs tests/gemini-external-feed-quality.test.mjs
+      - name: "gemini22-dedupe-gate-tests: Run offline checks"
+        if: steps.scope.outputs.gemini22_dedupe_gate_tests == 'true'
+        run: |
+          node --test tests/gemini-external-worker-offline.test.mjs
+      - name: "code-quality-policy: Offline contract"
+        if: steps.scope.outputs.code_quality_policy == 'true'
+        run: |
+          node --test tests/code-quality-policy.test.mjs
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.node22_16 == 'true'
+        with:
+          node-version: '22.16.0'
+      - name: "service-catalog-contract-ci: Validate catalog and legacy 21-facet contract"
+        if: steps.scope.outputs.service_catalog_contract_ci == 'true'
+        run: |
+          node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs tests/service-catalog-d1-foundation.test.mjs tests/service-catalog-admin-api-contract.test.mjs tests/service-catalog-admin-lifecycle.test.mjs tests/service-catalog-admin-editor.test.mjs
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.node22_19 == 'true'
+        with:
+          node-version: '22.19.0'
+      - name: "public-html-cache-safety-guard: Run cache and Worker regressions offline"
+        if: steps.scope.outputs.public_html_cache_safety_guard == 'true'
+        run: |
+          node --experimental-strip-types --test tests/public-html-cache-safety.test.mjs tests/public-html-cache.test.mjs tests/worker-performance.test.mjs
